@@ -10,6 +10,7 @@
 | Repository guarantees and bootstrap acceptance | [OpenSpec repository foundation](../openspec/changes/bootstrap/specs/repository-foundation/spec.md) |
 | Commands and operational procedures | This guide and the [Azure bootstrap runbook](azure-bootstrap.md) |
 | Capacity warnings and real-world input lessons | [Platform notes](platform-notes.md) |
+| AI contributor working instructions | [AGENTS.md](../AGENTS.md) |
 
 OpenSpec currently holds the bootstrap contract in its active change; main specs
 are populated on archival. Keep contract links pointed at the canonical spec when

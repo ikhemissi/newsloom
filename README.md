@@ -1,17 +1,36 @@
 # Newsloom
 
-Curated AI news for MCP clients, a research agent, and eventually a browser UI.
+Curated AI news for MCP clients, research agents, and people.
 
-**Status: Step 0 bootstrap.** The Python workspace, 42-feed catalogue, local/CI checks,
-OpenSpec workflow, and secretless Terraform state-bootstrap configuration are present.
-The service packages are boundaries only, not running ingestion, enrichment, or MCP services.
-No Azure resources are created by installing the project.
+**Status: bootstrap only.**
+- Available: Python workspace, 42-feed catalogue, local/CI checks, and Terraform state-bootstrap tooling.
+- Planned: ingestion, enrichment, MCP service, research agent, and browser UI.
 
-## Quick start
+## Planned architecture
 
-Requirements: Python 3.15.1 (downloaded by uv), uv 0.13.5+, Node.js 20.19+ (24 LTS
-recommended), Terraform 1.15.8+, Git, and Bash. Azure CLI and azd are needed only for
-Azure verification and later deployment.
+```mermaid
+flowchart LR
+    Feeds["RSS / Atom feeds"] --> Ingestion["Ingestion job"]
+    Ingestion --> Queue[("PostgreSQL queue")]
+    Ingestion --> Quarantine[("Quarantine")]
+    Queue --> Enrichment["Enrichment job"]
+    Enrichment --> News[("News + pgvector")]
+    News --> MCP["MCP server"]
+    MCP --> Clients["MCP clients"]
+    MCP --> Agent["A2A agent - Phase 2"]
+    Agent --> UI["Browser UI - Phase 3"]
+```
+
+## Local development
+
+| Tool | Requirement |
+| --- | --- |
+| uv | 0.13.5+; downloads the pinned Python 3.15.1 runtime |
+| Node.js | 20.19+; 24 LTS recommended |
+| Terraform | 1.15.8+ |
+| Azure CLI + azd | Required only for Azure setup and deployment |
+
+Git and Bash are also required.
 
 ```bash
 uv sync --locked --all-packages
@@ -20,53 +39,72 @@ uv run pre-commit install
 bash scripts/check.sh
 ```
 
-If uv reports an unsupported version, update it using the installation method you
-originally used (for the standalone installer: `uv self update`).
+Checks need no cloud credentials or Docker daemon; the first run downloads dependencies.
 
-The script implements the
-[OpenSpec quality gates](openspec/changes/bootstrap/specs/repository-foundation/spec.md#requirement-cloud-credential-free-quality-gates).
-The first run downloads packages and Terraform providers; state-infrastructure
-assertions use a mocked provider.
+## Deploy to Azure
+
+### 1. One-time state setup
+
+Follow the [state-bootstrap runbook](docs/azure-bootstrap.md) for permissions,
+provider registration, and the ignored variable file. Sign in to the intended subscription:
 
 ```bash
-uv run pytest
-uv run mypy
-uv run newsloom-validate-feeds config/feeds.json
-npm run spec:list
+az login
+az account set --subscription "<subscription-id>"
+azd config set auth.useAzCliAuth true
 ```
 
-## Layout
+After filling the variable file, create the plan and **review it before applying**:
 
-| Path | Purpose |
+```bash
+terraform -chdir=infra/bootstrap init
+terraform -chdir=infra/bootstrap validate
+terraform -chdir=infra/bootstrap plan -out=bootstrap.tfplan
+terraform -chdir=infra/bootstrap apply bootstrap.tfplan
+```
+
+Complete the runbook's RBAC verification and azd environment configuration before continuing.
+Keep the bootstrap state; do not recreate an existing state account.
+
+### 2. Application deployment - from Step 1.1
+
+Once [platform-skeleton](docs/prd-1.md#delivery-plan) is implemented, deploy into the existing environment:
+
+```bash
+azd env select dev
+azd up
+```
+
+**Today, `azd up` does not deploy news services:** application resources and service/image deployment hooks are not implemented yet.
+
+## Useful commands
+
+| Task | Command |
 | --- | --- |
-| [packages/newsloom-core](packages/newsloom-core/) | Shared typed foundations; currently feed-configuration validation |
-| [services/ingestion](services/ingestion/) | Future independently deployed ACA ingestion job |
-| [services/enrichment](services/enrichment/) | Future independently deployed ACA enrichment job |
-| [services/mcp](services/mcp/) | Future independently deployed, authenticated MCP app |
-| [config/feeds.json](config/feeds.json) | Initial 42 RSS/Atom sources and publisher category filters |
-| [infra](infra/) | azd Terraform project; application resources arrive in Step 1.1 |
-| [infra/bootstrap](infra/bootstrap/) | One-off persistent RBAC-only state infrastructure |
-| [openspec](openspec/) | Change proposals, acceptance scenarios, and verified archived specs |
-| [tests](tests/) | Offline bootstrap tests |
+| All local checks | `bash scripts/check.sh` |
+| Python tests | `uv run pytest` |
+| Validate feed configuration | `uv run newsloom-validate-feeds config/feeds.json` |
+| List OpenSpec changes | `npm run spec:list` |
 
-## Requirements and delivery
+## Delivery workflow
 
-- [Architecture decisions](docs/adrs.md)
-- [Platform planning notes](docs/platform-notes.md)
-- [Development and OpenSpec workflow](docs/development.md)
-- [Azure state bootstrap and verification](docs/azure-bootstrap.md)
-- [PRD-1: MCP news platform](docs/prd-1.md) and [capabilities](docs/prd-1-capabilities.md)
-- [PRD-2: A2A research agent](docs/prd-2.md) and [capabilities](docs/prd-2-capabilities.md)
-- [PRD-3: Agent UI](docs/prd-3.md) and [capabilities](docs/prd-3-capabilities.md)
+```mermaid
+flowchart LR
+    Local["Local checks"] --> Deploy["azd deployment"]
+    Deploy --> Verify["Azure verification"]
+    Verify --> Commit["Commit"]
+    Commit --> Archive["OpenSpec archive"]
+```
 
-The phase PRDs own phase status, prerequisites, and ordered delivery assignments;
-their capability documents own product behavior, user stories, and acceptance criteria.
-Architecture decisions and platform notes provide supporting context without
-retaining a duplicate full specification.
+See the [development guide](docs/development.md) for workflow details and
+[bootstrap tasks](openspec/changes/bootstrap/tasks.md) for outstanding acceptance checks.
 
-## Delivery boundary
+## Documentation
 
-Release and archival gates are defined in the
-[OpenSpec delivery contract](openspec/changes/bootstrap/specs/repository-foundation/spec.md#requirement-honest-ordered-delivery).
-See the [bootstrap tasks](openspec/changes/bootstrap/tasks.md) for outstanding
-acceptance checks, then follow the [Phase 1 delivery plan](docs/prd-1.md#delivery-plan).
+| Topic | Links |
+| --- | --- |
+| Phase 1: MCP platform | [PRD](docs/prd-1.md) / [Capabilities](docs/prd-1-capabilities.md) |
+| Phase 2: Research agent | [PRD](docs/prd-2.md) / [Capabilities](docs/prd-2-capabilities.md) |
+| Phase 3: Browser UI | [PRD](docs/prd-3.md) / [Capabilities](docs/prd-3-capabilities.md) |
+| Architecture and operations | [ADRs](docs/adrs.md) / [Platform notes](docs/platform-notes.md) |
+| AI contributor instructions | [AGENTS.md](AGENTS.md) |
