@@ -33,7 +33,7 @@
 
 ## 6. CI and implementation commit
 
-- [ ] 6.1 Commit the implementation only after local and Azure checks pass, push it, and verify GitHub Actions on that exact commit; record the commit/run and safe Azure evidence, keeping any failed or unverified acceptance task open.
+- [x] 6.1 Commit the implementation only after local and Azure checks pass, push it, and verify GitHub Actions on that exact commit; record the commit/run and safe Azure evidence, keeping any failed or unverified acceptance task open.
 
 ## Workflow follow-up
 
@@ -181,5 +181,18 @@
   both configured tenant tags, including the explicitly approved generated alert.
   Database/ledger state is retained and no ingestion, enrichment, or MCP business
   runtime is claimed.
-- Implementation commit and exact-commit GitHub Actions remain the final open
-  gate. This change is not archived.
+
+### Exact-commit CI - 2026-10-22
+
+- Implementation commit
+  [`6176304cbb0aba00cc9a2d6feeef34de57328be3`](https://github.com/ikhemissi/newsloom/commit/6176304cbb0aba00cc9a2d6feeef34de57328be3)
+  was committed and pushed only after local and Azure acceptance passed.
+- [Local checks run 39855018985](https://github.com/ikhemissi/newsloom/actions/runs/39855018985)
+  succeeded on that exact full SHA. Its actual logs confirm **90/90 Python
+  tests**, including all four PostgreSQL 18/pgvector integration tests without
+  skips, and **9/9 mocked Terraform tests** across all three roots. Lint/format,
+  strict typing, identifiers, catalogue, Terraform validation, and strict
+  OpenSpec checks also passed.
+- All **17/17 tracked tasks** are complete. This evidence is persisted separately
+  from the verified implementation commit; the change remains active and is not
+  archived. Business runtimes and PRD-1 phase acceptance remain pending.
