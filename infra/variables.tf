@@ -19,7 +19,8 @@ variable "location" {
 }
 
 variable "tags" {
-  description = "Common tags inherited by all resources added in subsequent slices."
+  description = "Optional caller-supplied common tags."
   type        = map(string)
   default     = {}
+  nullable    = false
 }

@@ -4,7 +4,13 @@ metadata:
   template: newsloom
 infra:
   provider: terraform
-  path: infra
+  layers:
+    - name: bootstrap
+      path: infra/bootstrap
+    - name: application
+      path: infra
+      dependsOn:
+        - bootstrap
 hooks:
   preprovision:
     shell: sh

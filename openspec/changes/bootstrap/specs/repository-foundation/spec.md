@@ -53,9 +53,19 @@ anonymous blobs MUST be disabled. State infrastructure MUST resist accidental
 destruction, and configuration MUST NOT contain committed deployment identifiers.
 
 #### Scenario: Authorized operator provisions and tests state
-- **WHEN** the selected operator applies the reviewed bootstrap plan
+- **WHEN** the selected operator reviews `azd provision bootstrap --preview`
+  and runs `azd provision bootstrap`
 - **THEN** the operator can read, write, lease, and delete a probe blob using Entra
   RBAC only, and the persistent state account has shared-key access disabled
+
+### Requirement: Native azd provisioning
+Both Terraform roots MUST be provisioned through native azd layers in one
+persistent environment, with the application layer depending on bootstrap.
+
+#### Scenario: Existing bootstrap state is adopted
+- **WHEN** existing direct-Terraform bootstrap state is moved into the same azd
+  environment's bootstrap state location before provisioning
+- **THEN** azd manages the existing resources without duplication or replacement
 
 ### Requirement: Honest ordered delivery
 Each change SHALL record local, CI, and Azure acceptance evidence before being

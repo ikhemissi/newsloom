@@ -14,7 +14,8 @@ retaining duplicate full specifications.
   boundaries, and the complete initial 42-feed catalogue.
 - Configure Ruff, strict mypy, pytest, pre-commit, pinned OpenSpec/Copilot integration,
   an identifier guard, and cloud-credential-free CI.
-- Add an azd Terraform project and a separate persistent, RBAC-only state bootstrap.
+- Add native azd Terraform layers for the persistent RBAC-only state bootstrap
+  and the subsequent application infrastructure, using one developer environment.
 
 ## Capabilities
 

@@ -27,10 +27,16 @@ cloud deployment, a UI framework choice, or assumptions about subscription/regio
    slices that need them to avoid speculative dependency coupling.
 3. Use strict mypy, Ruff and pytest, a single local/CI check script, and lightweight
    pre-commit hooks. Validate Terraform without initializing the Azure backend.
-4. Keep state infrastructure in an independent Terraform root with local bootstrap
-   state. The main azd root requires the RBAC backend and contains no app resources.
-   Shared keys and anonymous blobs are disabled; retain versioned state and prevent
-   accidental destruction. Preserve bootstrap state rather than recreating resources.
+4. Keep state infrastructure in an independent Terraform root, provisioned through
+   azd's native `bootstrap` layer. Its local state lives under the existing azd
+   environment at `.azure/<environment>/infra/bootstrap/terraform.tfstate`, avoiding
+   a backend creating itself. The `application` layer depends on bootstrap, consumes
+   its `RS_*` outputs for the RBAC backend, and contains no app resources yet.
+   Both layers accept caller-supplied common tags through Terraform variable
+   maps. Shared keys and anonymous blobs are disabled; retain
+   versioned state and prevent accidental destruction. Adopt any existing local
+   bootstrap state without recreating resources. Do not provision through direct
+   Terraform CLI commands.
 5. Generate GitHub Copilot OpenSpec integration with the pinned CLI. Keep this change
    active until CI and real Azure data-plane/lease checks are verified.
 

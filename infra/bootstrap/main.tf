@@ -1,7 +1,7 @@
 resource "azurerm_resource_group" "state" {
   name     = var.resource_group_name
   location = var.location
-  tags     = merge(var.tags, { project = "newsloom", purpose = "terraform-state" })
+  tags     = var.tags
 
   lifecycle {
     prevent_destroy = true

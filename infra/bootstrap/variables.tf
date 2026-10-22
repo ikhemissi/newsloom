@@ -1,5 +1,5 @@
 variable "subscription_id" {
-  description = "Subscription to bootstrap; supply in an ignored local tfvars file."
+  description = "Subscription to bootstrap, supplied by the ignored azd environment."
   type        = string
 }
 
@@ -38,7 +38,8 @@ variable "container_name" {
 }
 
 variable "tags" {
-  description = "Common tags for state infrastructure."
+  description = "Optional caller-supplied common tags."
   type        = map(string)
   default     = {}
+  nullable    = false
 }

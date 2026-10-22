@@ -5,7 +5,11 @@ variables {
   location             = "westeurope"
   resource_group_name  = "rg-newsloom-state-test"
   storage_account_name = "stnewsloomstatetest"
-  tags                 = { owner = "test" }
+  tags = {
+    owner   = "test"
+    project = "configured-project"
+    purpose = "configured-purpose"
+  }
 }
 
 run "state_is_secretless_and_recoverable" {
@@ -46,11 +50,20 @@ run "state_is_secretless_and_recoverable" {
 
   assert {
     condition = (
-      azurerm_storage_account.state.tags["owner"] == "test" &&
-      azurerm_storage_account.state.tags["purpose"] == "terraform-state" &&
+      azurerm_resource_group.state.tags == var.tags &&
+      azurerm_storage_account.state.tags == var.tags &&
       azurerm_storage_container.state.name == "tfstate"
     )
-    error_message = "Common tags and the private state-container default must be preserved."
+    error_message = "All taggable resources must preserve the supplied tag map and container default."
+  }
+
+  assert {
+    condition = (
+      output.RS_RESOURCE_GROUP == azurerm_resource_group.state.name &&
+      output.RS_STORAGE_ACCOUNT == azurerm_storage_account.state.name &&
+      output.RS_CONTAINER_NAME == azurerm_storage_container.state.name
+    )
+    error_message = "Bootstrap outputs must supply the azd application layer's backend configuration."
   }
 }
 

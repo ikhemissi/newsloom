@@ -1,6 +1,5 @@
 locals {
   tags = merge(var.tags, {
-    project      = "newsloom"
     azd-env-name = var.environment_name
   })
 }

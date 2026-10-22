@@ -28,7 +28,7 @@ flowchart LR
 | uv | 0.13.5+; downloads the pinned Python 3.15.1 runtime |
 | Node.js | 20.19+; 24 LTS recommended |
 | Terraform | 1.15.8+ |
-| Azure CLI + azd | Required only for Azure setup and deployment |
+| Azure CLI + azd 1.36.0+ | Required only for Azure setup and deployment |
 
 Git and Bash are also required.
 
@@ -46,7 +46,8 @@ Checks need no cloud credentials or Docker daemon; the first run downloads depen
 ### 1. One-time state setup
 
 Follow the [state-bootstrap runbook](docs/azure-bootstrap.md) for permissions,
-provider registration, and the ignored variable file. Sign in to the intended subscription:
+provider registration, and azd environment inputs. Provisioning always runs
+through azd, which invokes Terraform internally.
 
 ```bash
 az login
@@ -54,17 +55,15 @@ az account set --subscription "<subscription-id>"
 azd config set auth.useAzCliAuth true
 ```
 
-After filling the variable file, create the plan and **review it before applying**:
+After configuring the environment, **review the preview before provisioning**:
 
 ```bash
-terraform -chdir=infra/bootstrap init
-terraform -chdir=infra/bootstrap validate
-terraform -chdir=infra/bootstrap plan -out=bootstrap.tfplan
-terraform -chdir=infra/bootstrap apply bootstrap.tfplan
+azd provision bootstrap --preview
+azd provision bootstrap
 ```
 
-Complete the runbook's RBAC verification and azd environment configuration before continuing.
-Keep the bootstrap state; do not recreate an existing state account.
+Complete the runbook's RBAC verification before continuing. Keep the bootstrap
+state; existing direct-Terraform state must be adopted before the first azd run.
 
 ### 2. Application deployment - from Step 1.1
 
@@ -76,6 +75,7 @@ azd up
 ```
 
 **Today, `azd up` does not deploy news services:** application resources and service/image deployment hooks are not implemented yet.
+The bootstrap layer runs before the application layer in the same environment.
 
 ## Useful commands
 
