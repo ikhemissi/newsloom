@@ -4,7 +4,14 @@ import pytest
 
 
 @pytest.mark.parametrize(
-    "name", ["newsloom_core", "newsloom_ingestion", "newsloom_enrichment", "newsloom_mcp"]
+    "name",
+    [
+        "newsloom_core",
+        "newsloom_ingestion",
+        "newsloom_enrichment",
+        "newsloom_mcp",
+        "newsloom_platform",
+    ],
 )
 def test_workspace_packages_import(name: str) -> None:
     assert import_module(name).__doc__

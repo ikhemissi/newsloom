@@ -20,6 +20,19 @@ jobs:
     env:
       OPENSPEC_TELEMETRY: "0"
       TF_IN_AUTOMATION: "true"
+      NEWSLOOM_TEST_POSTGRES_DSN: "host=127.0.0.1 port=5432 user=postgres dbname=postgres"
+    services:
+      postgres:
+        image: pgvector/pgvector:pg18
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 127.0.0.1:5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6

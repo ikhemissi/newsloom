@@ -13,6 +13,7 @@ dev = [
     "newsloom-enrichment",
     "newsloom-ingestion",
     "newsloom-mcp",
+    "newsloom-platform",
     "pre-commit>=4.3",
     "pytest>=8.4",
     "pytest-asyncio>=1.2",
@@ -32,6 +33,7 @@ newsloom-core = { workspace = true }
 newsloom-ingestion = { workspace = true }
 newsloom-enrichment = { workspace = true }
 newsloom-mcp = { workspace = true }
+newsloom-platform = { workspace = true }
 
 [tool.ruff]
 target-version = "py315"

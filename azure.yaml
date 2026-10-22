@@ -11,6 +11,21 @@ infra:
       path: infra
       dependsOn:
         - bootstrap
+    - name: migrations
+      path: infra/migrations
+      dependsOn:
+        - application
+      hooks:
+        preprovision:
+          shell: sh
+          run: uv run --locked newsloom-platform build
+          interactive: false
+          continueOnError: false
+        postprovision:
+          shell: sh
+          run: uv run --locked newsloom-platform execute
+          interactive: false
+          continueOnError: false
 hooks:
   preprovision:
     shell: sh

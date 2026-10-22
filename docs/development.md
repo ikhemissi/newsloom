@@ -47,7 +47,9 @@ uv run pre-commit validate-config
 
 See [P1-C11](prd-1-capabilities.md#p1-c11-evidence-based-platform-acceptance) for
 database-test requirements. Bootstrap needs no Docker daemon. Add integration
-dependencies when their owning capability is implemented.
+dependencies when their owning capability is implemented. The platform's
+[database tests](azure-platform.md#local-database-tests) use an explicitly started
+PostgreSQL 18/pgvector instance; CI provides that disposable service.
 
 ## OpenSpec
 

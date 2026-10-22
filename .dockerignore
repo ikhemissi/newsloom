@@ -1,0 +1,16 @@
+**
+!pyproject.toml
+!uv.lock
+!README.md
+!packages/
+!packages/**
+!services/
+!services/**
+**/.env*
+**/.venv/
+**/__pycache__/
+**/*.pyc
+**/*.tfstate*
+**/*.tfvars*
+**/dist/
+**/build/

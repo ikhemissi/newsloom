@@ -2,9 +2,9 @@
 
 Curated AI news for MCP clients, research agents, and people.
 
-**Status: bootstrap only.**
-- Available: Python workspace, 42-feed catalogue, local/CI checks, and Terraform state-bootstrap tooling.
-- Planned: ingestion, enrichment, MCP service, research agent, and browser UI.
+**Status: shared Azure foundation implemented and verified.**
+- Available: Python workspace, 42-feed catalogue, local/CI checks, azd-managed Azure infrastructure, and managed-identity database migrations.
+- Planned: scheduled ingestion/enrichment, the MCP HTTP service, research agent, and browser UI. The foundation does not complete PRD-1.
 
 ## Planned architecture
 
@@ -40,6 +40,8 @@ bash scripts/check.sh
 ```
 
 Checks need no cloud credentials or Docker daemon; the first run downloads dependencies.
+Database integration tests also run in CI and can be enabled against an explicitly
+started local PostgreSQL 18/pgvector instance.
 
 ## Deploy to Azure
 
@@ -67,15 +69,19 @@ state; existing direct-Terraform state must be adopted before the first azd run.
 
 ### 2. Application deployment - from Step 1.1
 
-Once [platform-skeleton](docs/prd-1.md#delivery-plan) is implemented, deploy into the existing environment:
+The shared platform is provisioned and verified in the persistent development
+environment. See the [delivery plan](docs/prd-1.md#delivery-plan) and follow the
+[platform runbook](docs/azure-platform.md) for reviewed inputs and per-layer previews.
+Deploy incremental changes into the existing environment:
 
 ```bash
 azd env select dev
 azd up
 ```
 
-**Today, `azd up` does not deploy news services:** application resources and service/image deployment hooks are not implemented yet.
-The bootstrap layer runs before the application layer in the same environment.
+The foundation includes verified migration and identity/model/telemetry checks,
+not scheduled ingestion/enrichment or an MCP HTTP service.
+The bootstrap, application, and migrations layers run in order in the same environment.
 
 ## Useful commands
 
@@ -96,8 +102,9 @@ flowchart LR
     Commit --> Archive["OpenSpec archive"]
 ```
 
-See the [development guide](docs/development.md) for workflow details and
-[bootstrap acceptance](openspec/changes/archive/2026-10-22-bootstrap/tasks.md) for verified foundation checks.
+See the [development guide](docs/development.md) for workflow details,
+[bootstrap acceptance](openspec/changes/archive/2026-10-22-bootstrap/tasks.md) for state setup,
+and [platform evidence](openspec/changes/platform-skeleton/tasks.md#acceptance-evidence) for Azure checks.
 
 ## Documentation
 
@@ -107,4 +114,5 @@ See the [development guide](docs/development.md) for workflow details and
 | Phase 2: Research agent | [PRD](docs/prd-2.md) / [Capabilities](docs/prd-2-capabilities.md) |
 | Phase 3: Browser UI | [PRD](docs/prd-3.md) / [Capabilities](docs/prd-3-capabilities.md) |
 | Architecture and operations | [ADRs](docs/adrs.md) / [Platform notes](docs/platform-notes.md) |
+| Azure platform deployment | [Platform runbook](docs/azure-platform.md) |
 | AI contributor instructions | [AGENTS.md](AGENTS.md) |

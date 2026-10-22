@@ -2,8 +2,9 @@
 
 ## Context and sources
 
-- The project is at bootstrap only. Service packages are boundaries, not working
-  ingestion, enrichment, or MCP services. See [README](README.md) for human setup.
+- The repository and shared Azure foundations are implemented and verified.
+  Ingestion, enrichment, and MCP packages remain boundaries, not working business
+  services. See [README](README.md) and the [platform runbook](docs/azure-platform.md).
 - Follow [documentation ownership](docs/development.md#documentation-ownership).
   Read the relevant phase PRD and capability document before changing behavior;
   use [ADRs](docs/adrs.md) for decisions and [platform notes](docs/platform-notes.md)

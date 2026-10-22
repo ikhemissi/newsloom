@@ -1,0 +1,19 @@
+[project]
+name = "newsloom-platform"
+version = "0.1.0"
+description = "Newsloom database migrations and synthetic Azure platform verification."
+requires-python = ">=3.15,<3.16"
+dependencies = [
+    "aiohttp>=3.12,<4",
+    "azure-identity>=1.25,<2",
+    "httpx>=0.28,<1",
+    "psycopg[binary]>=3.3,<4",
+    "pydantic>=2.12,<3",
+]
+
+[project.scripts]
+newsloom-platform = "newsloom_platform.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.13.5,<0.14"]
+build-backend = "uv_build"
