@@ -8,14 +8,14 @@
   Read the relevant phase PRD and capability document before changing behavior;
   use [ADRs](docs/adrs.md) for decisions and [platform notes](docs/platform-notes.md)
   for operational lessons. Link to requirements instead of maintaining copies.
-- OpenSpec's current bootstrap contract is in the
-  [active change](openspec/changes/bootstrap/specs/repository-foundation/spec.md).
-  Main specs describe delivered behavior after archival.
+- OpenSpec's delivered repository contract is in the
+  [main spec](openspec/specs/repository-foundation/spec.md).
+  Active changes describe planned additions; archives retain acceptance evidence.
 
 ## Working rules
 
 - Use one small OpenSpec change per delivery slice; preserve phase prerequisites.
-  Follow the [delivery contract](openspec/changes/bootstrap/specs/repository-foundation/spec.md#requirement-honest-ordered-delivery)
+  Follow the [delivery contract](openspec/specs/repository-foundation/spec.md#requirement-honest-ordered-delivery)
   and [workflow](docs/development.md#openspec). Never invent verification evidence
   or archive a change with unverified acceptance tasks.
 - Run local checks before deployment. Use the existing azd environment and preserve

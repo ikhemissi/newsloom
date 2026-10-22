@@ -97,7 +97,7 @@ flowchart LR
 ```
 
 See the [development guide](docs/development.md) for workflow details and
-[bootstrap tasks](openspec/changes/bootstrap/tasks.md) for outstanding acceptance checks.
+[bootstrap acceptance](openspec/changes/archive/2026-10-22-bootstrap/tasks.md) for verified foundation checks.
 
 ## Documentation
 

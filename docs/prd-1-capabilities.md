@@ -16,7 +16,7 @@ Architectural decisions are recorded in [the ADRs](adrs.md).
 
 **Acceptance criteria**
 - Ingestion reads [feeds.json](../config/feeds.json), governed by the
-  [OpenSpec catalogue contract](../openspec/changes/bootstrap/specs/repository-foundation/spec.md#requirement-validated-initial-feed-catalogue).
+  [OpenSpec catalogue contract](../openspec/specs/repository-foundation/spec.md#requirement-validated-initial-feed-catalogue).
 - RSS and Atom are supported; JSON Feed remains optional.
 - `include_categories` matches feed-supplied category terms after splitting commas,
   trimming, and case-insensitive exact comparison.
@@ -188,7 +188,7 @@ developer environment or coupling the three workloads.
 - Schema and role changes run through a migration job, never application startup.
 - Terraform is driven by azd with common tags, registry image builds, and job-update
   hooks. Remote state follows the
-  [OpenSpec bootstrap contract](../openspec/changes/bootstrap/specs/repository-foundation/spec.md#requirement-secretless-remote-state-bootstrap).
+  [OpenSpec bootstrap contract](../openspec/specs/repository-foundation/spec.md#requirement-secretless-remote-state-bootstrap).
   Keep one persistent developer environment.
 - V1 uses public Entra-protected app ingress and a PostgreSQL Azure-services
   firewall rule; private networking and Front Door remain later work.

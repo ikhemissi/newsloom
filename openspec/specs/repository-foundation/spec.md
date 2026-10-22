@@ -1,4 +1,11 @@
-## ADDED Requirements
+# repository-foundation Specification
+
+## Purpose
+
+Provide reproducible repository tooling, durable planning documents, offline
+quality gates, and a verified secretless Azure state foundation for Newsloom.
+
+## Requirements
 
 ### Requirement: Reproducible typed Python workspace
 The repository SHALL provide a locked uv workspace on stable Python 3.15 with a

@@ -20,7 +20,7 @@
 - [x] 3.2 Adopt existing bootstrap state into the persistent azd environment, review its azd preview, and provision through azd.
 - [x] 3.3 Verify state blob read/write/delete/lease through RBAC and shared-key disablement in Azure.
 - [x] 3.4 Verify the checks pass in GitHub Actions and record the run evidence.
-- [ ] 3.5 Commit only after required local and Azure checks; archive only after all acceptance gates pass.
+- [x] 3.5 Commit only after required local and Azure checks; archive only after all acceptance gates pass.
 
 ## Local evidence
 
@@ -50,13 +50,14 @@ project requirements.
 ## GitHub Actions evidence
 
 - [Local checks run 39818194063](https://github.com/ikhemissi/newsloom/actions/runs/39818194063)
-  passed on 2026-10-22 for commit `851680f`, matching local `HEAD` and remote `main`.
+  passed on 2026-10-22 for the initial documentation commit `851680f`.
+- [Local checks run 39825153185](https://github.com/ikhemissi/newsloom/actions/runs/39825153185)
+  passed on 2026-10-22 for the verified azd bootstrap commit `288b85b`.
 - The `checks` job passed dependency installation and `bash scripts/check.sh`
   without Azure credentials.
 
 The initial scaffold and documentation were committed at the user's explicit
-request before Azure acceptance. No application deployment or archival has been
-performed.
+request before Azure acceptance. No application services have been deployed.
 
 ## Azure evidence
 
@@ -96,6 +97,6 @@ performed.
   Confirmed the renamed bootstrap outputs persist in azd's saved state.
 - Ran `azd hooks run preprovision --no-prompt`; the project check hook passed.
 
-Task 3.5 remains open. The azd provisioning changes have not yet been committed
-or verified in a new GitHub Actions run; the earlier CI evidence applies only
-to the recorded commit.
+The azd provisioning changes were committed as `288b85b` after local and Azure
+verification, pushed to `main`, and verified in the GitHub Actions run above.
+All bootstrap acceptance tasks are complete; archival may now proceed.

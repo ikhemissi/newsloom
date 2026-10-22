@@ -113,7 +113,7 @@ and correctly delegated as the agent changes.
 - A signed-in A2A client receives cited answers to multi-step questions in Azure,
   and the frozen question set passes its defined evaluation criteria.
 - Repository release gates follow the
-  [OpenSpec delivery contract](../openspec/changes/bootstrap/specs/repository-foundation/spec.md#requirement-honest-ordered-delivery).
+  [OpenSpec delivery contract](../openspec/specs/repository-foundation/spec.md#requirement-honest-ordered-delivery).
 
 ## Decisions still required
 

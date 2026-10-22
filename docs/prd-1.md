@@ -1,7 +1,7 @@
 # PRD-1: MCP news platform
 
-Status: planned. Prerequisite: acceptance of the
-[bootstrap change](../openspec/changes/bootstrap/tasks.md).
+Status: planned. Prerequisite:
+[bootstrap acceptance](../openspec/changes/archive/2026-10-22-bootstrap/tasks.md) is complete.
 
 This document owns phase sequencing and capability-to-slice assignments.
 [Capabilities](prd-1-capabilities.md) own behavior, user stories, acceptance

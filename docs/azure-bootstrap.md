@@ -3,9 +3,9 @@
 ## Boundaries
 
 This runbook implements the
-[OpenSpec state-bootstrap contract](../openspec/changes/bootstrap/specs/repository-foundation/spec.md#requirement-secretless-remote-state-bootstrap).
+[OpenSpec state-bootstrap contract](../openspec/specs/repository-foundation/spec.md#requirement-secretless-remote-state-bootstrap).
 Its release boundaries are defined by the
-[OpenSpec delivery contract](../openspec/changes/bootstrap/specs/repository-foundation/spec.md#requirement-honest-ordered-delivery),
+[OpenSpec delivery contract](../openspec/specs/repository-foundation/spec.md#requirement-honest-ordered-delivery),
 not by this procedure. The commands below affect Azure only when explicitly run.
 
 Provision resources only through azd; Terraform is its IaC engine, not a separate

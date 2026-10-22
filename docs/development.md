@@ -7,14 +7,14 @@
 | Phase status, prerequisites, and delivery assignments | [PRD-1](prd-1.md), [PRD-2](prd-2.md), [PRD-3](prd-3.md) |
 | Future product behavior, user stories, and acceptance criteria | [Phase 1 capabilities](prd-1-capabilities.md), [Phase 2 capabilities](prd-2-capabilities.md), [Phase 3 capabilities](prd-3-capabilities.md) |
 | Architectural choices and rationale | [ADRs](adrs.md) |
-| Repository guarantees and bootstrap acceptance | [OpenSpec repository foundation](../openspec/changes/bootstrap/specs/repository-foundation/spec.md) |
+| Repository guarantees and bootstrap acceptance | [OpenSpec repository foundation](../openspec/specs/repository-foundation/spec.md) |
 | Commands and operational procedures | This guide and the [Azure bootstrap runbook](azure-bootstrap.md) |
 | Capacity warnings and real-world input lessons | [Platform notes](platform-notes.md) |
 | AI contributor working instructions | [AGENTS.md](../AGENTS.md) |
 
-OpenSpec currently holds the bootstrap contract in its active change; main specs
-are populated on archival. Keep contract links pointed at the canonical spec when
-that change is archived, rather than copying its requirements into these guides.
+OpenSpec main specs describe delivered contracts. Active changes describe planned
+additions; archives retain their acceptance evidence. Link to canonical specs
+rather than copying their requirements into these guides.
 
 ## Local checks
 
@@ -25,7 +25,7 @@ bash scripts/check.sh
 ```
 
 The [check script](../scripts/check.sh) implements the
-[OpenSpec quality gates](../openspec/changes/bootstrap/specs/repository-foundation/spec.md#requirement-cloud-credential-free-quality-gates),
+[OpenSpec quality gates](../openspec/specs/repository-foundation/spec.md#requirement-cloud-credential-free-quality-gates),
 plus dependency-lock checks and mocked-provider Terraform tests.
 [GitHub Actions](../.github/workflows/checks.yml) invokes the same script; no
 automatic deployment workflow exists yet.
@@ -58,12 +58,12 @@ if its new `/opsx-*` commands are not visible.
 
 ```bash
 npx openspec list
-npx openspec status --change bootstrap
+npx openspec status --change "<change-name>"
 npx openspec validate --all --strict --no-interactive
 ```
 
 Choose the next slice from its phase PRD. Release and archival acceptance are
-defined by the [OpenSpec delivery contract](../openspec/changes/bootstrap/specs/repository-foundation/spec.md#requirement-honest-ordered-delivery);
+defined by the [OpenSpec delivery contract](../openspec/specs/repository-foundation/spec.md#requirement-honest-ordered-delivery);
 the following are command-entry points, not a separate set of gates:
 
 - Create the change with `npx openspec new change <change-name>`, then use
@@ -73,7 +73,7 @@ the following are command-entry points, not a separate set of gates:
 - Use `azd env select dev` to select an existing environment and `azd up` to deploy.
   Service build/job hooks are added with the relevant platform capabilities.
 - Record verification commands and outcomes in the change's tasks. The
-  [bootstrap task list](../openspec/changes/bootstrap/tasks.md) shows this format.
+  [bootstrap task list](../openspec/changes/archive/2026-10-22-bootstrap/tasks.md) shows this format.
 - Once acceptance is satisfied, `npx openspec archive <change-name>` publishes
   its spec updates; include those generated changes in version control.
 
@@ -81,7 +81,7 @@ the following are command-entry points, not a separate set of gates:
 
 Edit [config/feeds.json](../config/feeds.json), then run
 `uv run newsloom-validate-feeds config/feeds.json`. Validation rules belong to the
-[OpenSpec catalogue contract](../openspec/changes/bootstrap/specs/repository-foundation/spec.md#requirement-validated-initial-feed-catalogue).
+[OpenSpec catalogue contract](../openspec/specs/repository-foundation/spec.md#requirement-validated-initial-feed-catalogue).
 This command validates configuration, not network safety or article content;
 those contracts are [P1-C02](prd-1-capabilities.md#p1-c02-safe-feed-retrieval-and-normalization)
 and [P1-C03](prd-1-capabilities.md#p1-c03-content-screening-and-quarantine).
