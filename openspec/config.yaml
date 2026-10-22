@@ -1,0 +1,29 @@
+schema: spec-driven
+githubCopilot:
+  cloudAgent: false
+context: |
+  Newsloom follows one phase PRD and its capability document in docs/prd-*.md,
+  architectural decisions in docs/adrs.md, platform context in docs/platform-notes.md,
+  and the delivery workflow in docs/development.md. Do not retain a duplicate full spec.
+  Each ordered slice must be locally tested, deployed with azd, tested in Azure,
+  then committed. Archive only verified changes; never claim cloud checks not run.
+  Use Python latest stable, async I/O, strict typing, one uv workspace, PostgreSQL 18
+  with pgvector, ACA apps/jobs, Microsoft Foundry, Terraform via azd.
+  Entra and managed identities only: no keys, passwords, client secrets, or committed
+  tenant/subscription/principal identifiers. No content or credentials in telemetry.
+  Public ingress and PostgreSQL Azure-services firewall in v1; no VNet, private
+  endpoints or Front Door. Preserve and incrementally update one developer environment.
+rules:
+  proposal:
+    - State the owning phase and slice, prerequisites, and what is out of scope.
+    - Surface unresolved identity, regional capacity, model availability and cost decisions.
+  specs:
+    - Define testable acceptance scenarios and explicit failure behavior.
+    - Distinguish implemented behavior from planned phase requirements.
+  tasks:
+    - Keep each change small enough to finish in one sitting.
+    - Include local tests, azd deployment, Azure verification, CI evidence, and commit gates.
+operations:
+  archive:
+    guidance:
+      - Refuse archival while local, CI or Azure acceptance tasks remain unverified.

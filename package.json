@@ -1,0 +1,17 @@
+{
+  "name": "newsloom-tooling",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Pinned OpenSpec tooling; application services use the uv workspace.",
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "scripts": {
+    "spec:check": "openspec validate --all --strict --no-interactive",
+    "spec:list": "openspec list",
+    "check": "bash scripts/check.sh"
+  },
+  "devDependencies": {
+    "@fission-ai/openspec": "1.14.3"
+  }
+}

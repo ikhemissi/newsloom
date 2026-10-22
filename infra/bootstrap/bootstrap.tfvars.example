@@ -1,0 +1,8 @@
+subscription_id      = "<subscription-id>"
+location             = "<azure-region>"
+resource_group_name  = "<state-resource-group>"
+storage_account_name = "<globally-unique-account-name>"
+container_name       = "tfstate"
+tags = {
+  project = "newsloom"
+}

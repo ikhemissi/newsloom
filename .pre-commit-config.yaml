@@ -1,0 +1,31 @@
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: Ruff lint
+        entry: uv run --locked ruff check
+        language: system
+        types: [python]
+      - id: ruff-format
+        name: Ruff format
+        entry: uv run --locked ruff format --check
+        language: system
+        types: [python]
+      - id: identifiers
+        name: Reject deployment identifiers
+        entry: uv run --locked python scripts/check_identifiers.py
+        language: system
+        pass_filenames: false
+        always_run: true
+      - id: openspec
+        name: OpenSpec validation
+        entry: npm run spec:check
+        language: system
+        files: ^openspec/
+        pass_filenames: false
+      - id: terraform-format
+        name: Terraform formatting
+        entry: terraform fmt -check -recursive infra
+        language: system
+        files: ^infra/.*\.tf$
+        pass_filenames: false

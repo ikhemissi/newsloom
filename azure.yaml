@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=https://aka.ms/azure-dev/schema.json
+name: newsloom
+metadata:
+  template: newsloom-bootstrap
+infra:
+  provider: terraform
+  path: infra
+hooks:
+  preprovision:
+    shell: sh
+    run: bash scripts/check.sh
+    interactive: false
+    continueOnError: false
+  predeploy:
+    shell: sh
+    run: bash scripts/check.sh
+    interactive: false
+    continueOnError: false

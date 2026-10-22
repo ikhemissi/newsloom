@@ -1,0 +1,13 @@
+[project]
+name = "newsloom-enrichment"
+version = "0.1.0"
+description = "Newsloom enrichment job package; implemented in the enrichment slice."
+requires-python = ">=3.15,<3.16"
+dependencies = ["newsloom-core"]
+
+[tool.uv.sources]
+newsloom-core = { workspace = true }
+
+[build-system]
+requires = ["uv_build>=0.13.5,<0.14"]
+build-backend = "uv_build"
