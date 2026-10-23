@@ -39,7 +39,7 @@ None.
   the approved 41-source catalogue after retiring the broken Solo.io entry.
 
 The ingestion contract is delivered but still held in the completed
-[feed-ingestion change](../feed-ingestion/specs/feed-ingestion/spec.md), not yet
+[feed-ingestion change](../2026-10-23-feed-ingestion/specs/feed-ingestion/spec.md), not yet
 published in main specs. This change depends on that verified baseline. Publish
 its specs through the normal sync workflow before applying this delta to main
 specs; do not rewrite its acceptance history or archive it implicitly.
@@ -49,7 +49,7 @@ the narrowly bounded fallback specified here.
 ## Impact
 
 This is a Phase 1 ingestion robustness follow-up to
-[P1-C01 through P1-C04](../../../docs/prd-1-capabilities.md#p1-c02-safe-feed-retrieval-and-normalization),
+[P1-C01 through P1-C04](../../../../docs/prd-1-capabilities.md#p1-c02-safe-feed-retrieval-and-normalization),
 not the enrichment slice. Prerequisites are the verified ingestion/scanner job,
 the existing PostgreSQL tables and the persistent Azure foundation.
 
@@ -64,7 +64,7 @@ migration is expected. Additional article requests consume existing bounded
 runtime/network budgets. Preserve the current schedule and all shared resources.
 
 The user explicitly chose text extraction now and GPT summarization later in
-[P1-C05](../../../docs/prd-1-capabilities.md#p1-c05-structured-model-enrichment-and-embeddings).
+[P1-C05](../../../../docs/prd-1-capabilities.md#p1-c05-structured-model-enrichment-and-embeddings).
 GPT summaries, generated categories/tags, embeddings, new queue lifecycle features,
 scanner retuning and quarantine release are out of scope. The 1,000-item document
 limit remains unchanged; OpenAI's oversized feed remains an explicit failure.

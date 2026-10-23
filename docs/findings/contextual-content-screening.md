@@ -1,7 +1,7 @@
 # Contextual screening: before/after findings
 
 Date: 2026-10-23. Change:
-[contextual-content-screening](../../openspec/changes/contextual-content-screening/proposal.md).
+[contextual-content-screening](../../openspec/changes/archive/2026-10-23-contextual-content-screening/proposal.md).
 This document contains article identities and reviewer findings, not article
 bodies, attack payloads, credentials, or tenant-specific identifiers.
 

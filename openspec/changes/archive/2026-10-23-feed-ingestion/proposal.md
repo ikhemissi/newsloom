@@ -11,7 +11,7 @@ feed, then start it immediately in Azure against the full catalogue.
 - Own PRD-1 Steps 1.2 and 1.3 together, as explicitly approved: source curation,
   safe retrieval/normalization, durable ingestion, real content screening,
   quarantine, and ingestion/scanner instrumentation. Prerequisite: the
-  [accepted platform](../archive/2026-10-23-platform-skeleton/tasks.md#acceptance-evidence).
+  [accepted platform](../2026-10-23-platform-skeleton/tasks.md#acceptance-evidence).
   Update the phase delivery assignments during implementation to reflect this
   combined slice rather than leave a duplicate future scanner delivery.
 - Implement the existing ingestion package as an async ACA job. Read the existing

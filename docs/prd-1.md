@@ -5,11 +5,11 @@ Status: in progress. Prerequisite:
 Step 1.1 is complete and
 [verified](../openspec/changes/archive/2026-10-23-platform-skeleton/tasks.md#acceptance-evidence).
 Steps 1.2-1.3 are complete and
-[verified locally, in Azure, and by exact-commit CI](../openspec/changes/feed-ingestion/tasks.md#acceptance-evidence).
-The [ingestion robustness follow-up](../openspec/changes/resilient-feed-ingestion/tasks.md#acceptance-evidence)
+[verified locally, in Azure, and by exact-commit CI](../openspec/changes/archive/2026-10-23-feed-ingestion/tasks.md#acceptance-evidence).
+The [ingestion robustness follow-up](../openspec/changes/archive/2026-10-23-resilient-feed-ingestion/tasks.md#acceptance-evidence)
 adds item isolation, bounded article recovery and per-feed statistics without
 advancing enrichment or changing scanner policy.
-The [contextual screening follow-up](../openspec/changes/contextual-content-screening/tasks.md)
+The [contextual screening follow-up](../openspec/changes/archive/2026-10-23-contextual-content-screening/tasks.md)
 is verified locally, in Azure, and by exact-commit CI.
 [findings](findings/contextual-content-screening.md) separate historical
 quarantine decisions from newly measured results.

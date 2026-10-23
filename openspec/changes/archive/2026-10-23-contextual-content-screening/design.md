@@ -5,18 +5,18 @@
 See [the proposal](proposal.md) for motivation and scope, and
 [the delta](specs/content-screening/spec.md) for acceptance behavior.
 
-The [scanner](../../../services/ingestion/src/newsloom_ingestion/scanner.py)
+The [scanner](../../../../services/ingestion/src/newsloom_ingestion/scanner.py)
 already validates finite `noul` responses, rejects strictly above its threshold,
 rate-limits calls, and defers operational failures. Production serializes a full
 entry, but `calibrate()` sends the short strings in the packaged JSON fixture.
-The [CLI](../../../services/ingestion/src/newsloom_ingestion/cli.py) currently
+The [CLI](../../../../services/ingestion/src/newsloom_ingestion/cli.py) currently
 requires managed identity for calibration; its separate local fetch command
 deliberately permits only one RSS and one Atom.
 
 The platform's `calibrate-ingestion` operator command starts an Azure execution,
 so it is not the mechanism for the local comparison. After local authorization
 failed, the user explicitly requested testing directly in the existing job. The
-[ingestion configuration](../../../infra/ingestion/main.tf) currently supplies
+[ingestion configuration](../../../../infra/ingestion/main.tf) currently supplies
 only a scalar threshold, without tying it to a question revision.
 
 ## Goals / Non-Goals

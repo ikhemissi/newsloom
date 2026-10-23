@@ -65,7 +65,7 @@ giving publishers access to internal networks or unrestricted processing.
 - Scanner errors fail closed and are retried, never treated as acceptance.
 - The model scanner uses a threshold calibrated on labelled examples, respects
   its rate limit, and passes clean/hostile fixture tests.
-- The [contextual screening follow-up](../openspec/changes/contextual-content-screening/specs/content-screening/spec.md)
+- The [delivered screening contract](../openspec/specs/content-screening/spec.md)
   distinguishes consumer-directed manipulation from contextual reporting,
   examples, and training-use notices; it binds calibration to policy/model
   configuration and requires a local paired comparison before rollout.

@@ -110,12 +110,12 @@ uv run --locked newsloom-platform execute-ingestion --force
 
 The contextual follow-up is activated and locally/Azure verified; see its
 [measured findings](findings/contextual-content-screening.md) and
-[delivery evidence](../openspec/changes/contextual-content-screening/tasks.md#acceptance-evidence).
+[delivery evidence](../openspec/changes/archive/2026-10-23-contextual-content-screening/tasks.md#acceptance-evidence).
 Its question distinguishes attempts to redirect the current processor from
 ordinary reporting, training-use notices, and contextualized examples. A claim of
 research or quotation is not an exemption. Source content remains untrusted even
 when accepted; screening does not sanitize it or guarantee that attacks are absent.
-See the [behavioral contract](../openspec/changes/contextual-content-screening/specs/content-screening/spec.md).
+See the [behavioral contract](../openspec/specs/content-screening/spec.md).
 
 Calibration uses 16 authored complete-entry calibration cases and 16 separate
 validation cases, each balanced benign/hostile, plus eight legacy hostile
@@ -223,5 +223,5 @@ that job-only replacement; shared resources and database rows must remain intact
 The job keeps its name, but execution history may reset; retain acceptance evidence
 and Log Analytics logs. Never enable it on an unverified threshold. Run overlapping
 executions are rejected by the database lock; accepted rows and quarantine history
-survive image updates. See the active change's
-[tasks/evidence](../openspec/changes/feed-ingestion/tasks.md) for actual progress.
+survive image updates. See the archived ingestion
+[tasks/evidence](../openspec/changes/archive/2026-10-23-feed-ingestion/tasks.md) for actual progress.

@@ -11,8 +11,8 @@ current short-string calibration fixtures.
 ## What Changes
 
 - Deliver one PRD-1 P1-C03 follow-up, after the verified
-  [ingestion](../feed-ingestion/tasks.md) and
-  [resilience](../resilient-feed-ingestion/tasks.md) changes, before enrichment.
+  [ingestion](../2026-10-23-feed-ingestion/tasks.md) and
+  [resilience](../2026-10-23-resilient-feed-ingestion/tasks.md) changes, before enrichment.
 - Ask whether untrusted source content attempts to redirect its consuming
   processor, rather than treating any AI instructions as malicious. Contextual
   reporting is not an automatic exemption for an operative attack.
@@ -55,15 +55,15 @@ None; evaluation and contextual admission belong to the existing scanner boundar
 
 ## Impact
 
-- Extend the existing [scanner](../../../services/ingestion/src/newsloom_ingestion/scanner.py),
+- Extend the existing [scanner](../../../../services/ingestion/src/newsloom_ingestion/scanner.py),
   packaged calibration fixtures, ingestion CLI, and focused scanner/CLI tests.
   Reuse protected feed parsing/recovery only for the explicitly selected review
   inputs; ordinary local feed smoke-test restrictions remain unchanged.
 - Wire the compact calibration binding through the existing ingestion azd/Terraform
   configuration and tests. No queue/quarantine schema or privilege changes.
-- Update the [ingestion runbook](../../../docs/ingestion.md),
-  [phase capabilities](../../../docs/prd-1-capabilities.md),
-  [ADR-6](../../../docs/adrs.md), and phase status in their owning documents.
+- Update the [ingestion runbook](../../../../docs/ingestion.md),
+  [phase capabilities](../../../../docs/prd-1-capabilities.md),
+  [ADR-6](../../../../docs/adrs.md), and phase status in their owning documents.
 - Reuse the current model, region, capacity, identities, schedule, and persistent
   azd environment. Local inference is metered and shares deployment quota.
   Signed-in developer inference authorization needs a preflight; missing access,

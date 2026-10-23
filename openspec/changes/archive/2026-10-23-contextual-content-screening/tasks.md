@@ -61,7 +61,7 @@ group 5 is blocked until all group 4 checks and measured evaluation pass.
   calibration cases. The 16 separate holdouts had zero candidate errors; all
   eight legacy attacks were rejected. Review rejections fell from 22 to 2,
   with no operational errors or dropped inputs. All gates passed.
-- [Findings](../../../docs/findings/contextual-content-screening.md) preserve
+- [Findings](../../../../docs/findings/contextual-content-screening.md) preserve
   all 23 public identities, historical rejections, reviewer-assessed possible
   triggers, per-article measured scores/verdicts, remaining potential false
   positives, and local access limitations without article content or invented
