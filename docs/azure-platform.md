@@ -110,7 +110,9 @@ registry push, or runtime telemetry publishing.
 PostgreSQL allows the explicit Azure-services firewall exception, not an
 unrestricted Internet address range. Clients must use Entra tokens and verified
 TLS. Schema and principal changes belong to the migration job, not application
-startup or a developer's SQL shell. Domain tables and their grants remain pending.
+startup or a developer's SQL shell. The ingestion migration owns `feed_sources`,
+`ingestion_queue`, and `quarantine` and their ingestion-only runtime grants; see
+the [ingestion runbook](ingestion.md). Enrichment/news tables remain later work.
 
 ## Migration image and initialization
 
@@ -205,5 +207,6 @@ these four integration tests are skipped; the remaining local gate stays offline
   strings, or arbitrary upstream error bodies in job output.
 - Resource provisioning alone does not prove migrations, model permissions, or
   telemetry. Record real Azure execution/query evidence before accepting the change.
-- This foundation does not deploy scheduled ingestion/enrichment or an MCP HTTP
-  service. Their delivery follows [PRD-1's ordered slices](prd-1.md#delivery-plan).
+- Foundation acceptance covers shared resources, not the business services.
+  [Ingestion](ingestion.md) has its own implementation and acceptance evidence;
+  enrichment and MCP remain [later slices](prd-1.md#delivery-plan).

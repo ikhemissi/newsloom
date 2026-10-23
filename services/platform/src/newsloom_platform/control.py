@@ -70,7 +70,7 @@ def source_hash(root: Path) -> str:
         ["git", "-C", str(root), "ls-files", "--cached", "--others", "--exclude-standard", "-z"],
         "image_source",
     ).split("\0"):
-        if raw and raw.startswith(("packages/", "services/")):
+        if raw and (raw.startswith(("packages/", "services/")) or raw == "config/feeds.json"):
             paths.add(Path(raw))
     digest = hashlib.sha256()
     for path in sorted(paths):
@@ -78,7 +78,9 @@ def source_hash(root: Path) -> str:
     return digest.hexdigest()
 
 
-def build(env: dict[str, str], correlation: str) -> None:
+def build(env: dict[str, str], correlation: str, *, ingestion: bool = False) -> None:
+    service = "ingestion" if ingestion else "platform"
+    repository = f"newsloom-{service}"
     registry = env["AZURE_CONTAINER_REGISTRY_NAME"]
     root = Path(run(["git", "rev-parse", "--show-toplevel"], "project_root"))
     tag = source_hash(root)
@@ -86,7 +88,7 @@ def build(env: dict[str, str], correlation: str) -> None:
     if not isinstance(repositories, list):
         raise PlatformFailure("invalid_registry_inventory")
     digest: str | None = None
-    if "newsloom-platform" in repositories:
+    if repository in repositories:
         tags = azure(
             [
                 "acr",
@@ -95,7 +97,7 @@ def build(env: dict[str, str], correlation: str) -> None:
                 "--name",
                 registry,
                 "--repository",
-                "newsloom-platform",
+                repository,
                 "--detail",
             ],
             "image_inventory",
@@ -116,9 +118,9 @@ def build(env: dict[str, str], correlation: str) -> None:
                     "--registry",
                     registry,
                     "--image",
-                    f"newsloom-platform:{tag}",
+                    f"{repository}:{tag}",
                     "--file",
-                    str(root / "services/platform/Dockerfile"),
+                    str(root / f"services/{service}/Dockerfile"),
                     "--no-logs",
                     "--timeout",
                     "900",
@@ -140,7 +142,7 @@ def build(env: dict[str, str], correlation: str) -> None:
                     "--name",
                     registry,
                     "--image",
-                    f"newsloom-platform:{tag}",
+                    f"{repository}:{tag}",
                 ],
                 "image_digest",
             )
@@ -149,7 +151,8 @@ def build(env: dict[str, str], correlation: str) -> None:
     if not re.fullmatch(r"sha256:[a-f0-9]{64}", digest):
         raise PlatformFailure("invalid_image_digest")
     set_environment(
-        "PLATFORM_IMAGE", f"{env['AZURE_CONTAINER_REGISTRY_ENDPOINT']}/newsloom-platform@{digest}"
+        f"{service.upper()}_IMAGE",
+        f"{env['AZURE_CONTAINER_REGISTRY_ENDPOINT']}/{repository}@{digest}",
     )
     event("image", "success", correlation, category=tag)
 
@@ -170,7 +173,7 @@ def temporary_jobs(env: dict[str, str]) -> dict[str, str]:
     return jobs
 
 
-def execute_job(job_id: str, correlation: str) -> str:
+def execute_job(job_id: str, correlation: str, *, arguments: list[str] | None = None) -> str:
     base = f"https://management.azure.com{job_id}"
     job = json_object(rest(f"{base}?api-version={API_VERSION}", "job_definition"))
     template = json_object(json_object(job["properties"])["template"])
@@ -191,6 +194,8 @@ def execute_job(job_id: str, correlation: str) -> str:
         for key in ["name", "image", "command", "args", "resources", "env"]
         if key in container
     }
+    if arguments is not None:
+        execution_container["args"] = arguments
     execution = json_object(
         rest(
             f"{base}/start?api-version={API_VERSION}",
@@ -279,10 +284,37 @@ def verify(env: dict[str, str], correlation: str) -> None:
     event("azure_verification", "success", correlation, checks=4)
 
 
-def control(command: str, correlation: str) -> None:
+def control(command: str, correlation: str, *, force: bool = False) -> None:
     env = environment()
     if command == "build":
         build(env, correlation)
+    elif command == "build-ingestion":
+        build(env, correlation, ingestion=True)
+    elif command in ("execute-ingestion", "calibrate-ingestion", "read-ingestion"):
+        reading = command == "read-ingestion"
+        arguments = (
+            ["ingestion-status"]
+            if reading
+            else ["calibrate"]
+            if command == "calibrate-ingestion"
+            else ["run", "--force"]
+            if force
+            else ["run"]
+        )
+        name = execute_job(
+            env["MIGRATION_JOB_ID" if reading else "INGESTION_JOB_ID"],
+            correlation,
+            arguments=arguments,
+        )
+        prefix = (
+            "INGESTION_READBACK"
+            if reading
+            else "INGESTION_CALIBRATION"
+            if command == "calibrate-ingestion"
+            else "INGESTION"
+        )
+        set_environment(f"{prefix}_LAST_EXECUTION", name)
+        set_environment(f"{prefix}_LAST_RUN_ID", correlation)
     elif command == "execute":
         name = execute_job(env["MIGRATION_JOB_ID"], correlation)
         set_environment("MIGRATION_LAST_EXECUTION", name)

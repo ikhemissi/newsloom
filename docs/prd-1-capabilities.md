@@ -60,8 +60,8 @@ giving publishers access to internal networks or unrestricted processing.
 - Scanner errors fail closed and are retried, never treated as acceptance.
 - The model scanner uses a threshold calibrated on labelled examples, respects
   its rate limit, and passes clean/hostile fixture tests.
-- The scanner is replaceable behind its interface. The explicit no-op scanner is
-  transitional and does not satisfy final content-security acceptance.
+- The scanner is replaceable behind its interface. There is no deployed no-op,
+  bypass flag, or acceptance fallback; fake verdicts are exclusive to tests.
 - Nothing in quarantine is automatically deleted. Model constraints and replacement
   planning follow ADR-6.
 

@@ -158,6 +158,17 @@ def test_image_source_hash_is_stable_and_tracks_source(
     assert first == control.source_hash(tmp_path)
     source.write_text("second")
     assert first != control.source_hash(tmp_path)
+    catalogue = tmp_path / "config/feeds.json"
+    catalogue.parent.mkdir()
+    catalogue.write_text("first catalogue")
+    monkeypatch.setattr(
+        control,
+        "run",
+        lambda arguments, category: "services/platform/source.py\0config/feeds.json\0",
+    )
+    first = control.source_hash(tmp_path)
+    catalogue.write_text("second catalogue")
+    assert first != control.source_hash(tmp_path)
 
 
 def test_failed_build_never_sets_an_image(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -224,3 +235,43 @@ def test_execution_override_uses_only_start_contract_fields(
 
     monkeypatch.setattr(control, "rest", fake_rest)
     assert control.execute_job("/test/job", "correlation") == "test-execution"
+
+
+def test_manual_ingestion_arguments_are_explicit_and_preserve_image(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_rest(url: str, category: str, **kwargs: object) -> object:
+        if category == "job_definition":
+            return {
+                "properties": {
+                    "template": {
+                        "containers": [
+                            {
+                                "name": "ingestion",
+                                "image": "test@sha256:digest",
+                                "args": ["run"],
+                                "env": [],
+                            }
+                        ]
+                    }
+                }
+            }
+        if category == "job_start":
+            assert kwargs["body"] == {
+                "containers": [
+                    {
+                        "name": "ingestion",
+                        "image": "test@sha256:digest",
+                        "args": ["run", "--force"],
+                        "env": [{"name": "PLATFORM_PROBE_RUN_ID", "value": "correlation"}],
+                    }
+                ]
+            }
+            return {"name": "test-execution"}
+        return {"properties": {"status": "Succeeded"}}
+
+    monkeypatch.setattr(control, "rest", fake_rest)
+    assert (
+        control.execute_job("/test/job", "correlation", arguments=["run", "--force"])
+        == "test-execution"
+    )

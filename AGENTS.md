@@ -3,8 +3,9 @@
 ## Context and sources
 
 - The repository and shared Azure foundations are implemented and verified.
-  Ingestion, enrichment, and MCP packages remain boundaries, not working business
-  services. See [README](README.md) and the [platform runbook](docs/azure-platform.md).
+  Ingestion has a real runtime; see its [runbook and acceptance status](docs/ingestion.md).
+  Enrichment and MCP remain boundaries, not working business services.
+  See [README](README.md) and the [platform runbook](docs/azure-platform.md).
 - Follow [documentation ownership](docs/development.md#documentation-ownership).
   Read the relevant phase PRD and capability document before changing behavior;
   use [ADRs](docs/adrs.md) for decisions and [platform notes](docs/platform-notes.md)

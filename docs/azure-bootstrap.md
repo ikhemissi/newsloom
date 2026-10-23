@@ -9,12 +9,14 @@ Its release boundaries are defined by the
 not by this procedure. The commands below affect Azure only when explicitly run.
 
 Provision resources only through azd; Terraform is its IaC engine, not a separate
-deployment entry point. The [project](../azure.yaml) has two native Terraform layers:
+deployment entry point. The [project](../azure.yaml) has these native Terraform layers:
 
 | Layer | Root | State |
 | --- | --- | --- |
 | `bootstrap` | [State infrastructure](../infra/bootstrap/) | Local, under `.azure/<environment>/infra/bootstrap/terraform.tfstate` |
 | `application` | [Application infrastructure](../infra/) | Entra-authenticated Azure Blob backend; depends on `bootstrap` |
+| `migrations` | [Migration job](../infra/migrations/) | Separate Entra-authenticated `newsloom/<environment>-migrations.tfstate`; depends on `application` |
+| `ingestion` | [Ingestion job](../infra/ingestion/) | Separate Entra-authenticated `newsloom/<environment>-ingestion.tfstate`; depends on `migrations` |
 
 Bootstrap state stays local to avoid a backend creating itself. Preserve the
 ignored azd environment and bootstrap state securely; never provision an existing

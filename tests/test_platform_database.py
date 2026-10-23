@@ -29,7 +29,9 @@ pytestmark = [
 
 @pytest.fixture
 async def platform_database(monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[RuntimeConfig]:
-    dsn = os.environ["NEWSLOOM_TEST_POSTGRES_DSN"]
+    dsn = os.environ.get("NEWSLOOM_TEST_POSTGRES_DSN")
+    if not dsn:
+        pytest.skip("Explicit local PostgreSQL 18/pgvector instance required.")
     parameters = conninfo_to_dict(dsn)
     if parameters.get("host") not in ["127.0.0.1", "localhost", "::1"]:
         raise ValueError("Integration tests require an explicitly local disposable database.")
@@ -103,7 +105,7 @@ async def platform_database(monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[Ru
 
 async def test_migration_replay_and_vector_contract(platform_database: RuntimeConfig) -> None:
     async with ManagedIdentityCredential() as credential:
-        assert await database.migrate(platform_database, credential) == 2
+        assert await database.migrate(platform_database, credential) == 3
         assert await database.migrate(platform_database, credential) == 0
         async with await database.connect(
             platform_database, credential, "newsloom", "postgres"
@@ -121,7 +123,12 @@ async def test_migration_replay_and_vector_contract(platform_database: RuntimeCo
                     "AND table_schema NOT IN ('pg_catalog', 'information_schema')"
                 )
             ).fetchall()
-            assert rows == [("newsloom_admin", "schema_migrations")]
+            assert set(rows) == {
+                ("newsloom_admin", "schema_migrations"),
+                ("public", "feed_sources"),
+                ("public", "ingestion_queue"),
+                ("public", "quarantine"),
+            }
 
 
 async def test_concurrent_migrations_serialize(platform_database: RuntimeConfig) -> None:
@@ -130,7 +137,7 @@ async def test_concurrent_migrations_serialize(platform_database: RuntimeConfig)
             database.migrate(platform_database, credential),
             database.migrate(platform_database, credential),
         )
-    assert sorted(outcomes) == [0, 2]
+    assert sorted(outcomes) == [0, 3]
 
 
 async def test_failed_sql_phase_rolls_back(
@@ -159,7 +166,42 @@ async def test_failed_sql_phase_rolls_back(
             ).fetchone()
             assert row == (0,)
         monkeypatch.setattr(database, "record", original)
+        assert await database.migrate(platform_database, credential) == 2
+
+
+async def test_ingestion_migration_rolls_back_atomically_and_replays(
+    platform_database: RuntimeConfig, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    original = database.migration_sql
+
+    def interrupted(name: str) -> str:
+        sql = original(name)
+        return sql + "\nSELECT 1 / 0;" if name == "002_ingestion.sql" else sql
+
+    monkeypatch.setattr(database, "migration_sql", interrupted)
+    async with ManagedIdentityCredential() as credential:
+        with pytest.raises(psycopg.errors.DivisionByZero):
+            await database.migrate(platform_database, credential)
+        async with await database.connect(
+            platform_database, credential, "newsloom", "postgres"
+        ) as connection:
+            assert (
+                await (
+                    await connection.execute(
+                        "SELECT tablename FROM pg_tables WHERE schemaname='public'"
+                    )
+                ).fetchall()
+                == []
+            )
+            assert await (
+                await connection.execute(
+                    "SELECT count(*) FROM newsloom_admin.schema_migrations "
+                    "WHERE version='002_ingestion'"
+                )
+            ).fetchone() == (0,)
+        monkeypatch.setattr(database, "migration_sql", original)
         assert await database.migrate(platform_database, credential) == 1
+        assert await database.migrate(platform_database, credential) == 0
 
 
 async def test_mismatched_principal_fails_without_remapping(

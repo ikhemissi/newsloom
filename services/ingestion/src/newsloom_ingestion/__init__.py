@@ -1,1 +1,1 @@
-"""Ingestion package boundary; no feed retrieval runs during bootstrap."""
+"""Bounded RSS/Atom ingestion with real screening and durable PostgreSQL state."""

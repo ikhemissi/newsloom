@@ -26,6 +26,16 @@ infra:
           run: uv run --locked newsloom-platform execute
           interactive: false
           continueOnError: false
+    - name: ingestion
+      path: infra/ingestion
+      dependsOn:
+        - migrations
+      hooks:
+        preprovision:
+          shell: sh
+          run: uv run --locked newsloom-platform build-ingestion
+          interactive: false
+          continueOnError: false
 hooks:
   preprovision:
     shell: sh

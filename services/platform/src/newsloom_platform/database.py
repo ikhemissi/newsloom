@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import re
 from importlib.resources import files
 
 from azure.core.credentials_async import AsyncTokenCredential
@@ -122,12 +123,91 @@ async def migrate(config: RuntimeConfig, credential: AsyncTokenCredential) -> in
         async with await connect(
             config, credential, config.postgres_database, config.postgres_admin_name
         ) as application:
-            sql = migration_sql("001_vector.sql")
-            checksum = hashlib.sha256(sql.encode()).hexdigest()
-            async with application.transaction():
-                if not await is_applied(application, "001_vector", checksum):
-                    await application.execute(sql)
-                    await record(application, "001_vector", checksum)
-                    applied += 1
+            for version in ("001_vector", "002_ingestion"):
+                sql = migration_sql(f"{version}.sql")
+                checksum = hashlib.sha256(sql.encode()).hexdigest()
+                async with application.transaction():
+                    if not await is_applied(application, version, checksum):
+                        await application.execute(sql)
+                        await record(application, version, checksum)
+                        applied += 1
         await admin.execute("SELECT pg_advisory_unlock(%s)", (ADVISORY_LOCK,))
     return applied
+
+
+async def ingestion_status(
+    config: RuntimeConfig, credential: AsyncTokenCredential
+) -> dict[str, int]:
+    queries = {
+        "sources": "SELECT count(*) FROM feed_sources",
+        "found": "SELECT coalesce(sum((counts->>'found')::int), 0) FROM feed_sources",
+        "failed_sources": "SELECT count(*) FROM feed_sources "
+        "WHERE outcome NOT IN ('fetched','empty','not_modified')",
+        "fetched_sources": "SELECT count(*) FROM feed_sources WHERE outcome='fetched'",
+        "not_modified_sources": "SELECT count(*) FROM feed_sources WHERE outcome='not_modified'",
+        "pending": "SELECT count(*) FROM ingestion_queue",
+        "screened_pending": "SELECT count(*) FROM ingestion_queue WHERE score<=threshold "
+        "AND model='Microsoft-Decision-1' AND model_version='1'",
+        "rejected": "SELECT count(*) FROM quarantine WHERE disposition='rejected'",
+        "deferred": "SELECT count(*) FROM quarantine WHERE disposition='deferred'",
+        "resolved": "SELECT count(*) FROM quarantine WHERE disposition='resolved'",
+        "duplicate_urls": "WITH active AS (SELECT canonical_url FROM ingestion_queue UNION ALL "
+        "SELECT canonical_url FROM quarantine WHERE disposition<>'resolved') "
+        "SELECT count(*) FROM (SELECT canonical_url FROM active "
+        "GROUP BY canonical_url HAVING count(*)>1) duplicates",
+        "duplicate_guids": "WITH active AS (SELECT source,guid FROM ingestion_queue UNION ALL "
+        "SELECT source,guid FROM quarantine WHERE disposition<>'resolved') "
+        "SELECT count(*) FROM (SELECT source,guid FROM active WHERE guid IS NOT NULL "
+        "GROUP BY source,guid HAVING count(*)>1) duplicates",
+    }
+    result: dict[str, int] = {}
+    async with (
+        await connect(
+            config, credential, config.postgres_database, config.postgres_admin_name
+        ) as connection,
+        connection.transaction(),
+    ):
+        await connection.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
+        await connection.execute("SET LOCAL statement_timeout='15s'")
+        for key, sql in queries.items():
+            row = await (await connection.execute(sql)).fetchone()
+            if row is None or not isinstance(row[0], int):
+                raise PlatformFailure("invalid_ingestion_readback")
+            result[key] = row[0]
+    return result
+
+
+async def ingestion_sources(
+    config: RuntimeConfig, credential: AsyncTokenCredential
+) -> list[tuple[str, str, int, int, int, int]]:
+    result: list[tuple[str, str, int, int, int, int]] = []
+    async with (
+        await connect(
+            config, credential, config.postgres_database, config.postgres_admin_name
+        ) as connection,
+        connection.transaction(),
+    ):
+        await connection.execute("SET TRANSACTION READ ONLY")
+        await connection.execute("SET LOCAL statement_timeout='15s'")
+        rows = await (
+            await connection.execute(
+                "SELECT id,coalesce(outcome,'not_checked'),"
+                "coalesce((counts->>'found')::int,0),coalesce((counts->>'filtered')::int,0),"
+                "coalesce((counts->>'duplicates')::int,0),coalesce((counts->>'staged')::int,0) "
+                "FROM feed_sources ORDER BY id"
+            )
+        ).fetchall()
+        for source, outcome, found, filtered, duplicates, staged in rows:
+            if (
+                not isinstance(source, str)
+                or not re.fullmatch(r"[a-z0-9-]+", source)
+                or not isinstance(outcome, str)
+                or not re.fullmatch(r"[A-Za-z0-9_]+", outcome)
+                or not isinstance(found, int)
+                or not isinstance(filtered, int)
+                or not isinstance(duplicates, int)
+                or not isinstance(staged, int)
+            ):
+                raise PlatformFailure("invalid_source_readback")
+            result.append((source, outcome, found, filtered, duplicates, staged))
+    return result

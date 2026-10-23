@@ -102,6 +102,16 @@ async def database_boundary(
         ):
             raise PlatformFailure("database_readiness_or_privilege")
         if workload != "migrations":
+            row = await (
+                await connection.execute(
+                    "SELECT has_table_privilege(current_user,'ingestion_queue','INSERT'), "
+                    "has_table_privilege(current_user,'quarantine','SELECT'), "
+                    "has_table_privilege(current_user,'quarantine','DELETE')"
+                )
+            ).fetchone()
+            expected = workload == "ingestion"
+            if row != (expected, expected, False):
+                raise PlatformFailure("ingestion_table_grants")
             try:
                 async with connection.transaction():
                     await connection.execute(

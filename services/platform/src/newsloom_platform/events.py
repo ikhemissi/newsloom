@@ -12,6 +12,8 @@ def event(
     checks: int = 0,
     category: str = "",
     workload: str = "",
+    counts: dict[str, int] | None = None,
+    source: str = "",
 ) -> None:
     print(
         json.dumps(
@@ -22,6 +24,8 @@ def event(
                 "checks": checks,
                 "category": category,
                 "workload": workload,
+                **({"counts": counts} if counts is not None else {}),
+                **({"source": source} if source else {}),
             }
         ),
         flush=True,

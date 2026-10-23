@@ -2,9 +2,9 @@
 
 Curated AI news for MCP clients, research agents, and people.
 
-**Status: shared Azure foundation implemented and verified.**
-- Available: Python workspace, 42-feed catalogue, local/CI checks, azd-managed Azure infrastructure, and managed-identity database migrations.
-- Planned: scheduled ingestion/enrichment, the MCP HTTP service, research agent, and browser UI. The foundation does not complete PRD-1.
+**Status: shared Azure foundation and real feed ingestion implemented.**
+- Available: Python workspace, 42-feed catalogue, local/CI checks, azd-managed Azure infrastructure, managed-identity migrations, and RSS/Atom ingestion with real Decision-model screening and durable queue/quarantine storage.
+- Planned: enrichment, the MCP HTTP service, research agent, and browser UI. Ingestion does not complete PRD-1; see its [acceptance progress](openspec/changes/feed-ingestion/tasks.md).
 
 ## Planned architecture
 
@@ -79,9 +79,12 @@ azd env select dev
 azd up
 ```
 
-The foundation includes verified migration and identity/model/telemetry checks,
-not scheduled ingestion/enrichment or an MCP HTTP service.
-The bootstrap, application, and migrations layers run in order in the same environment.
+The foundation includes verified migration and identity/model/telemetry checks.
+The real ingestion job adds screened pending work, not summaries or an MCP HTTP
+service. Follow the [ingestion runbook](docs/ingestion.md) for calibration,
+immediate execution, independent database readback, and schedule enablement.
+The bootstrap, application, migrations, and ingestion layers run in that order
+in the same environment.
 
 ## Useful commands
 
@@ -90,6 +93,8 @@ The bootstrap, application, and migrations layers run in order in the same envir
 | All local checks | `bash scripts/check.sh` |
 | Python tests | `uv run pytest` |
 | Validate feed configuration | `uv run newsloom-validate-feeds config/feeds.json` |
+| Start Azure ingestion immediately | `uv run --locked newsloom-platform execute-ingestion` |
+| Read actual ingestion database counts | `uv run --locked newsloom-platform read-ingestion` |
 | List OpenSpec changes | `npm run spec:list` |
 
 ## Delivery workflow
@@ -119,4 +124,5 @@ Delivered platform contracts are maintained in the
 | Phase 3: Browser UI | [PRD](docs/prd-3.md) / [Capabilities](docs/prd-3-capabilities.md) |
 | Architecture and operations | [ADRs](docs/adrs.md) / [Platform notes](docs/platform-notes.md) |
 | Azure platform deployment | [Platform runbook](docs/azure-platform.md) |
+| Feed ingestion and real screening | [Ingestion runbook](docs/ingestion.md) |
 | AI contributor instructions | [AGENTS.md](AGENTS.md) |

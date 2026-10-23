@@ -15,7 +15,7 @@ from azure.identity.aio import ManagedIdentityCredential
 from pydantic import ValidationError
 
 from newsloom_platform.config import PlatformFailure, RuntimeConfig
-from newsloom_platform.database import migrate
+from newsloom_platform.database import ingestion_sources, ingestion_status, migrate
 from newsloom_platform.events import configure_logging, event
 
 
@@ -34,6 +34,24 @@ async def runtime(command: str, workload: str, correlation: str) -> None:
         if command == "migrate":
             applied = await migrate(config, credential)
             event("migrations", "success", correlation, checks=applied)
+        elif command == "ingestion-status":
+            counts = await ingestion_status(config, credential)
+            event("ingestion_readback", "success", correlation, counts=counts)
+            for source, outcome, found, filtered, duplicates, staged in await ingestion_sources(
+                config, credential
+            ):
+                event(
+                    "ingestion_source_readback",
+                    outcome,
+                    correlation,
+                    source=source,
+                    counts={
+                        "found": found,
+                        "filtered": filtered,
+                        "duplicates": duplicates,
+                        "staged": staged,
+                    },
+                )
         else:
             from newsloom_platform.probe import probe
 
@@ -47,22 +65,42 @@ def main() -> None:
     try:
         correlation = UUID(os.environ.get("PLATFORM_PROBE_RUN_ID", correlation)).hex
         parser = Parser(description=__doc__)
-        parser.add_argument("command", choices=["migrate", "probe", "build", "execute", "verify"])
+        parser.add_argument(
+            "command",
+            choices=[
+                "migrate",
+                "probe",
+                "build",
+                "execute",
+                "verify",
+                "ingestion-status",
+                "build-ingestion",
+                "execute-ingestion",
+                "calibrate-ingestion",
+                "read-ingestion",
+            ],
+        )
+        parser.add_argument("--force", action="store_true")
         parser.add_argument(
             "workload", nargs="?", choices=["ingestion", "enrichment", "mcp", "migrations"]
         )
         args = parser.parse_args()
+        if args.force and args.command != "execute-ingestion":
+            raise PlatformFailure("force_requires_ingestion_execution")
         if args.command != "probe" and args.workload is not None:
             raise PlatformFailure("unexpected_workload_argument")
-        if args.command in ["migrate", "probe"]:
-            workload = "migrations" if args.command == "migrate" else args.workload
+        if args.command in ["migrate", "probe", "ingestion-status"]:
+            workload = args.workload if args.command == "probe" else "migrations"
             if workload is None:
                 raise PlatformFailure("workload_required")
             asyncio.run(runtime(args.command, workload, correlation))
         else:
             from newsloom_platform.control import control
 
-            control(args.command, correlation)
+            if args.force:
+                control(args.command, correlation, force=True)
+            else:
+                control(args.command, correlation)
     except (
         PlatformFailure,
         ValidationError,

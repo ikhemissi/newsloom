@@ -6,6 +6,8 @@
 !packages/**
 !services/
 !services/**
+!config/
+!config/feeds.json
 **/.env*
 **/.venv/
 **/__pycache__/
