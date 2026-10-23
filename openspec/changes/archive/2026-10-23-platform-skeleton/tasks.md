@@ -194,5 +194,17 @@
   strict typing, identifiers, catalogue, Terraform validation, and strict
   OpenSpec checks also passed.
 - All **17/17 tracked tasks** are complete. This evidence is persisted separately
-  from the verified implementation commit; the change remains active and is not
-  archived. Business runtimes and PRD-1 phase acceptance remain pending.
+  from the verified implementation commit. Business runtimes and PRD-1 phase
+  acceptance remain pending.
+
+### Archive - 2026-10-23
+
+- Acceptance-evidence commit
+  [`f80cf4f3967a2910366f163b46a0759c43f549bf`](https://github.com/ikhemissi/newsloom/commit/f80cf4f3967a2910366f163b46a0759c43f549bf)
+  also passed [exact-commit CI](https://github.com/ikhemissi/newsloom/actions/runs/39855352142),
+  including all 90 Python tests and nine mocked Terraform tests.
+- With user approval, published all three delivered capabilities into main specs,
+  verified that their Purpose, requirements, and scenarios match the accepted
+  deltas, and passed strict validation of all four main specs before archiving.
+- Archived this change with all artifacts and **17/17 tasks complete**. Updated
+  canonical documentation links; no Azure resource or deployment state changed.

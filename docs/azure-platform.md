@@ -2,7 +2,7 @@
 
 The shared foundation is provisioned, with database, model, identity, and
 telemetry checks verified in Azure. See the
-[acceptance evidence](../openspec/changes/platform-skeleton/tasks.md#acceptance-evidence)
+[acceptance evidence](../openspec/changes/archive/2026-10-23-platform-skeleton/tasks.md#acceptance-evidence)
 for deployment, convergence, and CI results. Follow the
 [state runbook](azure-bootstrap.md) first. Reuse `dev` and its existing state:
 never recover a failed deployment with `azd down`.
@@ -61,8 +61,8 @@ The reviewed incremental fixed-cost estimate is about **USD 23.20/month** for
 730 hours of B1MS, 32 GiB storage, and ACR Basic, before tax/discounts. Consumption
 jobs, image builds, model tokens, logs, transfer, and excess storage add usage
 charges. A daily log cap may interrupt diagnostics and is not a hard budget.
-See the [change evidence](../openspec/changes/platform-skeleton/tasks.md#acceptance-evidence)
-for the dated API readings and outstanding acceptance checks.
+See the [change evidence](../openspec/changes/archive/2026-10-23-platform-skeleton/tasks.md#acceptance-evidence)
+for the dated API readings and completed acceptance checks.
 
 ## Outputs and workload boundaries
 

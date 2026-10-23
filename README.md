@@ -104,7 +104,11 @@ flowchart LR
 
 See the [development guide](docs/development.md) for workflow details,
 [bootstrap acceptance](openspec/changes/archive/2026-10-22-bootstrap/tasks.md) for state setup,
-and [platform evidence](openspec/changes/platform-skeleton/tasks.md#acceptance-evidence) for Azure checks.
+and [platform evidence](openspec/changes/archive/2026-10-23-platform-skeleton/tasks.md#acceptance-evidence) for Azure checks.
+Delivered platform contracts are maintained in the
+[platform](openspec/specs/persistent-azure-platform/spec.md),
+[workload access](openspec/specs/workload-access/spec.md), and
+[telemetry](openspec/specs/safe-telemetry/spec.md) main specs.
 
 ## Documentation
 

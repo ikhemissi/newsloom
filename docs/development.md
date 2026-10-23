@@ -8,7 +8,8 @@
 | Future product behavior, user stories, and acceptance criteria | [Phase 1 capabilities](prd-1-capabilities.md), [Phase 2 capabilities](prd-2-capabilities.md), [Phase 3 capabilities](prd-3-capabilities.md) |
 | Architectural choices and rationale | [ADRs](adrs.md) |
 | Repository guarantees and bootstrap acceptance | [OpenSpec repository foundation](../openspec/specs/repository-foundation/spec.md) |
-| Commands and operational procedures | This guide and the [Azure bootstrap runbook](azure-bootstrap.md) |
+| Delivered Azure platform contracts | [Persistent platform](../openspec/specs/persistent-azure-platform/spec.md), [workload access](../openspec/specs/workload-access/spec.md), [safe telemetry](../openspec/specs/safe-telemetry/spec.md) |
+| Commands and operational procedures | This guide, the [Azure bootstrap runbook](azure-bootstrap.md), and the [platform runbook](azure-platform.md) |
 | Capacity warnings and real-world input lessons | [Platform notes](platform-notes.md) |
 | AI contributor working instructions | [AGENTS.md](../AGENTS.md) |
 

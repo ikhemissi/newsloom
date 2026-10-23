@@ -4,17 +4,15 @@ These notes retain infrastructure and operational details that complement
 [PRD-1](prd-1.md), its [capabilities and user stories](prd-1-capabilities.md),
 and [the ADRs](adrs.md). They are not a second product specification.
 
-## Platform-skeleton resource checklist
+## Delivered platform foundation
 
-The `platform-skeleton` slice (Step 1.1) must explicitly provision:
-
-- The application resource group, separate from the persistent state-bootstrap group.
-- A container registry for the platform's images.
-- An Azure Container Apps environment for the apps and jobs.
-
-The remaining platform requirements and deployment acceptance are defined in
-[P1-C09](prd-1-capabilities.md#p1-c09-independently-deployable-persistent-azure-platform)
-and the related capabilities.
+The `platform-skeleton` slice (Step 1.1) is
+[verified and archived](../openspec/changes/archive/2026-10-23-platform-skeleton/tasks.md#acceptance-evidence).
+Its delivered resource contract is the
+[persistent-platform main spec](../openspec/specs/persistent-azure-platform/spec.md);
+deployment and preservation procedures live in the [platform runbook](azure-platform.md).
+Future runtime requirements remain in
+[P1-C09](prd-1-capabilities.md#p1-c09-independently-deployable-persistent-azure-platform).
 
 ## PostgreSQL capacity and server stability
 

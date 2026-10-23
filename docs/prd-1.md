@@ -1,7 +1,10 @@
 # PRD-1: MCP news platform
 
-Status: planned. Prerequisite:
+Status: in progress. Prerequisite:
 [bootstrap acceptance](../openspec/changes/archive/2026-10-22-bootstrap/tasks.md) is complete.
+Step 1.1 is complete and
+[verified](../openspec/changes/archive/2026-10-23-platform-skeleton/tasks.md#acceptance-evidence).
+Steps 1.2-1.6 and phase acceptance remain pending.
 
 This document owns phase sequencing and capability-to-slice assignments.
 [Capabilities](prd-1-capabilities.md) own behavior, user stories, acceptance
