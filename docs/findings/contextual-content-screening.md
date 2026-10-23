@@ -257,6 +257,20 @@ independently observed for both live runs. Console evidence required waiting for
 Log Analytics ingestion; neither comparison nor ingestion waited for the
 30-minute schedule.
 
+## Delivery verification
+
+Implementation commit `cafff0adb41e729b973fbf7d5882e85efeb50027` was committed
+after local and Azure verification. Its
+[exact-commit CI](https://github.com/ikhemissi/newsloom/actions/runs/39997178176)
+completed successfully.
+
+The native azd provisioning step refreshed its local ingestion provider selection
+to AzureRM 5.11 under the existing `~> 5.10` constraint. This incidental dependency
+upgrade was not retained in source control: the original 5.10 lock was restored,
+and initialization with the read-only lock, validation, and all six ingestion
+Terraform tests passed again. No provider constraint or other infrastructure
+dependency was changed by this slice.
+
 ## Remaining considerations
 
 The two residual potential false positives remain documented rather than hidden

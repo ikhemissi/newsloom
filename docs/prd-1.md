@@ -10,7 +10,7 @@ The [ingestion robustness follow-up](../openspec/changes/resilient-feed-ingestio
 adds item isolation, bounded article recovery and per-feed statistics without
 advancing enrichment or changing scanner policy.
 The [contextual screening follow-up](../openspec/changes/contextual-content-screening/tasks.md)
-is activated with local and Azure acceptance recorded; exact-commit CI is pending.
+is verified locally, in Azure, and by exact-commit CI.
 [findings](findings/contextual-content-screening.md) separate historical
 quarantine decisions from newly measured results.
 Steps 1.4-1.6 and phase acceptance remain pending.

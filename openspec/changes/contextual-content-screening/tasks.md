@@ -33,8 +33,8 @@ group 5 is blocked until all group 4 checks and measured evaluation pass.
 
 - [x] 5.1 After local acceptance, preserve rollback values, set only the measured threshold/binding in the existing ignored azd environment, and review the native preview before deployment. Verify only expected in-place image/configuration updates, with no resource replacement, schedule/identity/permission changes, or state recreation.
 - [x] 5.2 Deploy through the existing azd flow and invoke ordinary ingestion immediately, without waiting for the schedule. Verify operator readback and safe telemetry for dispositions/counters, deduplication on replay, and operational failure behavior; retain local database-test evidence that existing rejected rows cannot be reconsidered and distinguish it from aggregate Azure evidence. Roll back the matched image/calibration if verification fails.
-- [ ] 5.3 After local and Azure verification, commit and push the implementation with the required trailer and verify CI for that exact commit. Record the commit and actual workflow outcome, not a previous run or an uncommitted local result.
-- [ ] 5.4 Update owning runbook/phase status and this change's acceptance evidence with measured local/Azure/CI results, limitations, and unchanged quarantine behavior. Verify documentation links, safe committed content, and exact-commit CI for any separate evidence commit; leave any unverified task unchecked.
+- [x] 5.3 After local and Azure verification, commit and push the implementation with the required trailer and verify CI for that exact commit. Record the commit and actual workflow outcome, not a previous run or an uncommitted local result.
+- [x] 5.4 Update owning runbook/phase status and this change's acceptance evidence with measured local/Azure/CI results, limitations, and unchanged quarantine behavior. Verify documentation links, safe committed content, and exact-commit CI for any separate evidence commit; leave any unverified task unchecked.
 
 ## Acceptance evidence
 
@@ -79,5 +79,13 @@ group 5 is blocked until all group 4 checks and measured evaluation pass.
   23 rejected, 0 deferred, 0 duplicate URLs/GUIDs. Existing rejected rows were
   not released; aggregate counts do not establish historical per-row byte
   equality. Authenticated metrics and traces were observed for both runs.
-- Implementation commit/push and exact-commit CI remain pending. No archival
-  has been performed.
+- Implementation `cafff0adb41e729b973fbf7d5882e85efeb50027` was committed and
+  pushed after local/Azure verification. Its
+  [exact-commit CI](https://github.com/ikhemissi/newsloom/actions/runs/39997178176)
+  completed successfully.
+- azd's native initialization refreshed its local ingestion provider to AzureRM
+  5.11 under the existing constraint. The incidental upgrade was not retained:
+  the original 5.10 lock was restored and read-only initialization, validation,
+  and all six ingestion Terraform tests passed again. No provider constraint
+  or dependency change is included.
+- No archival has been performed.
