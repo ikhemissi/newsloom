@@ -68,7 +68,7 @@ Artifact validation is not runtime acceptance. Follow the [design](design.md) an
 
 ## 6. Persistent delivery evidence
 
-- [ ] 6.1 After local and Azure acceptance, commit and push the verified changes,
+- [x] 6.1 After local and Azure acceptance, commit and push the verified changes,
   verify CI for the exact implementation SHA and persist observed acceptance
   evidence without amending that verified commit. Verify the final pushed HEAD's
   CI too; leave any unverified acceptance task unchecked.
@@ -135,3 +135,10 @@ Artifact validation is not runtime acceptance. Follow the [design](design.md) an
 - Forced-run metrics and its ingestion span were present. After normal log
   ingestion delay, Log Analytics contained all 41 forced feed summaries and zero
   content/credential canary leaks.
+- Implementation commit `04e0fa87f9a84856da005a4d5620faf8d7b37aab` was pushed
+  only after local and Azure acceptance.
+  [Exact-commit CI](https://github.com/ikhemissi/newsloom/actions/runs/39971857277)
+  succeeded with 199 Python tests, one opt-in live test skipped, all 13 Terraform
+  tests and the remaining primary gates. This evidence update does not amend
+  the verified implementation commit; its final pushed HEAD is checked separately
+  before handoff.
