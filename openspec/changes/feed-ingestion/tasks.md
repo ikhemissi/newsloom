@@ -35,7 +35,7 @@
 
 ## 7. Commit and exact-commit CI
 
-- [ ] 7.1 Commit verified implementation only after local and actual Azure checks pass, push, and verify CI on that exact full SHA; record the commit/run, preserve failed or unverified gates as unchecked, and persist acceptance evidence separately without amending a CI-verified commit.
+- [x] 7.1 Commit verified implementation only after local and actual Azure checks pass, push, and verify CI on that exact full SHA; record the commit/run, preserve failed or unverified gates as unchecked, and persist acceptance evidence separately without amending a CI-verified commit.
 
 ## Workflow follow-up
 
@@ -46,9 +46,9 @@
 
 ## Acceptance evidence
 
-Local and Azure acceptance passed as of 2026-10-23.
+Local, Azure, and exact-implementation-commit CI acceptance passed as of 2026-10-23.
 The observations below distinguish local fixtures from actual cloud evidence;
-the exact-commit CI delivery gate remains pending.
+completion evidence is persisted separately without amending the verified implementation.
 
 - `bash scripts/check.sh` passed with disposable PostgreSQL 18/pgvector:
   152 Python tests passed, the opt-in publisher smoke was skipped as intended,
@@ -177,6 +177,17 @@ the exact-commit CI delivery gate remains pending.
   55.028-second duration; all 44 structured console records remain allowlisted
   and content/credential-free. These are pending enrichment entries, not
   generated summaries, embeddings, published news, or an MCP service.
+- Verified implementation commit:
+  `eed2169431bf20ee14b261c92ee2effdfae8d41b`, committed/pushed only after local
+  and real Azure acceptance. Its exact-SHA
+  [CI run](https://github.com/ikhemissi/newsloom/actions/runs/39932983680)
+  completed successfully: 163 Python tests passed with only the opt-in live test
+  skipped, strict lint/format/mypy/catalogue/identifier/spec checks passed, and
+  all 13 Terraform tests passed. The committed image inputs still match the
+  source hash used for the deployed immutable images. This evidence and phase
+  status update are a separate documentation commit; the verified implementation
+  is not amended. The change remains available for review/archive, and enrichment
+  is the next delivery slice.
 
 Confirmed scope: ingestion and real content screening together; local live smoke
 test limited to one RSS and one Atom source; immediate manual full-catalogue Azure
