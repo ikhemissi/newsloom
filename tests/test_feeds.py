@@ -25,8 +25,10 @@ def feed(**overrides: object) -> dict[str, object]:
 
 def test_initial_catalogue() -> None:
     sources = load_feed_catalogue(ROOT / "config" / "feeds.json")
-    assert len(sources) == 42
-    assert len({source.id for source in sources}) == 42
+    assert len(sources) == 41
+    assert len({source.id for source in sources}) == 41
+    assert "solo-io-blog" not in {source.id for source in sources}
+    assert sum(source.id == "agentgateway-blog" for source in sources) == 1
     assert sum(source.kind == "atom" for source in sources) == 2
     filtered = {source.id: source.include_categories for source in sources}
     assert filtered["azure-updates"] == (
@@ -111,4 +113,4 @@ def test_malformed_json(tmp_path: Path) -> None:
 def test_cli(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     monkeypatch.setattr("sys.argv", ["newsloom-validate-feeds", str(ROOT / "config/feeds.json")])
     main()
-    assert "Validated 42 feed sources" in capsys.readouterr().out
+    assert "Validated 41 feed sources" in capsys.readouterr().out

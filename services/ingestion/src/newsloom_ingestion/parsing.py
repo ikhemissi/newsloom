@@ -1,4 +1,4 @@
-"""RSS/Atom normalization without external entity or article-page retrieval."""
+"""Document safety and item-isolated RSS/Atom field normalization."""
 
 import re
 from datetime import UTC, datetime
@@ -10,8 +10,15 @@ from xml.etree import ElementTree as ET
 from xml.parsers import expat
 
 from newsloom_core.feeds import FeedSource
+from pydantic import ValidationError
 
-from newsloom_ingestion.models import DEFAULT_LIMITS, Entry, IngestionFailure, Limits
+from newsloom_ingestion.models import (
+    DEFAULT_LIMITS,
+    Candidate,
+    IngestionFailure,
+    Limits,
+    ParsedFeed,
+)
 
 XML_BASE = "{http://www.w3.org/XML/1998/namespace}base"
 
@@ -42,6 +49,7 @@ class PlainText(HTMLParser):
 def plain(value: str, limit: int) -> str:
     parser = PlainText()
     parser.feed(value)
+    parser.close()
     return (
         re.sub(r"\s+", " ", "".join(parser.parts))
         .strip()
@@ -102,7 +110,7 @@ def forbid_declaration(*args: object) -> Never:
 
 def parse(
     source: FeedSource, body: bytes, url: str, fetched_at: datetime, limits: Limits = DEFAULT_LIMITS
-) -> tuple[tuple[Entry, ...], int]:
+) -> ParsedFeed:
     if len(body) > limits.body_bytes:
         raise IngestionFailure("body_limit")
     try:
@@ -123,55 +131,63 @@ def parse(
     nodes = children(container, "entry" if source.kind == "atom" else "item")
     if len(nodes) > limits.entries:
         raise IngestionFailure("entry_limit")
-    entries: list[Entry] = []
+    entries: list[Candidate] = []
+    malformed: list[str] = []
     for node in nodes:
-        entry_base = urljoin(base, node.get(XML_BASE, ""))
-        links = children(node, "link")
-        link = next(
+        try:
+            entries.append(candidate(source, node, base, fetched_at, limits))
+        except IngestionFailure as error:
+            malformed.append(str(error))
+        except ValidationError, ValueError, OverflowError:
+            malformed.append("invalid_entry_fields")
+    return ParsedFeed(tuple(entries), tuple(malformed), len(nodes))
+
+
+def candidate(
+    source: FeedSource, node: ET.Element, base: str, fetched_at: datetime, limits: Limits
+) -> Candidate:
+    entry_base = urljoin(base, node.get(XML_BASE, ""))
+    link = next(
+        (
+            urljoin(urljoin(entry_base, item.get(XML_BASE, "")), item.get("href", ""))
+            for item in children(node, "link")
+            if item.get("href") and item.get("rel", "alternate") == "alternate"
+        ),
+        value(node, "link"),
+    )
+    guid = value(node, "id", "guid") or None
+    if not link:
+        link = guid or ""
+    if not link:
+        raise IngestionFailure("missing_entry_url")
+    published = value(node, "published", "pubDate", "date")
+    updated = value(node, "updated")
+    return Candidate(
+        source=source.id,
+        guid=guid,
+        url=canonical_url(link, entry_base),
+        title=plain(value(node, "title"), 2048),
+        text=next(
             (
-                urljoin(urljoin(entry_base, item.get(XML_BASE, "")), item.get("href", ""))
-                for item in links
-                if item.get("href") and item.get("rel", "alternate") == "alternate"
+                text
+                for name in ("encoded", "content", "description", "summary")
+                if (text := plain(value(node, name), limits.text_bytes))
             ),
-            value(node, "link"),
-        )
-        guid = value(node, "id", "guid") or None
-        if not link:
-            link = guid or ""
-        if not link:
-            raise IngestionFailure("missing_entry_url")
-        published = value(node, "published", "pubDate", "date")
-        updated = value(node, "updated")
-        categories = tuple(
+            "",
+        ),
+        published_at=timestamp(published or updated) if published or updated else fetched_at,
+        date_origin="published" if published else "updated" if updated else "retrieved",
+        author=plain(value(node, "author", "creator"), 2048),
+        categories=tuple(
             term.strip()
             for item in children(node, "category")
             for term in (item.get("term") or "".join(item.itertext())).split(",")
             if term.strip()
-        )
-        title = plain(value(node, "title"), 2048)
-        if not title:
-            raise IngestionFailure("missing_entry_title")
-        entries.append(
-            Entry(
-                source=source.id,
-                guid=guid,
-                url=canonical_url(link, entry_base),
-                title=title,
-                text=plain(
-                    value(node, "encoded", "content", "description", "summary"), limits.text_bytes
-                ),
-                published_at=timestamp(published or updated)
-                if published or updated
-                else fetched_at,
-                date_origin="published" if published else "updated" if updated else "retrieved",
-                author=plain(value(node, "author", "creator"), 2048),
-                categories=categories,
-            )
-        )
-    return tuple(entries), len(nodes)
+        ),
+    )
 
 
-def included(source: FeedSource, entry: Entry) -> bool:
+def included(source: FeedSource, entry: Candidate) -> bool:
     if source.include_categories is None:
         return True
     allowed = {term.strip().casefold() for term in source.include_categories}

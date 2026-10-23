@@ -37,9 +37,9 @@ def rss(text: str = "News text", *, category: str = "AI, Research") -> bytes:
 
 def test_rss_metadata_and_category_matching() -> None:
     config = source().model_copy(update={"include_categories": ("ai",)})
-    entries, count = parse(config, rss(), str(config.url), NOW)
-    assert count == 1
-    entry = entries[0]
+    parsed = parse(config, rss(), str(config.url), NOW)
+    assert parsed.found == 1 and not parsed.malformed
+    entry = parsed.candidates[0]
     assert entry.url == "https://example.com/article#part"
     assert entry.guid == "entry-one"
     assert entry.published_at == datetime(2026, 10, 22, 9, tzinfo=UTC)
@@ -54,7 +54,7 @@ def test_atom_namespace_base_xhtml_and_date_fallback() -> None:
       <link href="item"/><updated>2026-10-22T09:00:00Z</updated>
       <content type="xhtml"><div xmlns="http://www.w3.org/1999/xhtml">
       <p>First</p><p>Second</p></div></content></entry></feed>"""
-    entries, _ = parse(source("atom"), body, "https://example.com/feed", NOW)
+    entries = parse(source("atom"), body, "https://example.com/feed", NOW).candidates
     assert entries[0].url == "https://example.com/base/nested/item"
     assert entries[0].text == "First Second"
     assert entries[0].date_origin == "updated"
@@ -78,7 +78,7 @@ def test_hostile_or_wrong_documents_fail(body: bytes) -> None:
 def test_large_fulltext_and_exact_body_entry_text_limits() -> None:
     body = rss("synthetic full text " * 225000)
     assert len(body) >= 4_000_000
-    entries, _ = parse(source(), body, "https://example.com/feed", NOW)
+    entries = parse(source(), body, "https://example.com/feed", NOW).candidates
     assert len(entries[0].text.encode()) == 32768
     parse(source(), body, "https://example.com/feed", NOW, Limits(body_bytes=len(body)))
     with pytest.raises(IngestionFailure, match="body_limit"):
@@ -93,7 +93,8 @@ def test_large_fulltext_and_exact_body_entry_text_limits() -> None:
 
 
 def test_empty_feed_and_html_and_canonicalization() -> None:
-    assert parse(source(), b"<rss><channel/></rss>", "https://example.com/feed", NOW) == ((), 0)
+    parsed = parse(source(), b"<rss><channel/></rss>", "https://example.com/feed", NOW)
+    assert not parsed.candidates and not parsed.malformed and parsed.found == 0
     assert plain("<script>hidden</script><p>Hello &amp; world</p>", 100) == "Hello & world"
     assert (
         canonical_url("https://EXAMPLE.com:443/item?q=1#x", "") == "https://example.com/item?q=1#x"
@@ -107,12 +108,52 @@ def test_distinct_anchored_atom_releases_preserve_identity() -> None:
     <entry><id>one</id><title>Release one</title><link href="/releases#one"/></entry>
     <entry><id>two</id><title>Release two</title><link href="/releases#two"/></entry>
     </feed>"""
-    entries, count = parse(source("atom"), body, "https://example.com/feed", NOW)
-    assert count == 2
-    assert {entry.url for entry in entries} == {
+    parsed = parse(source("atom"), body, "https://example.com/feed", NOW)
+    assert parsed.found == 2
+    assert {entry.url for entry in parsed.candidates} == {
         "https://example.com/releases#one",
         "https://example.com/releases#two",
     }
+
+
+def test_normalizer_flushes_final_ampersand_in_title_and_body() -> None:
+    assert plain("Research R&D", 2048) == "Research R&D"
+    parsed = parse(
+        source(),
+        rss("Research R&amp;D").replace(b"News title", b"Research R&amp;D"),
+        str(source().url),
+        NOW,
+    )
+    assert parsed.candidates[0].title == parsed.candidates[0].text == "Research R&D"
+
+
+def test_usable_feed_summary_precedes_article_recovery() -> None:
+    body = rss("Summary").replace(
+        b"<description>", b"<content>&lt;p&gt;&lt;/p&gt;</content><description>"
+    )
+    assert parse(source(), body, str(source().url), NOW).candidates[0].text == "Summary"
+
+
+@pytest.mark.parametrize("kind", ["rss", "atom"])
+def test_malformed_items_do_not_discard_siblings(kind: str) -> None:
+    if kind == "rss":
+        body = b"""<rss><channel>
+        <item><title>First</title><link>/first</link></item>
+        <item><title>Bad date</title><link>/bad</link><pubDate>invalid</pubDate></item>
+        <item><title>Bad port</title><link>https://example.com:bad/</link></item>
+        <item><title>Missing link</title></item>
+        <item><title>Last</title><link>/last</link></item>
+        </channel></rss>"""
+    else:
+        body = b"""<feed xmlns="http://www.w3.org/2005/Atom">
+        <entry><title>First</title><link href="/first"/></entry>
+        <entry><title>Bad date</title><link href="/bad"/><updated>invalid</updated></entry>
+        <entry><title>Bad port</title><link href="https://example.com:bad/"/></entry>
+        <entry><title>Missing link</title></entry>
+        <entry><title>Last</title><link href="/last"/></entry></feed>"""
+    parsed = parse(source(kind), body, str(source(kind).url), NOW)
+    assert parsed.found == 5 and len(parsed.malformed) == 3
+    assert [entry.title for entry in parsed.candidates] == ["First", "Last"]
 
 
 @pytest.mark.parametrize(

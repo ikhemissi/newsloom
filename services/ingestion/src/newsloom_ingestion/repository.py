@@ -8,7 +8,7 @@ from newsloom_core.feeds import FeedSource
 from psycopg import AsyncConnection
 from psycopg.types.json import Jsonb
 
-from newsloom_ingestion.models import Decision, Entry, IngestionFailure
+from newsloom_ingestion.models import Candidate, Decision, Entry, IngestionFailure, source_counts
 
 RUN_LOCK = 736981072
 
@@ -40,7 +40,7 @@ class Repository:
     async def release(self) -> None:
         await self.connection.execute("SELECT pg_advisory_unlock(%s)", (RUN_LOCK,))
 
-    async def source(self, source: FeedSource) -> dict[str, str]:
+    async def source(self, source: FeedSource, correlation: str | None = None) -> dict[str, str]:
         async with self.lock, self.connection.transaction():
             await self.connection.execute(
                 "INSERT INTO feed_sources(id, configuration) VALUES (%s, %s) "
@@ -52,6 +52,12 @@ class Repository:
                     "SELECT etag, last_modified FROM feed_sources WHERE id = %s", (source.id,)
                 )
             ).fetchone()
+            if correlation is not None:
+                await self.connection.execute(
+                    "UPDATE feed_sources SET last_run=%s,counts=%s,outcome='processing' "
+                    "WHERE id=%s",
+                    (correlation, Jsonb(source_counts()), source.id),
+                )
         if row is None:
             raise IngestionFailure("source_state_missing")
         return {
@@ -60,18 +66,25 @@ class Repository:
             if value is not None
         }
 
+    async def known(self, entry: Candidate) -> bool:
+        async with self.lock:
+            return await self._known(entry)
+
+    async def _known(self, entry: Candidate) -> bool:
+        row = await (
+            await self.connection.execute(
+                "SELECT 1 FROM ingestion_queue WHERE canonical_url = %s "
+                "OR (source = %s AND guid = %s) UNION ALL "
+                "SELECT 1 FROM quarantine WHERE canonical_url = %s "
+                "OR (source = %s AND guid = %s) LIMIT 1",
+                (entry.url, entry.source, entry.guid, entry.url, entry.source, entry.guid),
+            )
+        ).fetchone()
+        return row is not None
+
     async def stage(self, entry: Entry, correlation: str) -> bool:
         async with self.lock, self.connection.transaction():
-            row = await (
-                await self.connection.execute(
-                    "SELECT 1 FROM ingestion_queue WHERE canonical_url = %s "
-                    "OR (source = %s AND guid = %s) UNION ALL "
-                    "SELECT 1 FROM quarantine WHERE canonical_url = %s "
-                    "OR (source = %s AND guid = %s) LIMIT 1",
-                    (entry.url, entry.source, entry.guid, entry.url, entry.source, entry.guid),
-                )
-            ).fetchone()
-            if row is not None:
+            if await self._known(entry):
                 return False
             await self.connection.execute(
                 "INSERT INTO quarantine(source, guid, canonical_url, entry, disposition, reason, "
@@ -175,6 +188,16 @@ class Repository:
                         identifier,
                     ),
                 )
+            key = (
+                "security_rejected" if decision.disposition == "rejected" else decision.disposition
+            )
+            cursor = await self.connection.execute(
+                "UPDATE feed_sources SET counts=jsonb_set(counts,ARRAY[%s],"
+                "to_jsonb(coalesce((counts->>%s)::int,0)+1)) WHERE id=%s AND last_run=%s",
+                (key, key, entry.source, correlation),
+            )
+            if cursor.rowcount != 1:
+                raise IngestionFailure("source_run_changed")
 
     async def counts(self) -> dict[str, int]:
         row = await (
@@ -191,4 +214,22 @@ class Repository:
             if not isinstance(value, int):
                 raise IngestionFailure("invalid_database_counts")
             result[name] = value
+        return result
+
+    async def source_statistics(self, source: str, correlation: str) -> dict[str, int]:
+        row = await (
+            await self.connection.execute(
+                "SELECT counts FROM feed_sources WHERE id=%s AND last_run=%s",
+                (source, correlation),
+            )
+        ).fetchone()
+        if row is None or not isinstance(row[0], dict):
+            raise IngestionFailure("source_run_changed")
+        expected = source_counts()
+        result: dict[str, int] = {}
+        for key in expected:
+            value = row[0].get(key)
+            if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+                raise IngestionFailure("invalid_source_counts")
+            result[key] = value
         return result

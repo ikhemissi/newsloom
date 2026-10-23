@@ -33,7 +33,6 @@
   {"id": "cloudflare-ai-gateway", "title": "Cloudflare Blog: AI Gateway", "url": "https://blog.cloudflare.com/tag/ai-gateway/rss/", "kind": "rss"},
   {"id": "portkey-blog", "title": "Portkey Blog", "url": "https://portkey.ai/blog/rss/", "kind": "rss"},
   {"id": "tensorzero-blog", "title": "TensorZero Blog", "url": "https://www.tensorzero.com/blog/rss.xml", "kind": "rss"},
-  {"id": "solo-io-blog", "title": "Solo.io Blog (agentgateway, kagent)", "url": "https://www.solo.io/blog/rss.xml", "kind": "rss"},
   {"id": "mlflow-blog", "title": "MLflow Blog", "url": "https://mlflow.org/blog/rss.xml", "kind": "rss"},
   {"id": "promptfoo-blog", "title": "Promptfoo Blog", "url": "https://www.promptfoo.dev/blog/rss.xml", "kind": "rss"},
   {"id": "arize-blog", "title": "Arize AI Engineering Blog (Phoenix)", "url": "https://arize.com/blog/feed/", "kind": "rss"},

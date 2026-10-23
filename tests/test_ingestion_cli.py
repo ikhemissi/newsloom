@@ -68,3 +68,52 @@ def test_cli_and_dependency_failures_exclude_payloads(
         )
     )
     assert "CANARY" not in capsys.readouterr().out
+
+
+async def test_local_fetch_command_uses_shared_recovery(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    from newsloom_core.feeds import FeedSource
+    from newsloom_ingestion.models import Document
+    from newsloom_ingestion.retrieval import PublicClient
+    from test_ingestion_feeds import rss
+
+    feeds = tuple(
+        FeedSource.model_validate(
+            {"id": kind, "kind": kind, "title": kind, "url": f"https://example.com/{kind}"}
+        )
+        for kind in ("rss", "atom")
+    )
+    requests: list[str] = []
+
+    class Client(PublicClient):
+        async def fetch(
+            self, url: str, headers: dict[str, str], deadline: float, *, robots: bool = False
+        ) -> Document:
+            if robots:
+                return Document(404, url, b"", {})
+            body = (
+                rss().replace(b"News title", b"")
+                if url.endswith("/rss")
+                else (
+                    b'<feed xmlns="http://www.w3.org/2005/Atom"><entry>'
+                    b'<title>Atom</title><link href="/atom-entry"/>'
+                    b"<content>Text</content></entry></feed>"
+                )
+            )
+            return Document(200, url, body, {})
+
+        async def request(self, url: str, headers: dict[str, str], limit: int) -> Document:
+            requests.append(url)
+            return Document(200, url, b'<meta property="og:title" content="Recovered">', {})
+
+    monkeypatch.setattr(cli, "load_feed_catalogue", lambda path: feeds)
+    monkeypatch.setattr(cli, "PublicClient", Client)
+    await cli.runtime(
+        argparse.Namespace(catalogue=Path("unused"), source=[], command="fetch"), "fixture"
+    )
+    events = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+    assert len(requests) == 1
+    assert [item["counts"]["entries"] for item in events] == [1, 1]
+    assert events[0]["counts"]["article_metadata"] == 1

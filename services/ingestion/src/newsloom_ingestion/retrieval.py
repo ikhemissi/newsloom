@@ -92,6 +92,21 @@ class PublicClient:
     def __init__(self, limits: Limits = DEFAULT_LIMITS) -> None:
         self.limits = limits
 
+    async def article(self, url: str, deadline: float) -> Document:
+        check_url(url)
+        async with asyncio.timeout_at(deadline):
+            await self.robots(url, deadline)
+            try:
+                response = await self.request(url, {}, self.limits.body_bytes)
+            except aiohttp.ClientError, OSError:
+                raise IngestionFailure("article_unavailable") from None
+        if response.status != 200:
+            raise IngestionFailure(f"article_http_{response.status}")
+        content_type = response.headers.get("content-type", "text/html").split(";", 1)[0].strip()
+        if content_type not in ("text/html", "application/xhtml+xml"):
+            raise IngestionFailure("article_content_type")
+        return response
+
     async def request(self, url: str, headers: dict[str, str], limit: int) -> Document:
         check_url(url)
         timeout = aiohttp.ClientTimeout(

@@ -179,8 +179,24 @@ async def ingestion_status(
 
 async def ingestion_sources(
     config: RuntimeConfig, credential: AsyncTokenCredential
-) -> list[tuple[str, str, int, int, int, int]]:
-    result: list[tuple[str, str, int, int, int, int]] = []
+) -> list[tuple[str, str, str, dict[str, int]]]:
+    keys = (
+        "found",
+        "filtered",
+        "duplicates",
+        "staged",
+        "malformed_rejected",
+        "accepted",
+        "security_rejected",
+        "deferred",
+        "feed_item",
+        "article_metadata",
+        "article_body",
+        "recovery_attempted",
+        "recovery_failed",
+        "recovery_deferred",
+    )
+    result: list[tuple[str, str, str, dict[str, int]]] = []
     async with (
         await connect(
             config, credential, config.postgres_database, config.postgres_admin_name
@@ -191,23 +207,26 @@ async def ingestion_sources(
         await connection.execute("SET LOCAL statement_timeout='15s'")
         rows = await (
             await connection.execute(
-                "SELECT id,coalesce(outcome,'not_checked'),"
-                "coalesce((counts->>'found')::int,0),coalesce((counts->>'filtered')::int,0),"
-                "coalesce((counts->>'duplicates')::int,0),coalesce((counts->>'staged')::int,0) "
+                "SELECT id,coalesce(outcome,'not_checked'),coalesce(last_run,''),counts "
                 "FROM feed_sources ORDER BY id"
             )
         ).fetchall()
-        for source, outcome, found, filtered, duplicates, staged in rows:
+        for source, outcome, correlation, counts in rows:
             if (
                 not isinstance(source, str)
                 or not re.fullmatch(r"[a-z0-9-]+", source)
                 or not isinstance(outcome, str)
                 or not re.fullmatch(r"[A-Za-z0-9_]+", outcome)
-                or not isinstance(found, int)
-                or not isinstance(filtered, int)
-                or not isinstance(duplicates, int)
-                or not isinstance(staged, int)
+                or not isinstance(correlation, str)
+                or (correlation and not re.fullmatch(r"[A-Za-z0-9_-]+", correlation))
+                or not isinstance(counts, dict)
             ):
                 raise PlatformFailure("invalid_source_readback")
-            result.append((source, outcome, found, filtered, duplicates, staged))
+            safe_counts: dict[str, int] = {}
+            for key in keys:
+                value = counts.get(key, 0)
+                if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+                    raise PlatformFailure("invalid_source_readback")
+                safe_counts[key] = value
+            result.append((source, outcome, correlation, safe_counts))
     return result

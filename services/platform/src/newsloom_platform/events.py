@@ -14,6 +14,7 @@ def event(
     workload: str = "",
     counts: dict[str, int] | None = None,
     source: str = "",
+    source_run: str = "",
 ) -> None:
     print(
         json.dumps(
@@ -26,6 +27,7 @@ def event(
                 "workload": workload,
                 **({"counts": counts} if counts is not None else {}),
                 **({"source": source} if source else {}),
+                **({"source_run": source_run} if source_run else {}),
             }
         ),
         flush=True,

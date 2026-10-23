@@ -7,7 +7,14 @@ from datetime import UTC, datetime
 from newsloom_core.feeds import FeedSource
 from pydantic import ValidationError
 
-from newsloom_ingestion.models import DEFAULT_LIMITS, IngestionFailure, Limits
+from newsloom_ingestion.articles import RecoveryDeferred, recover
+from newsloom_ingestion.models import (
+    DEFAULT_LIMITS,
+    Document,
+    IngestionFailure,
+    Limits,
+    source_counts,
+)
 from newsloom_ingestion.parsing import included, parse
 from newsloom_ingestion.repository import Repository
 from newsloom_ingestion.retrieval import PublicClient
@@ -21,6 +28,68 @@ def select_sources(sources: tuple[FeedSource, ...], selected: list[str]) -> tupl
     return tuple(source for source in sources if not selected or source.id in selected)
 
 
+async def process_items(
+    source: FeedSource,
+    document: Document,
+    client: PublicClient,
+    counts: dict[str, int],
+    deadline: float,
+    correlation: str,
+    repository: Repository | None = None,
+) -> None:
+    parsed = parse(source, document.body, document.url, datetime.now(UTC), client.limits)
+    if time.monotonic() >= deadline:
+        raise IngestionFailure("feed_deadline")
+    counts["found"] = parsed.found
+    counts["malformed_rejected"] = len(parsed.malformed)
+    for category in parsed.malformed:
+        event("item", correlation, source=source.id, outcome="malformed", category=category)
+    for candidate in parsed.candidates:
+        if not included(source, candidate):
+            counts["filtered"] += 1
+            continue
+        if repository is not None and await repository.known(candidate):
+            counts["duplicates"] += 1
+            continue
+        path = "feed_item"
+        if not candidate.title or not candidate.text:
+            counts["recovery_attempted"] += 1
+            try:
+                candidate, path = await recover(candidate, client, deadline, correlation)
+            except IngestionFailure as error:
+                retryable = isinstance(error, RecoveryDeferred) and not candidate.title
+                counts["recovery_deferred" if retryable else "recovery_failed"] += 1
+                event(
+                    "article",
+                    correlation,
+                    source=source.id,
+                    outcome="deferred" if retryable else "failed",
+                    category=str(error),
+                )
+                if retryable:
+                    continue
+        try:
+            entry = candidate.entry()
+        except ValidationError:
+            counts["malformed_rejected"] += 1
+            event(
+                "item",
+                correlation,
+                source=source.id,
+                outcome="malformed",
+                category="missing_entry_title",
+            )
+            continue
+        if repository is None:
+            counts["entries"] = counts.get("entries", 0) + 1
+            counts[path] += 1
+        elif await repository.stage(entry, correlation):
+            counts["staged"] += 1
+            counts[path] += 1
+        else:
+            counts["duplicates"] += 1
+
+
 async def ingest_source(
     source: FeedSource,
     client: PublicClient,
@@ -29,8 +98,8 @@ async def ingest_source(
     force: bool,
     limits: Limits,
 ) -> dict[str, int]:
-    counts = {"found": 0, "filtered": 0, "duplicates": 0, "staged": 0, "feeds_ok": 0}
-    headers = await repository.source(source)
+    counts = source_counts()
+    headers = await repository.source(source, correlation)
     deadline = time.monotonic() + limits.feed_seconds
     try:
         async with asyncio.timeout_at(deadline):
@@ -44,21 +113,26 @@ async def ingest_source(
                 return counts
             if document.status != 200:
                 raise IngestionFailure(f"feed_http_{document.status}")
-            entries, parsed = parse(source, document.body, document.url, datetime.now(UTC), limits)
-            if time.monotonic() >= deadline:
-                raise IngestionFailure("feed_deadline")
-        counts["found"] = parsed
-        for entry in entries:
-            if not included(source, entry):
-                counts["filtered"] += 1
-            elif await repository.stage(entry, correlation):
-                counts["staged"] += 1
-            else:
-                counts["duplicates"] += 1
-        outcome = "fetched" if parsed else "empty"
+        await process_items(source, document, client, counts, deadline, correlation, repository)
+        durable = counts["staged"] + counts["duplicates"]
+        outcome = (
+            "recovery_deferred"
+            if counts["recovery_deferred"]
+            else (
+                "fetched"
+                if durable or counts["filtered"]
+                else "malformed"
+                if counts["malformed_rejected"]
+                else "empty"
+            )
+        )
         counts["feeds_ok"] = 1
         await repository.finish_source(
-            source.id, correlation, outcome, counts, document.headers if parsed else None
+            source.id,
+            correlation,
+            outcome,
+            counts,
+            document.headers if durable and not counts["recovery_deferred"] else None,
         )
         event("feed", correlation, source=source.id, outcome=outcome, counts=counts)
         return counts
@@ -89,10 +163,7 @@ async def run(
     start = time.monotonic()
     deadline = start + limits.job_seconds - 20
     totals: dict[str, int] = {
-        "found": 0,
-        "filtered": 0,
-        "duplicates": 0,
-        "staged": 0,
+        **source_counts(),
         "feeds_failed": 0,
         "feeds_ok": 0,
         "accepted_run": 0,
@@ -129,11 +200,24 @@ async def run(
                 totals[f"{decision.disposition}_run"] += 1
                 if decision.disposition == "deferred":
                     event("scanner", correlation, outcome="deferred", category=decision.reason)
+            for source in sources:
+                counts = await repository.source_statistics(source.id, correlation)
+                event(
+                    "feed_summary",
+                    correlation,
+                    source=source.id,
+                    outcome="completed",
+                    counts=counts,
+                )
+                for key in ("accepted", "security_rejected", "deferred"):
+                    totals[key] += counts[key]
         totals.update(await repository.counts())
         event(
             "ingestion",
             correlation,
-            outcome="partial" if totals["feeds_failed"] else "completed",
+            outcome="partial"
+            if totals["feeds_failed"] or totals["recovery_deferred"]
+            else "completed",
             counts=totals,
         )
         if totals["feeds_failed"] == len(sources):

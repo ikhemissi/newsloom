@@ -3,7 +3,7 @@
 Curated AI news for MCP clients, research agents, and people.
 
 **Status: shared Azure foundation and real feed ingestion implemented.**
-- Available: Python workspace, 42-feed catalogue, local/CI checks, azd-managed Azure infrastructure, managed-identity migrations, and RSS/Atom ingestion with real Decision-model screening and durable queue/quarantine storage.
+- Available: Python workspace, 41-feed catalogue, local/CI checks, azd-managed Azure infrastructure, managed-identity migrations, and RSS/Atom ingestion with real Decision-model screening and durable queue/quarantine storage.
 - Planned: enrichment, the MCP HTTP service, research agent, and browser UI. Ingestion does not complete PRD-1; see its [acceptance progress](openspec/changes/feed-ingestion/tasks.md).
 
 ## Planned architecture

@@ -17,9 +17,8 @@ from azure.identity.aio import ManagedIdentityCredential
 from newsloom_core.feeds import load_feed_catalogue
 from pydantic import ValidationError
 
-from newsloom_ingestion.job import run, select_sources
-from newsloom_ingestion.models import IngestionFailure, Limits
-from newsloom_ingestion.parsing import parse
+from newsloom_ingestion.job import process_items, run, select_sources
+from newsloom_ingestion.models import IngestionFailure, Limits, source_counts
 from newsloom_ingestion.repository import Repository
 from newsloom_ingestion.retrieval import PublicClient
 from newsloom_ingestion.scanner import DecisionScanner, calibrate
@@ -35,23 +34,22 @@ async def runtime(args: argparse.Namespace, correlation: str) -> None:
     sources = select_sources(load_feed_catalogue(args.catalogue), args.source)
     limits = Limits()
     if args.command == "fetch":
-        from datetime import UTC, datetime
-
         if len(sources) != 2 or {source.kind for source in sources} != {"rss", "atom"}:
             raise IngestionFailure("local_smoke_requires_one_rss_one_atom")
         for source in sources:
-            document = await PublicClient(limits).fetch(
-                str(source.url), {}, time.monotonic() + limits.feed_seconds
-            )
+            feed_client = PublicClient(limits)
+            deadline = time.monotonic() + limits.feed_seconds
+            document = await feed_client.fetch(str(source.url), {}, deadline)
             if document.status != 200:
                 raise IngestionFailure(f"feed_http_{document.status}")
-            entries, _ = parse(source, document.body, document.url, datetime.now(UTC), limits)
+            counts = source_counts()
+            await process_items(source, document, feed_client, counts, deadline, correlation)
             event(
                 "fetch",
                 correlation,
                 source=source.id,
-                outcome="success",
-                counts={"entries": len(entries)},
+                outcome="partial" if counts["recovery_deferred"] else "success",
+                counts=counts,
             )
         return
     env = os.environ

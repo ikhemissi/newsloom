@@ -28,7 +28,7 @@ async def test_one_live_rss_one_live_atom_persist(repository: Repository) -> Non
     sources = select_sources(
         load_feed_catalogue(Path("config/feeds.json")),
         [
-            "microsoft-foundry-devblog",
+            "langchain-blog",
             "vertex-ai-release-notes",
         ],
     )
@@ -38,7 +38,12 @@ async def test_one_live_rss_one_live_atom_persist(repository: Repository) -> Non
         counts = await run(sources, repository, FixtureScanner(), "local-live-fixture")
         assert counts["feeds_ok"] == 2 and counts["feeds_failed"] == 0
         assert counts["found"] > 0 and counts["pending"] > 0
-        assert counts["pending"] == counts["found"] - counts["filtered"]
+        assert counts["pending"] == (
+            counts["found"]
+            - counts["filtered"]
+            - counts["malformed_rejected"]
+            - counts["recovery_deferred"]
+        )
         assert counts["duplicates"] == 0
         for source in sources:
             row = await (
@@ -58,7 +63,7 @@ async def test_one_live_rss_one_live_atom_persist(repository: Repository) -> Non
             )
         repeated = await run(sources, repository, FixtureScanner(), "local-live-forced", force=True)
         assert repeated["staged"] == repeated["accepted_run"] == 0
-        assert repeated["duplicates"] == repeated["found"]
+        assert repeated["duplicates"] == repeated["found"] - repeated["malformed_rejected"]
         assert repeated["pending"] == counts["pending"]
     finally:
         await repository.acquire()

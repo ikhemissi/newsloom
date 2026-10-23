@@ -37,7 +37,7 @@ async def runtime(command: str, workload: str, correlation: str) -> None:
         elif command == "ingestion-status":
             counts = await ingestion_status(config, credential)
             event("ingestion_readback", "success", correlation, counts=counts)
-            for source, outcome, found, filtered, duplicates, staged in await ingestion_sources(
+            for source, outcome, source_run, source_counts in await ingestion_sources(
                 config, credential
             ):
                 event(
@@ -45,12 +45,8 @@ async def runtime(command: str, workload: str, correlation: str) -> None:
                     outcome,
                     correlation,
                     source=source,
-                    counts={
-                        "found": found,
-                        "filtered": filtered,
-                        "duplicates": duplicates,
-                        "staged": staged,
-                    },
+                    source_run=source_run,
+                    counts=source_counts,
                 )
         else:
             from newsloom_platform.probe import probe

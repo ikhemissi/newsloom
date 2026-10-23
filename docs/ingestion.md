@@ -17,6 +17,48 @@ Compressed responses are bounded while decoding, not after unlimited expansion.
 HTTPS, public pinned addresses, robots policy, and safe XML parsing remain
 mandatory; an unavailable publisher is a reported outcome, not a policy bypass.
 
+## Item recovery and per-feed counts
+
+Only an individually malformed item is dropped; valid siblings continue. Unsafe
+XML/DTD/entities and document size/item limits still fail the document. Closing
+the HTML normalizer preserves ordinary final text such as ampersand-containing
+titles.
+
+For new eligible items with missing title/text, preserve usable feed fields, then
+try JSON-LD article fields/OpenGraph, then visible article text from the same
+direct HTML response. Article GETs never follow redirects, execute JavaScript,
+fetch assets or resolve remote JSON-LD contexts. The existing HTTPS/public pinned
+DNS, robots, streamed/decompressed byte and shared feed/job time limits apply.
+Known duplicates and category-filtered items do not trigger article recovery.
+Recovered text is screened as untrusted publisher data before acceptance.
+Ingestion does not generate summaries; enrichment remains the next slice.
+An otherwise valid title-only item remains usable if extra text is unavailable.
+
+`feed_sources.counts` holds **latest-run activity**, tied to `last_run`, not lifetime
+totals. Existing found/filtered/duplicate/staged counters are joined by:
+
+| Keys | Meaning |
+| --- | --- |
+| `accepted`, `security_rejected`, `deferred` | Committed screening decisions in this run; deferred is not current backlog depth. |
+| `malformed_rejected` | Individual parsing/normalization drops, not model rejection. |
+| `feed_item`, `article_metadata`, `article_body` | New staged items, once each by the deepest tier needed; mixed metadata/body uses article-body. |
+| `recovery_attempted`, `recovery_failed`, `recovery_deferred` | Recovery attempts (including authorization), failures, and necessary recovery awaiting retry. |
+
+New acquisition counts exclude duplicates, filtering and malformed drops.
+Screening an older deferred item can increment a decision counter even after 304
+or a fetch failure, with zero new acquisition. Decisions and corresponding
+per-feed counters commit atomically. A temporary failure recovering a required
+field keeps previous validators so the next run can retry; stored siblings
+deduplicate. Empty/all-malformed bodies and incomplete work cannot hide behind
+new validators. Document failures remain explicit, including OpenAI feeds above
+the unchanged 1,000-item cap.
+
+There are 41 active catalogue sources after retiring `solo-io-blog`; the existing
+`agentgateway-blog` is retained once. Historical database rows are not deleted,
+so `read-ingestion` can still show the retired Solo.io row and its older run.
+Compare each source's `source_run` with the current execution correlation before
+interpreting aggregate latest-source statistics as one run.
+
 ## Local tests
 
 Unit tests use fixtures and database tests use an explicitly local disposable
@@ -28,7 +70,7 @@ screening; the real managed-identity scanner is verified in Azure.
 ```bash
 uv run pytest tests/test_ingestion_feeds.py
 uv run --locked newsloom-ingestion fetch \
-  --source microsoft-foundry-devblog \
+  --source langchain-blog \
   --source vertex-ai-release-notes
 ```
 

@@ -43,6 +43,11 @@ giving publishers access to internal networks or unrestricted processing.
 - Conditional requests use ETags, but validators are not saved when no entries
   parsed. A `--force` refetch remains available.
 - Fixtures cover hostile networks/documents, relative links, and large feeds.
+- Malformed items are isolated from valid siblings. Missing fields use feed data,
+  then JSON-LD/OpenGraph, then bounded article text from one protected response
+  without following article redirects. Ingestion extracts text; P1-C05 owns summaries.
+- The existing feed catalogue rows record latest-run malformed, screening and
+  acquisition-path counts, distinguishing duplicate occurrences and backlog work.
 
 ## P1-C03: Content screening and quarantine
 

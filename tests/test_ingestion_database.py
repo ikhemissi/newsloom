@@ -1,4 +1,5 @@
 from collections.abc import AsyncIterator
+from typing import Literal
 
 import psycopg
 import pytest
@@ -39,11 +40,12 @@ async def repository(platform_database: RuntimeConfig) -> AsyncIterator[Reposito
 
 
 def entry() -> Entry:
-    return parse(source(), rss(), str(source().url), NOW)[0][0]
+    return parse(source(), rss(), str(source().url), NOW).candidates[0].entry()
 
 
 async def test_stage_accept_and_global_deduplication(repository: Repository) -> None:
     item = entry()
+    await repository.source(source(), "first-run")
     assert await repository.stage(item, "first-run")
     assert not await repository.stage(item, "second-run")
     pending = await repository.deferred([item.source])
@@ -66,6 +68,7 @@ async def test_stage_accept_and_global_deduplication(repository: Repository) -> 
 
 async def test_rejected_entries_are_retained_not_accepted(repository: Repository) -> None:
     item = entry()
+    await repository.source(source(), "run")
     await repository.stage(item, "run")
     pending = await repository.deferred([item.source])
     assert pending is not None
@@ -81,6 +84,7 @@ async def test_rejected_entries_are_retained_not_accepted(repository: Repository
 
 async def test_deferred_retry_ignores_http_validator_and_recovers(repository: Repository) -> None:
     item = entry()
+    await repository.source(source(), "first")
     await repository.stage(item, "first")
     pending = await repository.deferred([item.source])
     assert pending is not None
@@ -89,6 +93,7 @@ async def test_deferred_retry_ignores_http_validator_and_recovers(repository: Re
     await repository.connection.execute("UPDATE quarantine SET retry_after=clock_timestamp()")
     retry = await repository.deferred([item.source])
     assert retry is not None
+    await repository.source(source(), "retry")
     await repository.decide(retry[0], item, Decision("accepted", "screened", 0.2, 0.5), "retry")
     assert await repository.counts() == {"pending": 1, "rejected": 0, "deferred": 0}
 
@@ -106,6 +111,7 @@ async def test_accept_transaction_rolls_back_without_losing_deferred(
     repository: Repository,
 ) -> None:
     item = entry()
+    await repository.source(source(), "run")
     await repository.stage(item, "run")
     pending = await repository.deferred([item.source])
     assert pending is not None
@@ -122,6 +128,7 @@ async def test_distinct_anchored_entries_persist_and_repeat_without_duplicates(
     repository: Repository,
 ) -> None:
     first = entry().model_copy(update={"guid": "one", "url": "https://example.com/releases#one"})
+    await repository.source(source(), "first")
     second = first.model_copy(update={"guid": "two", "url": "https://example.com/releases#two"})
     for item in (first, second):
         assert await repository.stage(item, "first")
@@ -250,7 +257,9 @@ async def test_fixture_job_writes_and_logs_only_counts(
         readback = await database.ingestion_status(platform_database, credential)
         source_rows = await database.ingestion_sources(platform_database, credential)
     assert readback["pending"] == readback["screened_pending"] == 1
-    assert source_rows == [(source().id, "fetched", 1, 0, 0, 1)]
+    assert len(source_rows) == 1
+    assert source_rows[0][:3] == (source().id, "fetched", "fixture")
+    assert source_rows[0][3]["staged"] == source_rows[0][3]["accepted"] == 1
     assert readback["duplicate_urls"] == readback["duplicate_guids"] == 0
     assert "NEWSLOOM_CONTENT_CANARY" not in capsys.readouterr().out
     await repository.acquire()
@@ -309,3 +318,174 @@ async def test_four_feed_concurrency_is_bounded(
         assert counts["feeds_ok"] == 5 and maximum == 4 and active == 0
     finally:
         await repository.acquire()
+
+
+async def test_mixed_item_counts_paths_validator_and_replay(repository: Repository) -> None:
+    from test_ingestion_feeds import FakeClient, document
+
+    body = b"""<rss><channel>
+    <item><guid>good</guid><link>/good</link><title>Feed</title><description>Text</description></item>
+    <item><guid>meta</guid><link>/meta</link></item>
+    <item><guid>body</guid><link>/body</link></item>
+    <item><title>Malformed</title><pubDate>bad</pubDate></item>
+    </channel></rss>"""
+
+    class Client(FakeClient):
+        async def fetch(
+            self, url: str, headers: dict[str, str], deadline: float, *, robots: bool = False
+        ) -> Document:
+            if robots:
+                return document(404)
+            return document(body=body, etag="new")
+
+    client = Client(
+        [
+            document(
+                body=b'<meta property="og:title" content="Metadata">'
+                b'<meta property="og:description" content="Description">'
+            ),
+            document(body=b"<main><h1>Body title</h1>Body text</main>"),
+        ]
+    )
+    counts = await ingest_source(source(), client, repository, "mixed", False, DEFAULT_LIMITS)
+    assert counts["found"] == 4 and counts["staged"] == 3
+    assert counts["malformed_rejected"] == 1
+    assert counts["feed_item"] == counts["article_metadata"] == counts["article_body"] == 1
+    assert await repository.source(source()) == {"If-None-Match": "new"}
+    pending = await repository.deferred([source().id])
+    assert pending is not None
+    await repository.decide(
+        pending[0], pending[1], Decision("accepted", "screened", 0.1, 0.5), "mixed"
+    )
+    saved = await repository.source_statistics(source().id, "mixed")
+    assert saved["accepted"] == 1 and saved["malformed_rejected"] == 1
+    repeated = await ingest_source(source(), Client([]), repository, "replay", True, DEFAULT_LIMITS)
+    assert repeated["duplicates"] == 3 and repeated["malformed_rejected"] == 1
+    assert repeated["recovery_attempted"] == repeated["staged"] == repeated["accepted"] == 0
+
+
+async def test_transient_recovery_keeps_validator_and_siblings(repository: Repository) -> None:
+    from test_ingestion_feeds import FakeClient, document
+
+    await repository.finish_source(source().id, "old", "fetched", {"found": 1}, {"etag": "old"})
+    body = rss().replace(
+        b"</channel>", b"<item><guid>recover</guid><link>/recover</link></item></channel>"
+    )
+
+    class Client(FakeClient):
+        async def fetch(
+            self, url: str, headers: dict[str, str], deadline: float, *, robots: bool = False
+        ) -> Document:
+            return document(404) if robots else document(body=body, etag="new")
+
+    counts = await ingest_source(
+        source(), Client([document(503)]), repository, "deferred", False, DEFAULT_LIMITS
+    )
+    assert counts["staged"] == counts["recovery_deferred"] == 1
+    assert counts["malformed_rejected"] == counts["security_rejected"] == 0
+    assert await repository.source(source()) == {"If-None-Match": "old"}
+    counts = await ingest_source(
+        source(),
+        Client([document(body=b"<article><h1>Title</h1>Text</article>")]),
+        repository,
+        "retried",
+        False,
+        DEFAULT_LIMITS,
+    )
+    assert counts["duplicates"] == counts["staged"] == counts["article_body"] == 1
+    assert await repository.source(source()) == {"If-None-Match": "new"}
+
+
+async def test_all_malformed_does_not_advance_validators(repository: Repository) -> None:
+    from test_ingestion_feeds import FakeClient, document
+
+    class Client(FakeClient):
+        async def fetch(
+            self, url: str, headers: dict[str, str], deadline: float, *, robots: bool = False
+        ) -> Document:
+            return document(body=b"<rss><channel><item/></channel></rss>", etag="not-saved")
+
+    counts = await ingest_source(
+        source(), Client([]), repository, "malformed", False, DEFAULT_LIMITS
+    )
+    assert counts["malformed_rejected"] == 1 and counts["staged"] == 0
+    assert await repository.source(source()) == {}
+
+
+async def test_counter_mismatch_rolls_back_decision(repository: Repository) -> None:
+    await repository.source(source(), "current")
+    item = entry()
+    await repository.stage(item, "current")
+    pending = await repository.deferred([source().id])
+    assert pending is not None
+    with pytest.raises(IngestionFailure, match="source_run_changed"):
+        await repository.decide(
+            pending[0], item, Decision("accepted", "screened", 0.1, 0.5), "stale"
+        )
+    assert await repository.counts() == {"pending": 0, "rejected": 0, "deferred": 1}
+    assert (await repository.source_statistics(source().id, "current"))["accepted"] == 0
+
+
+async def test_304_screening_backlog_counts_and_unselected_history(
+    repository: Repository,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from newsloom_ingestion import job
+
+    item = entry()
+    await repository.stage(item, "previous")
+    await repository.finish_source(
+        source().id, "previous", "fetched", {"found": 1}, {"etag": "old"}
+    )
+    retired = source().model_copy(update={"id": "retired-feed"})
+    await repository.source(retired)
+    await repository.finish_source(retired.id, "history", "failed", {"found": 7})
+
+    class Client(PublicClient):
+        async def fetch(
+            self, url: str, headers: dict[str, str], deadline: float, *, robots: bool = False
+        ) -> Document:
+            return Document(304, url, b"", {})
+
+    class Scanner:
+        async def scan(self, item: Entry, deadline: float) -> Decision:
+            return Decision("accepted", "screened", 0.1, 0.5)
+
+    monkeypatch.setattr(job, "PublicClient", Client)
+    await repository.release()
+    try:
+        totals = await run((source(),), repository, Scanner(), "backlog")
+    finally:
+        await repository.acquire()
+    counts = await repository.source_statistics(source().id, "backlog")
+    assert totals["accepted_run"] == counts["accepted"] == 1
+    assert counts["found"] == counts["staged"] == counts["feed_item"] == 0
+    row = await (
+        await repository.connection.execute(
+            "SELECT last_run,counts FROM feed_sources WHERE id=%s", (retired.id,)
+        )
+    ).fetchone()
+    assert row == ("history", {"found": 7})
+
+
+@pytest.mark.parametrize(
+    ("verdict", "key"), [("rejected", "security_rejected"), ("deferred", "deferred")]
+)
+async def test_decision_counters_and_rejected_replay(
+    repository: Repository, verdict: Literal["rejected", "deferred"], key: str
+) -> None:
+    item = entry()
+    await repository.source(source(), "decisions")
+    await repository.stage(item, "decisions")
+    pending = await repository.deferred([source().id])
+    assert pending is not None
+    await repository.decide(
+        pending[0],
+        item,
+        Decision(verdict, "fixture", 0.9, 0.5),
+        "decisions",
+    )
+    counts = await repository.source_statistics(source().id, "decisions")
+    assert counts[key] == 1 and counts["accepted"] == 0
+    assert not await repository.stage(item, "replay")
+    assert (await repository.source_statistics(source().id, "decisions"))[key] == 1
