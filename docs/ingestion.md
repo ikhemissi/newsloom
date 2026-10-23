@@ -108,12 +108,105 @@ uv run --locked newsloom-platform read-ingestion
 uv run --locked newsloom-platform execute-ingestion --force
 ```
 
-Calibration evaluates eight labelled training cases and eight separate validation
-cases, balanced clean/hostile. It derives a separating threshold and requires zero
-holdout mistakes. Only safe class counts, threshold, and model metadata are emitted;
-fixture text and responses are never logged. Record the observed threshold in the
-existing azd environment, reprovision the ingestion layer, and only then run live
-admission. A failed calibration is a blocker, not permission to guess a threshold.
+The contextual follow-up is activated and locally/Azure verified; see its
+[measured findings](findings/contextual-content-screening.md) and
+[delivery evidence](../openspec/changes/contextual-content-screening/tasks.md#acceptance-evidence).
+Its question distinguishes attempts to redirect the current processor from
+ordinary reporting, training-use notices, and contextualized examples. A claim of
+research or quotation is not an exemption. Source content remains untrusted even
+when accepted; screening does not sanitize it or guarantee that attacks are absent.
+See the [behavioral contract](../openspec/changes/contextual-content-screening/specs/content-screening/spec.md).
+
+Calibration uses 16 authored complete-entry calibration cases and 16 separate
+validation cases, each balanced benign/hostile, plus eight legacy hostile
+regressions. The exact production serializer includes metadata, not just the body.
+Only calibration scores choose the separating midpoint. Overlap or any holdout/
+legacy error blocks admission; do not guess a threshold or relabel failures.
+Reports contain scores and application reason codes, not a model explanation.
+
+### Local before/after comparison
+
+This command uses the existing signed-in Azure CLI identity and model deployment;
+it does not use a managed identity, connect to PostgreSQL, start/update Azure jobs,
+change azd values, or release quarantine. Do not use `calibrate-ingestion` for a
+local experiment: that operator command starts a cloud job.
+
+Provide `MODEL_ENDPOINT`, `SCREENING_DEPLOYMENT`, `SCREENING_MODEL`, and
+`SCREENING_VERSION` in the shell from the existing ignored environment without
+printing its identifiers. Existing developer inference permission is required;
+authorization failure blocks the study, not permission to add keys or grants.
+
+```bash
+uv run --locked newsloom-ingestion evaluate \
+  --review-manifest /private/path/review.json \
+  --baseline-threshold <recorded-baseline-threshold> \
+  --report /private/path/new-comparison.json
+```
+
+The private manifest is an array of exactly 23 records with `id` (`review-00`
+through `review-22`), `source`, `guid`, `url`, and a boolean `hostile` label fixed
+before inference. An optional `entry` supplies a complete stored `Entry`; its
+identity must match. Otherwise only those identities are reconstructed from their
+three selected catalogue feeds, with normal protected parsing/recovery and no
+article redirects. Missing or ambiguous identities block comparison. The normal
+one-RSS/one-Atom fetch restriction is unchanged. No article cache is written.
+
+Both policies consume identical in-memory entries under one sequential rate
+budget, with bounded retries and a 880-second total deadline. Calls are metered
+and share the deployment's quota with ingestion; throttling is an operational
+failure. The preflight uses one authored calibration entry before article retrieval.
+The report path must be new and outside the repository, as must the manifest.
+It records opaque case IDs, fingerprints, current-feed versus stored provenance,
+acquisition path, normalization-boundary flags, scores, dispositions, and error/
+false-positive/false-negative counts. It contains no article bodies or prompts.
+A text-at-limit flag is conservative: it does not prove the original was longer.
+
+Rollout requires complete inference, separable calibration, zero holdout and
+legacy errors, and fewer benign rejections on the selected 23-item regressions.
+These known regressions are not an unseen holdout or a population-wide estimate.
+Human-reviewed article identities and possible motives belong in
+[findings](findings/contextual-content-screening.md), not runtime telemetry;
+the model does not supply motives.
+
+### Explicit comparison in the existing Azure job
+
+After local inference authorization failed, the operator explicitly requested
+testing directly in the existing feed job. `evaluate-job` uses that job's current
+managed identity and the same comparison implementation, not a developer grant
+or another worker. It dispatches before any database connection or admission.
+
+The operator supplies `--review-manifest-json` containing only the frozen public
+identities and labels (at most 64 KiB; embedded `entry` bodies are rejected) and
+`--baseline-threshold` from the verified configuration. Selected article inputs
+are reconstructed in memory. One `screening_comparison_case` console record is
+emitted per observation, then a `screening_comparison_summary`; all are content-free.
+An incomplete or failed comparison exits unsuccessfully after reporting evidence.
+
+Build the immutable candidate image with the existing ingestion build helper.
+Invoke the same job through the native Start API with only the image, arguments,
+and correlation overrides. Keep the scheduled admission image/threshold/binding
+unchanged during this execution. Do not toggle the trigger or create a temporary
+job. After measured gates pass, activate the matched image and configuration
+through the existing azd ingestion layer, then immediately invoke normal ingestion
+and read its actual database aggregates. A failed comparison does not authorize
+activation or a guessed threshold.
+
+### Matching configuration and rollback
+
+The candidate report/calibration output supplies a measured `threshold` (or
+`candidate_threshold`) and `calibration_id`. Set them as `SCANNER_THRESHOLD` and
+`SCANNER_CALIBRATION_ID` only after all evaluation gates pass. The updated runtime
+fails before admission if the binding is missing or differs from its question,
+packaged fixtures, endpoint/deployment/model/version, or threshold. The identifier
+detects accidental mismatch; it is not quality attestation.
+
+Save the old image and matching calibration configuration privately for rollback.
+Review the existing ingestion-layer azd preview, then deploy the image, threshold,
+and identifier together without toggling the schedule or replacing resources.
+Invoke ordinary ingestion immediately and use the existing readback commands.
+Rollback restores the image and its matching configuration as a unit, never
+database rows. Existing rejected rows remain rejected; the new policy neither
+rescans nor releases them. Do not infer per-row equality from aggregate counts.
 
 The execution helper starts immediately, overrides only supported Start API
 container fields, and waits for a bounded terminal result. The readback command

@@ -10,7 +10,9 @@ from newsloom_core.feeds import load_feed_catalogue
 from newsloom_ingestion import cli
 from newsloom_ingestion.job import select_sources
 from newsloom_ingestion.models import IngestionFailure
+from newsloom_ingestion.scanner import calibration_id
 from newsloom_ingestion.telemetry import SafeHandler
+from test_ingestion_scanner import Credential
 
 
 def test_source_selection_is_exact() -> None:
@@ -30,6 +32,61 @@ async def test_local_smoke_cannot_default_to_all_sources() -> None:
             ),
             "fixture",
         )
+
+
+@pytest.mark.parametrize("binding", ["", "malformed", "a" * 64])
+async def test_binding_is_checked_before_identity_or_database(
+    binding: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    for name, value in {
+        "AZURE_CLIENT_ID": "synthetic",
+        "MODEL_ENDPOINT": "https://example.com",
+        "SCREENING_DEPLOYMENT": "screen",
+        "SCREENING_MODEL": "Microsoft-Decision-1",
+        "SCREENING_VERSION": "1",
+        "SCANNER_THRESHOLD": "0.5",
+        "SCANNER_CALIBRATION_ID": binding,
+    }.items():
+        monkeypatch.setenv(name, value)
+    monkeypatch.setattr(cli, "load_feed_catalogue", lambda _: ())
+
+    def identity(*args: object, **kwargs: object) -> None:
+        pytest.fail("A mismatched policy must not initialize production identity.")
+
+    monkeypatch.setattr(cli, "ManagedIdentityCredential", identity)
+    with pytest.raises(IngestionFailure, match="scanner_calibration_mismatch"):
+        await cli.runtime(
+            argparse.Namespace(catalogue=Path("unused"), source=[], command="run"), "fixture"
+        )
+
+
+async def test_calibration_does_not_require_existing_admission_values(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    for name, value in {
+        "AZURE_CLIENT_ID": "synthetic",
+        "MODEL_ENDPOINT": "https://example.com",
+        "SCREENING_DEPLOYMENT": "screen",
+        "SCREENING_MODEL": "Microsoft-Decision-1",
+        "SCREENING_VERSION": "1",
+        "SCANNER_THRESHOLD": "not-a-number",
+    }.items():
+        monkeypatch.setenv(name, value)
+    monkeypatch.delenv("SCANNER_CALIBRATION_ID", raising=False)
+    monkeypatch.setattr(cli, "load_feed_catalogue", lambda _: ())
+    monkeypatch.setattr(cli, "ManagedIdentityCredential", lambda **_: Credential())
+
+    async def calibrate(scanner: object, deadline: float) -> dict[str, float]:
+        return {"threshold": 0.5}
+
+    monkeypatch.setattr(cli, "calibrate", calibrate)
+    await cli.runtime(
+        argparse.Namespace(catalogue=Path("unused"), source=[], command="calibrate"), "fixture"
+    )
+    counts = json.loads(capsys.readouterr().out)["counts"]
+    assert counts["calibration_id"] == calibration_id(
+        "https://example.com", "screen", "Microsoft-Decision-1", "1", 0.5
+    )
 
 
 @pytest.mark.parametrize("invalid", [True, False])

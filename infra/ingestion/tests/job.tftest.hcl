@@ -39,13 +39,15 @@ run "initial_job_is_manual_and_uses_existing_identity" {
 run "approved_utc_schedule" {
   command = plan
   variables {
-    schedule_enabled    = true
-    screening_threshold = "0.5"
+    schedule_enabled         = true
+    screening_threshold      = "0.5"
+    screening_calibration_id = join("", [for n in range(64) : "b"])
   }
   assert {
     condition = (
       length(azurerm_container_app_job.ingestion.manual_trigger_config) == 0 &&
-      azurerm_container_app_job.ingestion.schedule_trigger_config[0].cron_expression == "*/30 * * * *"
+      azurerm_container_app_job.ingestion.schedule_trigger_config[0].cron_expression == "*/30 * * * *" &&
+      one([for env in azurerm_container_app_job.ingestion.template[0].container[0].env : env.value if env.name == "SCANNER_CALIBRATION_ID"]) == var.screening_calibration_id
     )
     error_message = "Only the approved UTC schedule is supported."
   }
@@ -64,5 +66,23 @@ run "no_mutable_image" {
   variables {
     image = "test.azurecr.io/newsloom-ingestion:latest"
   }
+
   expect_failures = [var.image]
+}
+
+run "no_schedule_with_unbound_threshold" {
+  command = plan
+  variables {
+    schedule_enabled    = true
+    screening_threshold = "0.5"
+  }
+  expect_failures = [azurerm_container_app_job.ingestion]
+}
+
+run "no_malformed_binding" {
+  command = plan
+  variables {
+    screening_calibration_id = "not-an-evaluated-policy"
+  }
+  expect_failures = [var.screening_calibration_id]
 }

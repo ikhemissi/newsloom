@@ -1,14 +1,15 @@
 locals {
   identity = jsondecode(base64decode(var.workload_identities_base64)).ingestion
   environment = {
-    AZURE_CLIENT_ID      = local.identity.client_id
-    POSTGRES_HOST        = var.postgres_host
-    POSTGRES_DATABASE    = var.postgres_database
-    MODEL_ENDPOINT       = var.model_endpoint
-    SCREENING_DEPLOYMENT = var.screening_deployment
-    SCREENING_MODEL      = "Microsoft-Decision-1"
-    SCREENING_VERSION    = "1"
-    SCANNER_THRESHOLD    = var.screening_threshold
+    AZURE_CLIENT_ID        = local.identity.client_id
+    POSTGRES_HOST          = var.postgres_host
+    POSTGRES_DATABASE      = var.postgres_database
+    MODEL_ENDPOINT         = var.model_endpoint
+    SCREENING_DEPLOYMENT   = var.screening_deployment
+    SCREENING_MODEL        = "Microsoft-Decision-1"
+    SCREENING_VERSION      = "1"
+    SCANNER_THRESHOLD      = var.screening_threshold
+    SCANNER_CALIBRATION_ID = var.screening_calibration_id
   }
 }
 
@@ -67,8 +68,8 @@ resource "azurerm_container_app_job" "ingestion" {
   }
   lifecycle {
     precondition {
-      condition     = !var.schedule_enabled || var.screening_threshold != ""
-      error_message = "Keep scheduling disabled until real calibration and manual acceptance pass."
+      condition     = !var.schedule_enabled || (var.screening_threshold != "" && var.screening_calibration_id != "")
+      error_message = "Scheduling requires the measured threshold and matching policy calibration."
     }
   }
 }

@@ -50,6 +50,14 @@ variable "schedule_enabled" {
   type    = bool
   default = false
 }
+variable "screening_calibration_id" {
+  type    = string
+  default = ""
+  validation {
+    condition     = var.screening_calibration_id == "" || can(regex("^[a-f0-9]{64}$", var.screening_calibration_id))
+    error_message = "Supply the calibration identifier emitted by the evaluated policy."
+  }
+}
 variable "applicationinsights_connection_string" {
   type      = string
   sensitive = true
