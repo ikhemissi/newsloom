@@ -3,6 +3,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from typing import Literal
 
 import httpx
 import psycopg
@@ -181,6 +182,19 @@ def test_image_source_hash_is_stable_and_tracks_source(
     first = control.source_hash(tmp_path)
     categories.write_text("second taxonomy")
     assert first != control.source_hash(tmp_path)
+    retrieval = tmp_path / "config/mcp-evaluation.json"
+    retrieval.write_text("first retrieval corpus")
+    monkeypatch.setattr(
+        control,
+        "run",
+        lambda arguments, category: (
+            "services/platform/source.py\0config/feeds.json\0config/categories.json\0"
+            "config/mcp-evaluation.json\0"
+        ),
+    )
+    first = control.source_hash(tmp_path)
+    retrieval.write_text("second retrieval corpus")
+    assert first != control.source_hash(tmp_path)
 
 
 def test_failed_build_never_sets_an_image(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -201,8 +215,10 @@ def test_failed_build_never_sets_an_image(monkeypatch: pytest.MonkeyPatch) -> No
     assert not updates
 
 
-def test_enrichment_build_uses_own_dockerfile_and_immutable_image(
+@pytest.mark.parametrize("service", ["enrichment", "mcp"])
+def test_service_build_uses_own_dockerfile_and_immutable_image(
     monkeypatch: pytest.MonkeyPatch,
+    service: Literal["enrichment", "mcp"],
 ) -> None:
     responses: list[object] = [
         [],
@@ -226,12 +242,12 @@ def test_enrichment_build_uses_own_dockerfile_and_immutable_image(
             "AZURE_CONTAINER_REGISTRY_ENDPOINT": "test.azurecr.io",
         },
         "fixture",
-        service="enrichment",
+        service=service,
     )
     assert updates == [
-        ("ENRICHMENT_IMAGE", "test.azurecr.io/newsloom-enrichment@sha256:" + "a" * 64)
+        (service.upper() + "_IMAGE", f"test.azurecr.io/newsloom-{service}@sha256:" + "a" * 64)
     ]
-    assert any(str(Path.cwd() / "services/enrichment/Dockerfile") in call for call in calls)
+    assert any(str(Path.cwd() / f"services/{service}/Dockerfile") in call for call in calls)
 
 
 @pytest.mark.parametrize(

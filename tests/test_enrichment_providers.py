@@ -157,7 +157,7 @@ async def test_retry_budget_and_long_retry_after_are_explicit(
         return httpx.Response(429, headers={"Retry-After": "2"})
 
     monkeypatch.setattr(time, "monotonic", lambda: clock[0])
-    monkeypatch.setattr("newsloom_enrichment.providers.asyncio.sleep", sleep)
+    monkeypatch.setattr("newsloom_core.model_transport.asyncio.sleep", sleep)
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         provider = FoundryLlm(
             ModelClient(client, Credential(), "https://example.com"), "generation"

@@ -14,6 +14,18 @@ deployment and preservation procedures live in the [platform runbook](azure-plat
 Future runtime requirements remain in
 [P1-C09](prd-1-capabilities.md#p1-c09-independently-deployable-persistent-azure-platform).
 
+## MCP client interoperability
+
+The installed client's registration-prompt examples were not sufficient proof of
+its actual callback: browser sign-in used localhost with an ephemeral port.
+Entra resource indicators also required the exact MCP URL as an alias of the
+existing v2 API, and Copilot needed its private flat OAuth client configuration
+instead of relying on legacy VS Code forwarding. These were measured integration
+issues, not reasons to add a proxy, secret, broader grant or token bypass.
+The [MCP runbook](mcp.md) owns the current setup and troubleshooting procedure;
+the [acceptance record](../openspec/changes/mcp-server/tasks.md#acceptance-evidence)
+retains the actual corrections and client/tool results.
+
 ## PostgreSQL capacity and server stability
 
 PostgreSQL B1ms capacity can be unavailable in a chosen region. Check regional

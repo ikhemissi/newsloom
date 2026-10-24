@@ -7,9 +7,13 @@ dependencies = [
     "aiohttp>=3.12,<4",
     "azure-identity>=1.25,<2",
     "httpx>=0.28,<1",
+    "newsloom-core",
     "psycopg[binary]>=3.3,<4",
     "pydantic>=2.12,<3",
 ]
+
+[tool.uv.sources]
+newsloom-core = { workspace = true }
 
 [project.scripts]
 newsloom-platform = "newsloom_platform.cli:main"

@@ -86,7 +86,7 @@ async def test_migration_preserves_existing_ingestion_and_replays(
             await database.migrate(platform_database, credential)
         entries = await seed(platform_database)
         monkeypatch.setattr(database, "record", original)
-        assert await database.migrate(platform_database, credential) == 1
+        assert await database.migrate(platform_database, credential) == 2
         assert await database.migrate(platform_database, credential) == 0
         async with await database.connect(
             platform_database, credential, "newsloom", "postgres"

@@ -139,6 +139,8 @@ or publish duplicate news.
 - Tools serve stored `news` only, never queued/quarantined content, and never
   fetch a URL supplied by a caller.
 - A signed-in VS Code user can retrieve correct structured results from Azure.
+- Actual browsing, discovery and detail evidence is retained in the
+  [MCP acceptance record](../openspec/changes/mcp-server/tasks.md#acceptance-evidence).
 
 ## P1-C07: Filtered semantic search
 
@@ -158,6 +160,8 @@ or publish duplicate news.
 - Stored embeddings use `vector(1536)` and an HNSW index; source, category, tags,
   and publication date have supporting indexes.
 - Frozen-query evaluations measure recall@k with and without filters.
+- The [MCP acceptance record](../openspec/changes/mcp-server/tasks.md#acceptance-evidence)
+  retains the separate filtered/unfiltered frozen-query measurements.
 
 ## P1-C08: User authentication and least-privilege workload access
 
@@ -181,7 +185,7 @@ the database and inference permissions its role needs.
   inference permissions are limited per workload. No passwords, keys, or client
   secrets are introduced.
 - VS Code sign-in compatibility without Entra dynamic client registration is
-  verified rather than assumed.
+  [verified rather than assumed](../openspec/changes/mcp-server/tasks.md#acceptance-evidence).
 
 ## P1-C09: Independently deployable, persistent Azure platform
 

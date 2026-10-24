@@ -5,6 +5,10 @@ metadata:
 infra:
   provider: terraform
   layers:
+    - name: mcp-identity
+      path: infra/mcp-identity
+      dependsOn:
+        - bootstrap
     - name: bootstrap
       path: infra/bootstrap
     - name: application
@@ -45,6 +49,17 @@ infra:
         preprovision:
           shell: sh
           run: uv run --locked newsloom-platform build-enrichment
+          interactive: false
+          continueOnError: false
+    - name: mcp
+      path: infra/mcp
+      dependsOn:
+        - mcp-identity
+        - migrations
+      hooks:
+        preprovision:
+          shell: sh
+          run: uv run --locked newsloom-platform build-mcp
           interactive: false
           continueOnError: false
 hooks:

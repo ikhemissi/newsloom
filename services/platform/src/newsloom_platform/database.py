@@ -123,7 +123,7 @@ async def migrate(config: RuntimeConfig, credential: AsyncTokenCredential) -> in
         async with await connect(
             config, credential, config.postgres_database, config.postgres_admin_name
         ) as application:
-            for version in ("001_vector", "002_ingestion", "003_enrichment"):
+            for version in ("001_vector", "002_ingestion", "003_enrichment", "004_mcp_read"):
                 sql = migration_sql(f"{version}.sql")
                 checksum = hashlib.sha256(sql.encode()).hexdigest()
                 async with application.transaction():

@@ -2,11 +2,11 @@
 
 Curated AI news for MCP clients, research agents, and people.
 
-**Status: shared Azure foundation, real feed ingestion, and enrichment implemented.**
-- Available: Python workspace, 41-feed catalogue, local/CI checks, azd-managed Azure infrastructure, managed-identity migrations, RSS/Atom ingestion with real Decision-model screening, and durable queue/quarantine storage. Enrichment produces validated summaries, one of 11 categories, tags, and 1536-dimensional embeddings in PostgreSQL.
-- Planned: the MCP HTTP service, research agent, and browser UI. Enrichment does not complete PRD-1; see its [acceptance progress](openspec/changes/enrichment/tasks.md).
+**Status: shared Azure foundation, real ingestion/enrichment, and authenticated MCP serving implemented.**
+- Available: Python workspace, 41-feed catalogue, local/CI checks, azd-managed Azure infrastructure, managed-identity migrations, RSS/Atom ingestion with real Decision-model screening, and durable queue/quarantine storage. Enrichment produces validated summaries, one of 11 categories, tags, and 1536-dimensional embeddings in PostgreSQL. The deployed MCP service provides four read-only browsing/search tools with verified Entra browser sign-in.
+- Remaining: MCP release close-out, phase-wide acceptance, the research agent, and browser UI. See [MCP acceptance progress](openspec/changes/mcp-server/tasks.md) and the [phase delivery plan](docs/prd-1.md).
 
-## Planned architecture
+## Architecture
 
 ```mermaid
 flowchart LR
@@ -85,10 +85,12 @@ service. Follow the [ingestion runbook](docs/ingestion.md) for calibration,
 immediate execution, independent database readback, and schedule enablement.
 The separate [enrichment job](docs/enrichment.md) processes accepted work into
 stored news using the existing managed identity and model deployments, with
-bounded claims, atomic completion and lease recovery. It does not serve MCP yet.
-The bootstrap, application, migrations, ingestion, and enrichment layers run in
-that order in the same environment. Both runtime schedules continue in Azure
-independently of the developer laptop.
+bounded claims, atomic completion and lease recovery. The independently deployed
+[MCP app](docs/mcp.md) serves committed news through Entra-protected HTTP tools.
+Its owning identity/app layers reuse the existing platform and preserve both
+pipeline jobs. Both runtime schedules continue in Azure independently of the
+developer laptop. Follow the MCP runbook for registration, private client
+configuration, isolated retrieval evaluation and operator verification.
 
 ## Useful commands
 
@@ -101,6 +103,8 @@ independently of the developer laptop.
 | Read actual ingestion database counts | `uv run --locked newsloom-platform read-ingestion` |
 | Start a bounded Azure enrichment run | `uv run --locked newsloom-platform execute-enrichment --limit 10` |
 | Read actual enrichment/news database counts | `uv run --locked newsloom-platform read-enrichment` |
+| Verify deployed MCP workload access | `uv run --locked newsloom-platform verify-mcp` |
+| Run the isolated frozen retrieval study | `uv run --locked newsloom-platform evaluate-mcp` |
 | List OpenSpec changes | `npm run spec:list` |
 
 ## Delivery workflow
@@ -132,4 +136,5 @@ Delivered platform contracts are maintained in the
 | Azure platform deployment | [Platform runbook](docs/azure-platform.md) |
 | Feed ingestion and real screening | [Ingestion runbook](docs/ingestion.md) |
 | Structured news enrichment and embeddings | [Enrichment runbook](docs/enrichment.md) |
+| Authenticated MCP browsing/search | [MCP runbook](docs/mcp.md) |
 | AI contributor instructions | [AGENTS.md](AGENTS.md) |

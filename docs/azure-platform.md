@@ -214,5 +214,6 @@ these four integration tests are skipped; the remaining local gate stays offline
 - Resource provisioning alone does not prove migrations, model permissions, or
   telemetry. Record real Azure execution/query evidence before accepting the change.
 - Foundation acceptance covers shared resources, not the business services.
-  [Ingestion](ingestion.md) has its own implementation and acceptance evidence;
-  enrichment and MCP remain [later slices](prd-1.md#delivery-plan).
+  [Ingestion](ingestion.md), [enrichment](enrichment.md), and [MCP serving](mcp.md)
+  retain their own implementation and acceptance evidence. Phase-wide acceptance
+  remains a [separate step](prd-1.md#delivery-plan).

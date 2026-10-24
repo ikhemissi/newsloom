@@ -15,8 +15,11 @@ is verified locally, in Azure, and by exact-commit CI.
 quarantine decisions from newly measured results.
 Step 1.4 is implemented with
 [local, real-model, Azure and exact-commit CI acceptance evidence](../openspec/changes/enrichment/tasks.md#acceptance-evidence).
-Steps 1.5-1.6 and phase acceptance remain pending; stored enriched news is not
-yet an MCP-serving endpoint.
+Step 1.5 has a deployed MCP endpoint and
+[real-model retrieval evidence](../openspec/changes/mcp-server/tasks.md#acceptance-evidence);
+actual workload-denial checks and warning-free VS Code/Copilot browser sign-in
+are verified. Exact-commit CI and final delivery close-out remain pending.
+Step 1.6 and phase acceptance are not complete.
 
 This document owns phase sequencing and capability-to-slice assignments.
 [Capabilities](prd-1-capabilities.md) own behavior, user stories, acceptance

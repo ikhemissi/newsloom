@@ -8,6 +8,8 @@
 !services/**
 !config/
 !config/feeds.json
+!config/categories.json
+!config/mcp-evaluation.json
 **/.env*
 **/.venv/
 **/__pycache__/

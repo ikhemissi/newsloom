@@ -39,6 +39,15 @@ async def runtime(command: str, workload: str, correlation: str) -> None:
         if command == "migrate":
             applied = await migrate(config, credential)
             event("migrations", "success", correlation, checks=applied)
+        elif command in ("mcp-eval-prepare", "mcp-eval-cleanup"):
+            from newsloom_platform.mcp_evaluation import cleanup, prepare
+
+            if command == "mcp-eval-prepare":
+                count = await prepare(config, credential, correlation)
+                event("mcp_evaluation_schema", "prepared", correlation, checks=count)
+            else:
+                await cleanup(config, credential, correlation)
+                event("mcp_evaluation_schema", "removed", correlation, checks=1)
         elif command == "enrichment-status":
             counts = await enrichment_status(config, credential)
             event("enrichment_readback", "success", correlation, counts=counts)
@@ -88,6 +97,14 @@ def main() -> None:
                 "evaluate-enrichment",
                 "read-enrichment",
                 "verify-enrichment",
+                "build-mcp",
+                "verify-mcp",
+                "prepare-mcp-evaluation",
+                "cleanup-mcp-evaluation",
+                "mcp-eval-prepare",
+                "mcp-eval-cleanup",
+                "prepare-mcp-identity",
+                "evaluate-mcp",
             ],
         )
         parser.add_argument("--force", action="store_true")
@@ -102,7 +119,14 @@ def main() -> None:
             raise PlatformFailure("invalid_enrichment_limit")
         if args.command != "probe" and args.workload is not None:
             raise PlatformFailure("unexpected_workload_argument")
-        if args.command in ["migrate", "probe", "ingestion-status", "enrichment-status"]:
+        if args.command in [
+            "migrate",
+            "probe",
+            "ingestion-status",
+            "enrichment-status",
+            "mcp-eval-prepare",
+            "mcp-eval-cleanup",
+        ]:
             workload = args.workload if args.command == "probe" else "migrations"
             if workload is None:
                 raise PlatformFailure("workload_required")

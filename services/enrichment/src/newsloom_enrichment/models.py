@@ -9,26 +9,16 @@ from uuid import UUID
 
 from newsloom_core.categories import Category
 from newsloom_core.entries import Entry
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from newsloom_core.model_transport import ModelFailure
+from newsloom_core.model_transport import (
+    ServiceSafetyBlock as ServiceSafetyBlock,
+)
+from newsloom_core.model_transport import (
+    Vector as Vector,
+)
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-
-class EnrichmentFailure(Exception):
-    def __init__(self, category: str, *, retry_after: float = 0) -> None:
-        if (
-            not re.fullmatch(r"[a-z0-9_]+", category)
-            or not math.isfinite(retry_after)
-            or not 0 <= retry_after <= 2147483647
-        ):
-            raise ValueError("invalid_enrichment_failure")
-        super().__init__(category)
-        self.retry_after = retry_after
-
-
-class ServiceSafetyBlock(EnrichmentFailure):
-    """Only a validated generation-service jailbreak-filter response."""
-
-    def __init__(self) -> None:
-        super().__init__("generation_jailbreak_filtered")
+EnrichmentFailure = ModelFailure
 
 
 @dataclass(frozen=True)
@@ -94,20 +84,6 @@ class Enrichment(BaseModel):
     @property
     def summary(self) -> str:
         return " ".join(self.summary_sentences)
-
-
-Number = Annotated[float, Field(strict=True, allow_inf_nan=False)]
-
-
-class Vector(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True, hide_input_in_errors=True)
-    values: Annotated[tuple[Number, ...], Field(min_length=1536, max_length=1536)]
-
-    @model_validator(mode="after")
-    def nonzero(self) -> Vector:
-        if not any(value != 0 for value in self.values):
-            raise ValueError("zero_embedding")
-        return self
 
 
 @dataclass(frozen=True)

@@ -5,7 +5,8 @@
 - The repository and shared Azure foundations are implemented and verified.
   Ingestion has a real runtime; see its [runbook and acceptance status](docs/ingestion.md).
   Enrichment is implemented; see its [runbook and acceptance status](docs/enrichment.md).
-  MCP remains a boundary, not a working business service.
+  MCP is deployed with verified user sign-in and read-only tools; see its
+  [runbook and acceptance status](docs/mcp.md).
   See [README](README.md) and the [platform runbook](docs/azure-platform.md).
 - Follow [documentation ownership](docs/development.md#documentation-ownership).
   Read the relevant phase PRD and capability document before changing behavior;

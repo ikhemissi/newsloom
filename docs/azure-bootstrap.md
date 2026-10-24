@@ -17,6 +17,9 @@ deployment entry point. The [project](../azure.yaml) has these native Terraform 
 | `application` | [Application infrastructure](../infra/) | Entra-authenticated Azure Blob backend; depends on `bootstrap` |
 | `migrations` | [Migration job](../infra/migrations/) | Separate Entra-authenticated `newsloom/<environment>-migrations.tfstate`; depends on `application` |
 | `ingestion` | [Ingestion job](../infra/ingestion/) | Separate Entra-authenticated `newsloom/<environment>-ingestion.tfstate`; depends on `migrations` |
+| `enrichment` | [Enrichment job](../infra/enrichment/) | Separate Entra-authenticated `newsloom/<environment>-enrichment.tfstate`; depends on `migrations` and `ingestion` |
+| `mcp-identity` | [MCP registrations](../infra/mcp-identity/) | Separate Entra-authenticated `newsloom/<environment>-mcp-identity.tfstate`; depends on `bootstrap` |
+| `mcp` | [MCP app](../infra/mcp/) | Separate Entra-authenticated `newsloom/<environment>-mcp.tfstate`; depends on `mcp-identity` and `migrations` |
 
 Bootstrap state stays local to avoid a backend creating itself. Preserve the
 ignored azd environment and bootstrap state securely; never provision an existing
