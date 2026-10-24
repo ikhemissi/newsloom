@@ -5,13 +5,12 @@ import ipaddress
 import socket
 import time
 import zlib
-from datetime import UTC, datetime
-from email.utils import parsedate_to_datetime
 from urllib.parse import urljoin, urlsplit
 from urllib.robotparser import RobotFileParser
 
 import aiohttp
 from aiohttp.abc import AbstractResolver, ResolveResult
+from newsloom_core.retry import retry_delay as shared_retry_delay
 
 from newsloom_ingestion.models import DEFAULT_LIMITS, Document, IngestionFailure, Limits
 
@@ -74,18 +73,10 @@ class PublicResolver(AbstractResolver):
 
 
 def retry_delay(value: str | None, attempt: int) -> float:
-    if value is None:
-        return float(2**attempt)
     try:
-        seconds = float(value)
+        return shared_retry_delay(value, attempt)
     except ValueError:
-        try:
-            seconds = (parsedate_to_datetime(value) - datetime.now(UTC)).total_seconds()
-        except ValueError, TypeError, OverflowError:
-            raise IngestionFailure("invalid_retry_after") from None
-    if not 0 <= seconds < float("inf"):
-        raise IngestionFailure("invalid_retry_after")
-    return seconds
+        raise IngestionFailure("invalid_retry_after") from None
 
 
 class PublicClient:

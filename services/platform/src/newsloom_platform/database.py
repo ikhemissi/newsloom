@@ -123,7 +123,7 @@ async def migrate(config: RuntimeConfig, credential: AsyncTokenCredential) -> in
         async with await connect(
             config, credential, config.postgres_database, config.postgres_admin_name
         ) as application:
-            for version in ("001_vector", "002_ingestion"):
+            for version in ("001_vector", "002_ingestion", "003_enrichment"):
                 sql = migration_sql(f"{version}.sql")
                 checksum = hashlib.sha256(sql.encode()).hexdigest()
                 async with application.transaction():
@@ -145,9 +145,9 @@ async def ingestion_status(
         "WHERE outcome NOT IN ('fetched','empty','not_modified')",
         "fetched_sources": "SELECT count(*) FROM feed_sources WHERE outcome='fetched'",
         "not_modified_sources": "SELECT count(*) FROM feed_sources WHERE outcome='not_modified'",
-        "pending": "SELECT count(*) FROM ingestion_queue",
+        "pending": "SELECT count(*) FROM ingestion_queue WHERE status='pending'",
         "screened_pending": "SELECT count(*) FROM ingestion_queue WHERE score<=threshold "
-        "AND model='Microsoft-Decision-1' AND model_version='1'",
+        "AND model='Microsoft-Decision-1' AND model_version='1' AND status='pending'",
         "rejected": "SELECT count(*) FROM quarantine WHERE disposition='rejected'",
         "deferred": "SELECT count(*) FROM quarantine WHERE disposition='deferred'",
         "resolved": "SELECT count(*) FROM quarantine WHERE disposition='resolved'",
@@ -173,6 +173,48 @@ async def ingestion_status(
             row = await (await connection.execute(sql)).fetchone()
             if row is None or not isinstance(row[0], int):
                 raise PlatformFailure("invalid_ingestion_readback")
+            result[key] = row[0]
+    return result
+
+
+async def enrichment_status(
+    config: RuntimeConfig, credential: AsyncTokenCredential
+) -> dict[str, int]:
+    queries = {
+        **{
+            state: f"SELECT count(*) FROM ingestion_queue WHERE status='{state}'"
+            for state in ("pending", "processing", "completed", "failed", "dead_letter")
+        },
+        "news": "SELECT count(*) FROM news",
+        "invalid_vectors": "SELECT count(*) FROM news "
+        "WHERE vector_dims(embedding)<>1536 OR vector_norm(embedding)<=0",
+        "completion_mismatches": "SELECT count(*) FROM news n JOIN ingestion_queue q ON q.id=n.id "
+        "WHERE q.status<>'completed' OR q.source IS DISTINCT FROM n.source "
+        "OR q.guid IS DISTINCT FROM n.guid OR q.canonical_url IS DISTINCT FROM n.canonical_url",
+        "completed_without_news": "SELECT count(*) FROM ingestion_queue q "
+        "LEFT JOIN news n ON n.id=q.id WHERE q.status='completed' AND n.id IS NULL",
+        "duplicate_urls": "SELECT count(*) FROM (SELECT canonical_url FROM news "
+        "GROUP BY canonical_url HAVING count(*)>1) duplicates",
+        "duplicate_guids": "SELECT count(*) FROM (SELECT source,guid FROM news "
+        "WHERE guid IS NOT NULL GROUP BY source,guid HAVING count(*)>1) duplicates",
+        "rejected": "SELECT count(*) FROM quarantine WHERE disposition='rejected'",
+        "published_rejections": "SELECT count(*) FROM news n JOIN quarantine q "
+        "ON q.canonical_url=n.canonical_url OR (q.source=n.source AND q.guid=n.guid) "
+        "WHERE q.disposition='rejected'",
+    }
+    result: dict[str, int] = {}
+    async with (
+        await connect(
+            config, credential, config.postgres_database, config.postgres_admin_name
+        ) as connection,
+        connection.transaction(),
+    ):
+        await connection.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
+        await connection.execute("SET LOCAL statement_timeout='15s'")
+        for key, sql in queries.items():
+            row = await (await connection.execute(sql)).fetchone()
+            if row is None or not isinstance(row[0], int):
+                raise PlatformFailure("invalid_enrichment_readback")
             result[key] = row[0]
     return result
 

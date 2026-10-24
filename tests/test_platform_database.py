@@ -105,7 +105,7 @@ async def platform_database(monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[Ru
 
 async def test_migration_replay_and_vector_contract(platform_database: RuntimeConfig) -> None:
     async with ManagedIdentityCredential() as credential:
-        assert await database.migrate(platform_database, credential) == 3
+        assert await database.migrate(platform_database, credential) == 4
         assert await database.migrate(platform_database, credential) == 0
         async with await database.connect(
             platform_database, credential, "newsloom", "postgres"
@@ -128,6 +128,7 @@ async def test_migration_replay_and_vector_contract(platform_database: RuntimeCo
                 ("public", "feed_sources"),
                 ("public", "ingestion_queue"),
                 ("public", "quarantine"),
+                ("public", "news"),
             }
 
 
@@ -137,7 +138,7 @@ async def test_concurrent_migrations_serialize(platform_database: RuntimeConfig)
             database.migrate(platform_database, credential),
             database.migrate(platform_database, credential),
         )
-    assert sorted(outcomes) == [0, 3]
+    assert sorted(outcomes) == [0, 4]
 
 
 async def test_failed_sql_phase_rolls_back(
@@ -166,7 +167,7 @@ async def test_failed_sql_phase_rolls_back(
             ).fetchone()
             assert row == (0,)
         monkeypatch.setattr(database, "record", original)
-        assert await database.migrate(platform_database, credential) == 2
+        assert await database.migrate(platform_database, credential) == 3
 
 
 async def test_ingestion_migration_rolls_back_atomically_and_replays(
@@ -200,7 +201,7 @@ async def test_ingestion_migration_rolls_back_atomically_and_replays(
                 )
             ).fetchone() == (0,)
         monkeypatch.setattr(database, "migration_sql", original)
-        assert await database.migrate(platform_database, credential) == 1
+        assert await database.migrate(platform_database, credential) == 2
         assert await database.migrate(platform_database, credential) == 0
 
 

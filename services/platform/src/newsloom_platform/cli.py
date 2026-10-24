@@ -15,7 +15,12 @@ from azure.identity.aio import ManagedIdentityCredential
 from pydantic import ValidationError
 
 from newsloom_platform.config import PlatformFailure, RuntimeConfig
-from newsloom_platform.database import ingestion_sources, ingestion_status, migrate
+from newsloom_platform.database import (
+    enrichment_status,
+    ingestion_sources,
+    ingestion_status,
+    migrate,
+)
 from newsloom_platform.events import configure_logging, event
 
 
@@ -34,6 +39,9 @@ async def runtime(command: str, workload: str, correlation: str) -> None:
         if command == "migrate":
             applied = await migrate(config, credential)
             event("migrations", "success", correlation, checks=applied)
+        elif command == "enrichment-status":
+            counts = await enrichment_status(config, credential)
+            event("enrichment_readback", "success", correlation, counts=counts)
         elif command == "ingestion-status":
             counts = await ingestion_status(config, credential)
             event("ingestion_readback", "success", correlation, counts=counts)
@@ -74,18 +82,27 @@ def main() -> None:
                 "execute-ingestion",
                 "calibrate-ingestion",
                 "read-ingestion",
+                "enrichment-status",
+                "build-enrichment",
+                "execute-enrichment",
+                "evaluate-enrichment",
+                "read-enrichment",
+                "verify-enrichment",
             ],
         )
         parser.add_argument("--force", action="store_true")
+        parser.add_argument("--limit", type=int, default=25)
         parser.add_argument(
             "workload", nargs="?", choices=["ingestion", "enrichment", "mcp", "migrations"]
         )
         args = parser.parse_args()
         if args.force and args.command != "execute-ingestion":
             raise PlatformFailure("force_requires_ingestion_execution")
+        if not 1 <= args.limit <= 25 or (args.limit != 25 and args.command != "execute-enrichment"):
+            raise PlatformFailure("invalid_enrichment_limit")
         if args.command != "probe" and args.workload is not None:
             raise PlatformFailure("unexpected_workload_argument")
-        if args.command in ["migrate", "probe", "ingestion-status"]:
+        if args.command in ["migrate", "probe", "ingestion-status", "enrichment-status"]:
             workload = args.workload if args.command == "probe" else "migrations"
             if workload is None:
                 raise PlatformFailure("workload_required")
@@ -95,6 +112,8 @@ def main() -> None:
 
             if args.force:
                 control(args.command, correlation, force=True)
+            elif args.command == "execute-enrichment":
+                control(args.command, correlation, limit=args.limit)
             else:
                 control(args.command, correlation)
     except (

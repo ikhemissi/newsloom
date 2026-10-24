@@ -89,6 +89,10 @@ from rejection and retried without relying on the source returning its body agai
 Enrichment and the `news` table remain later work.
 Entry URLs retain query strings and fragments: anchors can distinguish releases
 on the same page. Deduplication uses that full URL or `(source, GUID)`.
+When enrichment is introduced, completed queue rows remain known identities but
+are excluded from `pending` and `screened_pending` depth. Enrichment readback
+separates processing, failed, completed and dead-letter work from pending entries;
+queue history is not an unprocessed backlog.
 
 ## Calibration and immediate Azure execution
 

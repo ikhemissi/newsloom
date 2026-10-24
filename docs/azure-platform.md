@@ -83,6 +83,12 @@ configuration even though it contains no application passwords.
 | `LOG_ANALYTICS_WORKSPACE_ID` | Log query target |
 | `WORKLOAD_GRANTS` | Principal/scope/action inventory to verify against actual access |
 
+Enrichment's additive migration retains queue history. Ingestion pending-depth
+readbacks filter `status='pending'`; enrichment readback distinguishes each queue
+state, news counts, completion/attribution mismatches, invalid vectors and duplicate
+identities. Readback runs fixed aggregate SQL in a read-only consistent snapshot,
+never logs news text, and does not require a developer database role.
+
 The model endpoint uses the account's configured custom subdomain and the
 service-advertised `services.ai.azure.com` Foundry route. The generic Cognitive
 Services endpoint exported by AzureRM does not identify that provider route.

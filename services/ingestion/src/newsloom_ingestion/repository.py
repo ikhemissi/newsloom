@@ -202,7 +202,7 @@ class Repository:
     async def counts(self) -> dict[str, int]:
         row = await (
             await self.connection.execute(
-                "SELECT (SELECT count(*) FROM ingestion_queue), "
+                "SELECT (SELECT count(*) FROM ingestion_queue WHERE status='pending'), "
                 "(SELECT count(*) FROM quarantine WHERE disposition='rejected'), "
                 "(SELECT count(*) FROM quarantine WHERE disposition='deferred')"
             )

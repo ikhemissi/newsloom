@@ -7,6 +7,7 @@ import subprocess
 import tempfile
 import time
 from pathlib import Path
+from typing import Literal
 
 from newsloom_platform.config import PlatformFailure, json_object, text_field
 from newsloom_platform.events import event
@@ -70,7 +71,10 @@ def source_hash(root: Path) -> str:
         ["git", "-C", str(root), "ls-files", "--cached", "--others", "--exclude-standard", "-z"],
         "image_source",
     ).split("\0"):
-        if raw and (raw.startswith(("packages/", "services/")) or raw == "config/feeds.json"):
+        if raw and (
+            raw.startswith(("packages/", "services/"))
+            or raw in ("config/feeds.json", "config/categories.json")
+        ):
             paths.add(Path(raw))
     digest = hashlib.sha256()
     for path in sorted(paths):
@@ -78,8 +82,12 @@ def source_hash(root: Path) -> str:
     return digest.hexdigest()
 
 
-def build(env: dict[str, str], correlation: str, *, ingestion: bool = False) -> None:
-    service = "ingestion" if ingestion else "platform"
+def build(
+    env: dict[str, str],
+    correlation: str,
+    *,
+    service: Literal["platform", "ingestion", "enrichment"] = "platform",
+) -> None:
     repository = f"newsloom-{service}"
     registry = env["AZURE_CONTAINER_REGISTRY_NAME"]
     root = Path(run(["git", "rev-parse", "--show-toplevel"], "project_root"))
@@ -284,12 +292,50 @@ def verify(env: dict[str, str], correlation: str) -> None:
     event("azure_verification", "success", correlation, checks=4)
 
 
-def control(command: str, correlation: str, *, force: bool = False) -> None:
+def control(command: str, correlation: str, *, force: bool = False, limit: int = 25) -> None:
     env = environment()
     if command == "build":
         build(env, correlation)
     elif command == "build-ingestion":
-        build(env, correlation, ingestion=True)
+        build(env, correlation, service="ingestion")
+    elif command == "build-enrichment":
+        build(env, correlation, service="enrichment")
+    elif command in (
+        "execute-enrichment",
+        "evaluate-enrichment",
+        "read-enrichment",
+        "verify-enrichment",
+    ):
+        if isinstance(limit, bool) or not 1 <= limit <= 25:
+            raise PlatformFailure("invalid_enrichment_limit")
+        reading = command == "read-enrichment"
+        evaluating = command == "evaluate-enrichment"
+        verifying = command == "verify-enrichment"
+        arguments = (
+            ["enrichment-status"]
+            if reading
+            else ["evaluate"]
+            if evaluating
+            else ["verify-access"]
+            if verifying
+            else ["run", "--limit", str(limit)]
+        )
+        name = execute_job(
+            env["MIGRATION_JOB_ID" if reading else "ENRICHMENT_JOB_ID"],
+            correlation,
+            arguments=arguments,
+        )
+        prefix = (
+            "ENRICHMENT_READBACK"
+            if reading
+            else "ENRICHMENT_EVALUATION"
+            if evaluating
+            else "ENRICHMENT_VERIFICATION"
+            if verifying
+            else "ENRICHMENT"
+        )
+        set_environment(f"{prefix}_LAST_EXECUTION", name)
+        set_environment(f"{prefix}_LAST_RUN_ID", correlation)
     elif command in ("execute-ingestion", "calibrate-ingestion", "read-ingestion"):
         reading = command == "read-ingestion"
         arguments = (

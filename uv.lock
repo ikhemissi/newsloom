@@ -749,11 +749,27 @@ name = "newsloom-enrichment"
 version = "0.1.0"
 source = { editable = "services/enrichment" }
 dependencies = [
+    { name = "aiohttp" },
+    { name = "azure-identity" },
+    { name = "azure-monitor-opentelemetry-exporter" },
+    { name = "httpx" },
     { name = "newsloom-core" },
+    { name = "opentelemetry-sdk" },
+    { name = "psycopg", extra = ["binary"] },
+    { name = "pydantic" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "newsloom-core", editable = "packages/newsloom-core" }]
+requires-dist = [
+    { name = "aiohttp", specifier = ">=3.12,<4" },
+    { name = "azure-identity", specifier = ">=1.25,<2" },
+    { name = "azure-monitor-opentelemetry-exporter", specifier = ">=1.0.0b50,<2" },
+    { name = "httpx", specifier = ">=0.28,<1" },
+    { name = "newsloom-core", editable = "packages/newsloom-core" },
+    { name = "opentelemetry-sdk", specifier = ">=1.39,<2" },
+    { name = "psycopg", extras = ["binary"], specifier = ">=3.3,<4" },
+    { name = "pydantic", specifier = ">=2.12,<3" },
+]
 
 [[package]]
 name = "newsloom-ingestion"

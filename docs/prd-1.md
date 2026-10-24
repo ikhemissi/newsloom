@@ -13,7 +13,10 @@ The [contextual screening follow-up](../openspec/changes/archive/2026-10-23-cont
 is verified locally, in Azure, and by exact-commit CI.
 [findings](findings/contextual-content-screening.md) separate historical
 quarantine decisions from newly measured results.
-Steps 1.4-1.6 and phase acceptance remain pending.
+Step 1.4 is implemented with
+[local, real-model and Azure acceptance evidence](../openspec/changes/enrichment/tasks.md#acceptance-evidence);
+its delivery commit and exact-commit CI remain pending.
+Steps 1.5-1.6 and phase acceptance remain pending.
 
 This document owns phase sequencing and capability-to-slice assignments.
 [Capabilities](prd-1-capabilities.md) own behavior, user stories, acceptance

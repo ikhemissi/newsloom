@@ -1,0 +1,13 @@
+[
+  {"id":"regulations","label":"Regulations","description":"Binding laws, regulatory requirements and regulator enforcement."},
+  {"id":"models","label":"Models","description":"Model releases, capabilities and material model changes."},
+  {"id":"agents-applications","label":"Agents & Applications","description":"Agent systems and end-user AI applications."},
+  {"id":"developer-tools","label":"Developer Tools","description":"SDKs, frameworks and developer tooling."},
+  {"id":"infrastructure","label":"Infrastructure","description":"Compute, hosting and deployment architecture."},
+  {"id":"research-evaluations","label":"Research & Evaluations","description":"Research methods, benchmarks and evaluation results."},
+  {"id":"security-safety","label":"Security & Safety","description":"Vulnerabilities, attacks, defenses and safety findings."},
+  {"id":"governance","label":"Governance","description":"AI-agent governance and AI gateways, including access policies, approval flows, enforcement and auditability; not laws or regulations."},
+  {"id":"industry-business","label":"Industry & Business","description":"Funding, acquisitions, partnerships and business developments."},
+  {"id":"service-providers","label":"Service Providers","description":"Managed AI services, provider offerings and availability."},
+  {"id":"finops","label":"FinOps","description":"AI spending, allocation, budgeting and cost optimization."}
+]

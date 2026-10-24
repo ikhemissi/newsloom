@@ -116,6 +116,9 @@ or publish duplicate news.
 - Feed text is delimited as untrusted data, enrichment has no tools, and invalid
   outputs cannot be treated as successful enrichment.
 - Labelled evaluations check output validity and category accuracy.
+- The implemented [enrichment contract](../openspec/changes/enrichment/specs/news-enrichment/spec.md)
+  uses the [approved category catalogue](../config/categories.json).
+  Governance covers AI-agent governance and AI gateways, separately from Regulations.
 
 ## P1-C06: Recent news, item details, and source discovery
 

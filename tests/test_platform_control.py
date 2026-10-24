@@ -169,6 +169,18 @@ def test_image_source_hash_is_stable_and_tracks_source(
     first = control.source_hash(tmp_path)
     catalogue.write_text("second catalogue")
     assert first != control.source_hash(tmp_path)
+    categories = tmp_path / "config/categories.json"
+    categories.write_text("first taxonomy")
+    monkeypatch.setattr(
+        control,
+        "run",
+        lambda arguments, category: (
+            "services/platform/source.py\0config/feeds.json\0config/categories.json\0"
+        ),
+    )
+    first = control.source_hash(tmp_path)
+    categories.write_text("second taxonomy")
+    assert first != control.source_hash(tmp_path)
 
 
 def test_failed_build_never_sets_an_image(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -187,6 +199,87 @@ def test_failed_build_never_sets_an_image(monkeypatch: pytest.MonkeyPatch) -> No
             "synthetic-correlation",
         )
     assert not updates
+
+
+def test_enrichment_build_uses_own_dockerfile_and_immutable_image(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    responses: list[object] = [
+        [],
+        {"runId": "synthetic", "status": "Succeeded"},
+        {"digest": "sha256:" + "a" * 64},
+    ]
+    calls: list[list[str]] = []
+    updates: list[tuple[str, str]] = []
+
+    def azure(arguments: list[str], category: str, **kwargs: object) -> object:
+        calls.append(arguments)
+        return responses.pop(0)
+
+    monkeypatch.setattr(control, "run", lambda *args, **kwargs: str(Path.cwd()))
+    monkeypatch.setattr(control, "source_hash", lambda root: "b" * 64)
+    monkeypatch.setattr(control, "azure", azure)
+    monkeypatch.setattr(control, "set_environment", lambda key, value: updates.append((key, value)))
+    control.build(
+        {
+            "AZURE_CONTAINER_REGISTRY_NAME": "test",
+            "AZURE_CONTAINER_REGISTRY_ENDPOINT": "test.azurecr.io",
+        },
+        "fixture",
+        service="enrichment",
+    )
+    assert updates == [
+        ("ENRICHMENT_IMAGE", "test.azurecr.io/newsloom-enrichment@sha256:" + "a" * 64)
+    ]
+    assert any(str(Path.cwd() / "services/enrichment/Dockerfile") in call for call in calls)
+
+
+@pytest.mark.parametrize(
+    "command,expected_job,arguments,prefix",
+    [
+        ("execute-enrichment", "enrich", ["run", "--limit", "10"], "ENRICHMENT"),
+        ("evaluate-enrichment", "enrich", ["evaluate"], "ENRICHMENT_EVALUATION"),
+        ("read-enrichment", "migrate", ["enrichment-status"], "ENRICHMENT_READBACK"),
+        ("verify-enrichment", "enrich", ["verify-access"], "ENRICHMENT_VERIFICATION"),
+    ],
+)
+def test_enrichment_operator_routes_only_to_own_job_or_readback(
+    command: str,
+    expected_job: str,
+    arguments: list[str],
+    prefix: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[str, list[str] | None]] = []
+    updates: dict[str, str] = {}
+    monkeypatch.setattr(
+        control,
+        "environment",
+        lambda: {"ENRICHMENT_JOB_ID": "enrich", "MIGRATION_JOB_ID": "migrate"},
+    )
+
+    def execute(job: str, correlation: str, *, arguments: list[str] | None = None) -> str:
+        calls.append((job, arguments))
+        return "synthetic-execution"
+
+    monkeypatch.setattr(control, "execute_job", execute)
+    monkeypatch.setattr(control, "set_environment", lambda key, value: updates.update({key: value}))
+    control.control(command, "fixture", limit=10 if command == "execute-enrichment" else 25)
+    assert calls == [(expected_job, arguments)]
+    assert updates == {
+        f"{prefix}_LAST_EXECUTION": "synthetic-execution",
+        f"{prefix}_LAST_RUN_ID": "fixture",
+    }
+
+
+@pytest.mark.parametrize("limit", ["0", "26"])
+def test_enrichment_operator_rejects_unsafe_limit_before_cloud(
+    limit: str, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(sys, "argv", ["newsloom-platform", "execute-enrichment", "--limit", limit])
+    with pytest.raises(SystemExit):
+        cli.main()
+    assert json.loads(capsys.readouterr().out)["category"] == "invalid_enrichment_limit"
 
 
 def test_running_execution_times_out_at_its_exact_deadline(
