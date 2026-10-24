@@ -15,12 +15,10 @@ is verified locally, in Azure, and by exact-commit CI.
 quarantine decisions from newly measured results.
 Step 1.4 is implemented with
 [local, real-model, Azure and exact-commit CI acceptance evidence](../openspec/changes/enrichment/tasks.md#acceptance-evidence).
-Step 1.5 has a deployed MCP endpoint and
-[real-model retrieval evidence](../openspec/changes/mcp-server/tasks.md#acceptance-evidence);
-actual workload-denial checks and warning-free VS Code/Copilot browser sign-in
-are verified, and
-[implementation exact-commit CI passed](https://github.com/ikhemissi/newsloom/actions/runs/40133602862).
-Final evidence-commit CI and delivery close-out remain pending.
+Step 1.5 is complete with
+[local, Azure, real-model, native-client and exact-commit CI evidence](../openspec/changes/mcp-server/tasks.md#acceptance-evidence),
+including actual workload denials and warning-free VS Code/Copilot browser
+sign-in. The MCP change remains unarchived.
 Step 1.6 and phase acceptance are not complete.
 
 This document owns phase sequencing and capability-to-slice assignments.

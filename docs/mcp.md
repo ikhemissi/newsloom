@@ -1,9 +1,10 @@
 # MCP serving operations
 
-Status: deployed with local, real-model retrieval, actual workload-denial
-and warning-free VS Code/Copilot browser sign-in checks passed. Implementation
-[exact-commit CI passed](https://github.com/ikhemissi/newsloom/actions/runs/40133602862);
-final evidence-commit CI and delivery close-out remain pending.
+Status: delivered with local, real-model retrieval, actual workload-denial
+and warning-free VS Code/Copilot browser sign-in acceptance.
+[Implementation CI](https://github.com/ikhemissi/newsloom/actions/runs/40133602862)
+and [separate evidence-head CI](https://github.com/ikhemissi/newsloom/actions/runs/40133806766)
+passed. The change remains unarchived; phase-wide acceptance is separate.
 See the [owning change](../openspec/changes/mcp-server/tasks.md) for actual progress.
 
 ## Read-only tools and public data

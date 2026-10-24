@@ -1,7 +1,7 @@
 # Tasks
 
-Checked tasks have verified local/Azure/user/implementation-CI evidence.
-Final evidence-commit CI and delivery close-out remain pending.
+All tasks have verified local/Azure/user/exact-commit CI evidence.
+The change is complete and remains unarchived; PRD-1 Step 1.6 is separate.
 Follow [the design](design.md),
 [the serving contract](specs/mcp-serving/spec.md), and
 [the search contract](specs/news-search/spec.md).
@@ -41,7 +41,7 @@ browser sign-in must pass before this slice is declared complete.
 ## 6. Persistent delivery evidence
 
 - [x] 6.1 After local, Azure, retrieval and end-user acceptance, commit/push the implementation with the required trailer and verify CI for its exact SHA. Record the actual workflow outcome and preserve the evaluated image/configuration reference without amending away verified evidence.
-- [ ] 6.2 Update the owning runbook, phase/capability/ADR status and this change's acceptance evidence with actual results, limits and unchanged pipeline/quarantine behavior. Verify local links, safe committed content and final-head CI for any separate evidence commit; leave every unverified task unchecked and do not claim full PRD-1 acceptance.
+- [x] 6.2 Update the owning runbook, phase/capability/ADR status and this change's acceptance evidence with actual results, limits and unchanged pipeline/quarantine behavior. Verify local links, safe committed content and final-head CI for any separate evidence commit; leave every unverified task unchecked and do not claim full PRD-1 acceptance.
 
 ## Workflow follow-up
 
@@ -319,3 +319,22 @@ browser sign-in must pass before this slice is declared complete.
   No commit was amended and no active change was archived.
 - This record follows a completed workflow, not an assumed future result.
   Its separate evidence-commit CI is still required for task 6.2.
+
+### Evidence close-out
+
+- Evidence commit **`ef15a5697ccc919facec93d274ad26d5ec11d852`** was pushed
+  separately without amending the verified implementation.
+  [Its exact-head CI run 40133806766](https://github.com/ikhemissi/newsloom/actions/runs/40133806766)
+  completed **successfully** before task 6.2 was checked.
+- The runbook, phase/capability status, ADRs, platform guidance and contributor
+  context now distinguish delivered MCP from the still-pending phase-wide
+  acceptance. All 138 local links/anchors checked across the 14 owning
+  documents resolved; identifier/format/spec guards passed.
+- The final completion receipt does not deploy a new image or change any
+  pipeline resource. Its own final-head workflow is verified before handoff.
+  The evaluated runtime image/configuration and private client acceptance
+  evidence remain separately identified. No content, credential or directory
+  identifier is committed as delivery evidence.
+- All 17 tasks are complete. MCP and enrichment remain unarchived until
+  requested. Step 1.6 phase-wide tests/evaluations, including its distinct
+  integration-identity/workflow requirements, are not claimed complete here.

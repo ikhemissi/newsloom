@@ -4,7 +4,7 @@ Curated AI news for MCP clients, research agents, and people.
 
 **Status: shared Azure foundation, real ingestion/enrichment, and authenticated MCP serving implemented.**
 - Available: Python workspace, 41-feed catalogue, local/CI checks, azd-managed Azure infrastructure, managed-identity migrations, RSS/Atom ingestion with real Decision-model screening, and durable queue/quarantine storage. Enrichment produces validated summaries, one of 11 categories, tags, and 1536-dimensional embeddings in PostgreSQL. The deployed MCP service provides four read-only browsing/search tools with verified Entra browser sign-in.
-- Remaining: MCP release close-out, phase-wide acceptance, the research agent, and browser UI. See [MCP acceptance progress](openspec/changes/mcp-server/tasks.md) and the [phase delivery plan](docs/prd-1.md).
+- Remaining: phase-wide acceptance, the research agent, and browser UI. MCP delivery has [local, Azure, real-model, native-client and exact-commit CI evidence](openspec/changes/mcp-server/tasks.md#acceptance-evidence); see the [phase delivery plan](docs/prd-1.md) for the next slice.
 
 ## Architecture
 
