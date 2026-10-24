@@ -1,6 +1,6 @@
 # Enrichment operations
 
-Status: implemented and verified locally and in Azure; delivery CI is pending. The owning
+Status: implemented and verified locally, in Azure, and by exact-commit CI. The owning
 [change](../openspec/changes/enrichment/tasks.md) retains actual acceptance evidence.
 See [PRD-1](prd-1.md) for sequencing and
 [the capability contract](../openspec/changes/enrichment/specs/news-enrichment/spec.md)
@@ -244,6 +244,20 @@ those attempts are not 63 distinct rejected articles. The one dead-letter item
 is an explicit unresolved output-validation follow-up, not automatically
 released, reset or hidden as a successful publication.
 
+A subsequent read-only audit, while the next scheduled run was progressing,
+verified 472 news rows with zero original-attribution mismatches, oversized
+summaries or invalid tags, and one prompt/taxonomy revision. Its failure-state
+aggregates confirmed one `invalid_generation` dead-letter item after five
+attempts, plus one retryable item on attempt one at that later snapshot.
+The audit exposed counts and safe categories only, not generated content.
+
 See the owning change's
 [acceptance evidence](../openspec/changes/enrichment/tasks.md#acceptance-evidence)
 for execution references, retained limitations and delivery/CI state.
+
+Implementation `512344adc91dff9cf505fdfd7a04e93e4a86784d` was committed only after
+the local and real Azure checks; its
+[exact-commit CI](https://github.com/ikhemissi/newsloom/actions/runs/40073237168)
+passed. The deployed immutable images match that implementation's verified source
+inputs. Later documentation/status commits do not imply a different image was
+deployed or change the prompt, taxonomy, fixtures or existing Azure configuration.

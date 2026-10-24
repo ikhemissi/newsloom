@@ -34,8 +34,8 @@ verification before enabling the schedule.
 
 ## 5. Persistent delivery evidence
 
-- [ ] 5.1 After local and Azure acceptance, commit and push the verified implementation with the required trailer and verify CI for that exact SHA. Record the actual commit/workflow result, not an earlier run or uncommitted test result.
-- [ ] 5.2 Update the owning phase status and this change's acceptance evidence with measured local/model/Azure/CI results, limits and unchanged quarantine behavior. Verify documentation links, safe committed content and final-head CI for any separate evidence commit; leave every unverified acceptance task unchecked.
+- [x] 5.1 After local and Azure acceptance, commit and push the verified implementation with the required trailer and verify CI for that exact SHA. Record the actual commit/workflow result, not an earlier run or uncommitted test result.
+- [x] 5.2 Update the owning phase status and this change's acceptance evidence with measured local/model/Azure/CI results, limits and unchanged quarantine behavior. Verify documentation links, safe committed content and final-head CI for any separate evidence commit; leave every unverified acceptance task unchecked.
 
 ## Workflow follow-up
 
@@ -138,5 +138,16 @@ verification before enabling the schedule.
   and zero lease losses. Attempt failures are not distinct rejected articles.
   The remaining dead-letter item is explicitly retained for follow-up rather
   than silently reprocessed or counted as successful news.
-- Implementation commit and exact-commit CI remain pending; no archive has
-  been performed.
+- Subsequent read-only audit `migrate-newsloom-dev-deg54ix`, during further
+  scheduled progress, verified 472 news rows with zero attribution mismatches,
+  oversized summaries or invalid tags, and one prompt/taxonomy revision.
+  Safe failure aggregates confirmed one `invalid_generation` dead-letter item
+  after five attempts and one retryable item on its first attempt at that
+  later snapshot. No raw model output was logged or used to weaken validation.
+- Implementation `512344adc91dff9cf505fdfd7a04e93e4a86784d` was committed and
+  pushed only after local and real Azure verification. Its
+  [exact-commit CI](https://github.com/ikhemissi/newsloom/actions/runs/40073237168)
+  completed successfully.
+- The README and agent context are updated separately from the verified
+  implementation's image inputs. These later status/evidence changes do not
+  claim redeployment of the documentation-only HEAD. No archive has been performed.

@@ -2,9 +2,9 @@
 
 Curated AI news for MCP clients, research agents, and people.
 
-**Status: shared Azure foundation and real feed ingestion implemented.**
-- Available: Python workspace, 41-feed catalogue, local/CI checks, azd-managed Azure infrastructure, managed-identity migrations, and RSS/Atom ingestion with real Decision-model screening and durable queue/quarantine storage.
-- Planned: enrichment, the MCP HTTP service, research agent, and browser UI. Ingestion does not complete PRD-1; see its [acceptance progress](openspec/changes/archive/2026-10-23-feed-ingestion/tasks.md).
+**Status: shared Azure foundation, real feed ingestion, and enrichment implemented.**
+- Available: Python workspace, 41-feed catalogue, local/CI checks, azd-managed Azure infrastructure, managed-identity migrations, RSS/Atom ingestion with real Decision-model screening, and durable queue/quarantine storage. Enrichment produces validated summaries, one of 11 categories, tags, and 1536-dimensional embeddings in PostgreSQL.
+- Planned: the MCP HTTP service, research agent, and browser UI. Enrichment does not complete PRD-1; see its [acceptance progress](openspec/changes/enrichment/tasks.md).
 
 ## Planned architecture
 
@@ -83,8 +83,12 @@ The foundation includes verified migration and identity/model/telemetry checks.
 The real ingestion job adds screened pending work, not summaries or an MCP HTTP
 service. Follow the [ingestion runbook](docs/ingestion.md) for calibration,
 immediate execution, independent database readback, and schedule enablement.
-The bootstrap, application, migrations, and ingestion layers run in that order
-in the same environment.
+The separate [enrichment job](docs/enrichment.md) processes accepted work into
+stored news using the existing managed identity and model deployments, with
+bounded claims, atomic completion and lease recovery. It does not serve MCP yet.
+The bootstrap, application, migrations, ingestion, and enrichment layers run in
+that order in the same environment. Both runtime schedules continue in Azure
+independently of the developer laptop.
 
 ## Useful commands
 
@@ -95,6 +99,8 @@ in the same environment.
 | Validate feed configuration | `uv run newsloom-validate-feeds config/feeds.json` |
 | Start Azure ingestion immediately | `uv run --locked newsloom-platform execute-ingestion` |
 | Read actual ingestion database counts | `uv run --locked newsloom-platform read-ingestion` |
+| Start a bounded Azure enrichment run | `uv run --locked newsloom-platform execute-enrichment --limit 10` |
+| Read actual enrichment/news database counts | `uv run --locked newsloom-platform read-enrichment` |
 | List OpenSpec changes | `npm run spec:list` |
 
 ## Delivery workflow
@@ -125,4 +131,5 @@ Delivered platform contracts are maintained in the
 | Architecture and operations | [ADRs](docs/adrs.md) / [Platform notes](docs/platform-notes.md) |
 | Azure platform deployment | [Platform runbook](docs/azure-platform.md) |
 | Feed ingestion and real screening | [Ingestion runbook](docs/ingestion.md) |
+| Structured news enrichment and embeddings | [Enrichment runbook](docs/enrichment.md) |
 | AI contributor instructions | [AGENTS.md](AGENTS.md) |
