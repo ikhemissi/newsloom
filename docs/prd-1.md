@@ -18,7 +18,9 @@ Step 1.4 is implemented with
 Step 1.5 has a deployed MCP endpoint and
 [real-model retrieval evidence](../openspec/changes/mcp-server/tasks.md#acceptance-evidence);
 actual workload-denial checks and warning-free VS Code/Copilot browser sign-in
-are verified. Exact-commit CI and final delivery close-out remain pending.
+are verified, and
+[implementation exact-commit CI passed](https://github.com/ikhemissi/newsloom/actions/runs/40133602862).
+Final evidence-commit CI and delivery close-out remain pending.
 Step 1.6 and phase acceptance are not complete.
 
 This document owns phase sequencing and capability-to-slice assignments.

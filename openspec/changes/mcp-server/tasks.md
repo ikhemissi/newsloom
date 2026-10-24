@@ -1,7 +1,7 @@
 # Tasks
 
-Checked tasks have verified local/Azure/user evidence; exact-commit CI and
-delivery close-out remain pending.
+Checked tasks have verified local/Azure/user/implementation-CI evidence.
+Final evidence-commit CI and delivery close-out remain pending.
 Follow [the design](design.md),
 [the serving contract](specs/mcp-serving/spec.md), and
 [the search contract](specs/news-search/spec.md).
@@ -40,7 +40,7 @@ browser sign-in must pass before this slice is declared complete.
 
 ## 6. Persistent delivery evidence
 
-- [ ] 6.1 After local, Azure, retrieval and end-user acceptance, commit/push the implementation with the required trailer and verify CI for its exact SHA. Record the actual workflow outcome and preserve the evaluated image/configuration reference without amending away verified evidence.
+- [x] 6.1 After local, Azure, retrieval and end-user acceptance, commit/push the implementation with the required trailer and verify CI for its exact SHA. Record the actual workflow outcome and preserve the evaluated image/configuration reference without amending away verified evidence.
 - [ ] 6.2 Update the owning runbook, phase/capability/ADR status and this change's acceptance evidence with actual results, limits and unchanged pipeline/quarantine behavior. Verify local links, safe committed content and final-head CI for any separate evidence commit; leave every unverified task unchecked and do not claim full PRD-1 acceptance.
 
 ## Workflow follow-up
@@ -305,3 +305,17 @@ browser sign-in must pass before this slice is declared complete.
   evidence. Subsequent operator-inventory and documentation changes are not
   claimed as redeployed serving code. Commit/CI evidence is recorded only
   after the exact workflow completes.
+
+### Implementation release CI, 2026-10-24
+
+- Implementation commit **`70814fe870e0102ced54adaf75773265c52cced6`** was
+  committed/pushed after local, Azure, retrieval and native user acceptance.
+  [Exact-commit CI run 40133602862](https://github.com/ikhemissi/newsloom/actions/runs/40133602862)
+  completed **successfully**: 492 Python tests passed, one opt-in publisher
+  test skipped, 79 source files passed strict typing, all 29 Terraform tests
+  and the other primary gates passed.
+- The Copilot co-author trailer is included. Unrelated local OpenSpec
+  prompt-to-skill migrations were preserved and excluded from the commit.
+  No commit was amended and no active change was archived.
+- This record follows a completed workflow, not an assumed future result.
+  Its separate evidence-commit CI is still required for task 6.2.
