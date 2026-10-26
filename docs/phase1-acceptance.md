@@ -1,6 +1,6 @@
 # Phase 1 acceptance operations
 
-Status: runtime acceptance and implementation delivered; final status CI pending.
+Status: complete and verified, including implementation and separate status CI.
 The [owning checklist](../openspec/changes/phase1-acceptance/tasks.md)
 is authoritative for verified progress. The dedicated identity, isolated
 operator run and independent cleanup are verified in Azure. Actual main-branch
@@ -8,7 +8,8 @@ OIDC acceptance now passes with four cases, all eight stage gates and automatic
 cleanup; see the
 [federated acceptance evidence](../openspec/changes/phase1-acceptance/tasks.md#actual-deadline-corrected-federated-acceptance-2026-10-26).
 Both separate negative drills and their independent cleanup checks now pass
-their intended gates while retaining failed workflow outcomes. Phase close-out and the separate exact-commit status-delivery gate remain pending.
+their intended gates while retaining failed workflow outcomes. The phase matrix and separate exact-commit implementation/status gates are
+verified. Completed changes remain unarchived; Phase 2 has not started.
 The conditional query boundary is proven under the dedicated identity.
 The approved launcher-only timing correction is published with passing exact-SHA
 offline CI; see the
@@ -33,7 +34,7 @@ remain unchanged. The four integration items are not a new quality benchmark.
 | New federated Azure integration | [Workflow 40320123955](https://github.com/ikhemissi/newsloom/actions/runs/40320123955) passed all four cases/eight stages: two accepted/two rejected; four replay duplicates; two distinct claims/one worker loss; attempt-two natural recovery measured at 300.016 seconds; two news/vector rows, five query checks and exact cleanup. |
 | New failure/cancellation recovery | [Failure drill 40322828355](https://github.com/ikhemissi/newsloom/actions/runs/40322828355) and [cancellation drill 40324687356](https://github.com/ikhemissi/newsloom/actions/runs/40324687356) intentionally remain red with original safe categories. Exact failed/stopped main executions and successful same-identity cleanup were independently checked. All three fresh databases are independently absent. |
 | New final production safety | [Post-drill readback](../openspec/changes/phase1-acceptance/tasks.md#verified-negative-drills-and-final-production-checks-2026-10-26): 1,968 completed/news, zero structural/vector/completion/duplicate/published-rejection failures, nine retained dead letters and 23 rejected records. Production identities, images, schedules, models and conditional authorization remain unchanged. |
-| Persistent delivery | Verified implementation `c9f55dba968496e0545e74f3870f87231dcce10b` has [passing exact-SHA primary CI](https://github.com/ikhemissi/newsloom/actions/runs/40327851772). The [owning checklist](../openspec/changes/phase1-acceptance/tasks.md) keeps final status delivery and overall phase completion open until the separate status-CI gate passes. |
+| Persistent delivery | Verified implementation `c9f55dba968496e0545e74f3870f87231dcce10b` has [passing exact-SHA primary CI](https://github.com/ikhemissi/newsloom/actions/runs/40327851772). Separate evidence/status commit `f0d9e8cb37eeb56ecf1bea13c396e2ab8ab02a40` has [passing exact-SHA CI](https://github.com/ikhemissi/newsloom/actions/runs/40328538930). The completion receipt also requires exact-head CI before handoff. |
 
 The three new workflows use launcher revision
 `61c8d80d8d1adbcff508b6720123e8eee3c5945b` and reviewed runtime image-input

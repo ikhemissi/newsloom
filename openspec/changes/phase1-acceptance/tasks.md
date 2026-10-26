@@ -1,9 +1,11 @@
 # Tasks
 
-Checked tasks have measured local evidence; Azure and phase acceptance remain
-unverified. Follow [the design](design.md) and
+All 18 tasks have verified local/operator Azure, actual federated workflow,
+negative-drill, quality/native-user provenance and implementation/status CI
+evidence. Follow [the design](design.md) and
 [acceptance contract](specs/phase1-acceptance/spec.md). This checklist is the
-approved planning scope, not evidence of implemented tests or Azure permissions.
+approved scope; the evidence below records actual results rather than inferring
+tests or Azure permissions from configuration.
 The user approved isolated resources and the narrow workflow bootstrap exception;
 the approved lean policy keeps the repository private and uses manual dispatch
 with exact main-branch OIDC trust, not required environment reviewers. Every
@@ -43,7 +45,7 @@ cloud apply still needs its owning native preview reviewed.
 
 - [x] 5.1 Assemble the phase acceptance matrix from this real federated integration/cleanup, current local regressions, delivered scanner calibration/holdouts, enrichment quality/hostile study, separate filtered/unfiltered retrieval study, actual production-role denials and warning-free native user evidence. Verify source/model/policy/prompt/taxonomy/fixture provenance and unchanged production identities/schedules/data invariants; rerun the owning study on drift. Document retained dead-letter history and distinguish all reused versus newly measured results.
 - [x] 5.2 After local, operator Azure and actual workflow gates pass, commit/push the remaining verified implementation with the required trailer and verify the complete primary CI for its exact SHA. Preserve bootstrap and failed/drill workflow evidence without amending verified commits or claiming a documentation-only HEAD was deployed.
-- [ ] 5.3 Update the owning acceptance runbook, PRD-1/capability/ADR status and this change's evidence with actual limits/results, tested immutable references and unchanged production behavior. Check local links, safe committed content and exact-head CI for separate evidence/status commits before marking Step 1.6 or Phase 1 complete. Leave any unverified prerequisite/task open and stop before Phase 2 work.
+- [x] 5.3 Update the owning acceptance runbook, PRD-1/capability/ADR status and this change's evidence with actual limits/results, tested immutable references and unchanged production behavior. Check local links, safe committed content and exact-head CI for separate evidence/status commits before marking Step 1.6 or Phase 1 complete. Leave any unverified prerequisite/task open and stop before Phase 2 work.
 
 ## Workflow follow-up
 
@@ -694,3 +696,30 @@ cloud apply still needs its owning native preview reviewed.
   PRD/capability/ADR status and runbook updates have their own final status-CI
   gate before task 5.3 and overall Phase 1 completion may be recorded.
   Enrichment, MCP and acceptance remain unarchived; Phase 2 has not started.
+
+### Phase 1 completion, 2026-10-26
+
+- Separate evidence/status commit
+  **`f0d9e8cb37eeb56ecf1bea13c396e2ab8ab02a40`** preserved the deployed runtime
+  references, historical failures, reused quality/native-client provenance and
+  explicit pending final status gate. Its
+  [exact-SHA primary CI 40328538930](https://github.com/ikhemissi/newsloom/actions/runs/40328538930)
+  passed before recording Step 1.6 and Phase 1 completion.
+- The README, owning PRD/capability status, ADR-11 and acceptance runbook now
+  link the measured phase matrix. The status commit's **112 local
+  links/anchors**, identifier guard and **9/9 strict OpenSpec items** passed.
+  Model-preview retirement remains an operational follow-up, not a hidden
+  model replacement or Phase 2 readiness claim.
+- No runtime image was rebuilt, retagged or deployed by these documentation
+  commits. The three real workflow runs retain launcher revision `61c8d80`,
+  reviewed image-input fingerprint `17d11d7a264222c161e90d3de2fb67a3e32effbbf2b9a9abb587d4cabaca0605`
+  and their original success/intentional-failure outcomes. README status is an
+  image-hash input; later documentation tree hashes are not claims of redeployment.
+- All three disposable databases have independent absence evidence; local
+  test helpers are stopped. Retained dedicated manual resources, shared azd
+  state, production schedules and quarantine/dead-letter history remain intact.
+- Final handoff requires this completion receipt's own exact-head CI. No
+  verified commit is amended, no change is archived and no Phase 2 work begins.
+- The final receipt revalidated **111 local links/anchors**, safe identifiers,
+  whitespace and **9/9 strict OpenSpec items**. Task 5.3 is complete and overall
+  progress is **18/18**; all tracked Phase 1 acceptance work is complete.

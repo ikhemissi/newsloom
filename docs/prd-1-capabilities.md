@@ -239,9 +239,9 @@ content or leaking sensitive data.
 
 **Outcome:** Maintainers can demonstrate correctness and quality before Phase 2 starts.
 
-**Status:** Runtime criteria and implementation CI are verified in the
+**Status:** Verified as part of completed Phase 1, including separate
+implementation/status CI; see the
 [phase acceptance matrix](phase1-acceptance.md#verified-phase-acceptance-matrix).
-Final status CI remains pending before overall phase completion.
 
 **User stories**
 - **P1-C11-US1:** As a maintainer, I want repeatable adversarial and concurrency

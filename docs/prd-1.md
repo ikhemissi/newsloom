@@ -1,6 +1,6 @@
 # PRD-1: MCP news platform
 
-Status: in progress. Prerequisite:
+Status: complete and verified. Prerequisite:
 [bootstrap acceptance](../openspec/changes/archive/2026-10-22-bootstrap/tasks.md) is complete.
 Step 1.1 is complete and
 [verified](../openspec/changes/archive/2026-10-23-platform-skeleton/tasks.md#acceptance-evidence).
@@ -19,11 +19,10 @@ Step 1.5 is complete with
 [local, Azure, real-model, native-client and exact-commit CI evidence](../openspec/changes/mcp-server/tasks.md#acceptance-evidence),
 including actual workload denials and warning-free VS Code/Copilot browser
 sign-in. The MCP change remains unarchived.
-Step 1.6 runtime acceptance and implementation CI are verified in the
+Step 1.6 and overall Phase 1 acceptance are complete and verified in the
 [phase acceptance matrix](phase1-acceptance.md#verified-phase-acceptance-matrix).
-The separate final status-CI gate remains pending before overall phase
-completion is recorded. Enrichment, MCP and acceptance remain unarchived;
-Phase 2 has not started.
+Separate implementation and status exact-commit CI passed before this completion
+record. Enrichment, MCP and acceptance remain unarchived; Phase 2 has not started.
 
 This document owns phase sequencing and capability-to-slice assignments.
 [Capabilities](prd-1-capabilities.md) own behavior, user stories, acceptance
