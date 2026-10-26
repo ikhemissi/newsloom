@@ -15,7 +15,7 @@ uv run --locked newsloom-validate-feeds config/feeds.json
 uv run --locked python scripts/check_identifiers.py
 npm run spec:check
 terraform fmt -check -recursive infra
-for directory in infra infra/bootstrap infra/migrations infra/ingestion infra/enrichment infra/mcp-identity infra/mcp; do
+for directory in infra infra/bootstrap infra/migrations infra/ingestion infra/enrichment infra/mcp-identity infra/mcp infra/phase1-acceptance; do
   terraform -chdir="$directory" init -backend=false -input=false -lockfile=readonly
   terraform -chdir="$directory" validate
 done
@@ -26,3 +26,4 @@ terraform -chdir=infra/ingestion test
 terraform -chdir=infra/enrichment test
 terraform -chdir=infra/mcp-identity test
 terraform -chdir=infra/mcp test
+terraform -chdir=infra/phase1-acceptance test

@@ -12,6 +12,7 @@ import httpx
 import psycopg
 from azure.core.exceptions import AzureError
 from azure.identity.aio import ManagedIdentityCredential
+from newsloom_core.phase1_contracts import AcceptanceFailure, TestConfig
 from pydantic import ValidationError
 
 from newsloom_platform.config import PlatformFailure, RuntimeConfig
@@ -39,6 +40,16 @@ async def runtime(command: str, workload: str, correlation: str) -> None:
         if command == "migrate":
             applied = await migrate(config, credential)
             event("migrations", "success", correlation, checks=applied)
+        elif command in ("phase1-prepare", "phase1-cleanup"):
+            from newsloom_platform import phase1_database
+
+            acceptance = TestConfig.from_encoded(os.environ["PHASE1_CONFIG_BASE64"], correlation)
+            if command == "phase1-prepare":
+                prepared = await phase1_database.prepare(config, credential, acceptance)
+                event("phase1_database", "prepared", correlation, checks=prepared)
+            else:
+                await phase1_database.cleanup(acceptance, credential, admin_config=config)
+                event("phase1_database", "removed", correlation, checks=1)
         elif command in ("mcp-eval-prepare", "mcp-eval-cleanup"):
             from newsloom_platform.mcp_evaluation import cleanup, prepare
 
@@ -105,6 +116,13 @@ def main() -> None:
                 "mcp-eval-cleanup",
                 "prepare-mcp-identity",
                 "evaluate-mcp",
+                "build-phase1",
+                "prepare-phase1-layer",
+                "configure-phase1-github",
+                "prepare-phase1-acceptance",
+                "cleanup-phase1-acceptance",
+                "phase1-prepare",
+                "phase1-cleanup",
             ],
         )
         parser.add_argument("--force", action="store_true")
@@ -126,6 +144,8 @@ def main() -> None:
             "enrichment-status",
             "mcp-eval-prepare",
             "mcp-eval-cleanup",
+            "phase1-prepare",
+            "phase1-cleanup",
         ]:
             workload = args.workload if args.command == "probe" else "migrations"
             if workload is None:
@@ -142,6 +162,7 @@ def main() -> None:
                 control(args.command, correlation)
     except (
         PlatformFailure,
+        AcceptanceFailure,
         ValidationError,
         KeyError,
         ValueError,
@@ -152,7 +173,11 @@ def main() -> None:
         subprocess.SubprocessError,
         OSError,
     ) as error:
-        category = str(error) if isinstance(error, PlatformFailure) else type(error).__name__
+        category = (
+            str(error)
+            if isinstance(error, (PlatformFailure, AcceptanceFailure))
+            else type(error).__name__
+        )
         event("platform", "failure", correlation, category=category)
         raise SystemExit(1) from None
     finally:

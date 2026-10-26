@@ -158,6 +158,7 @@ async def run(
     *,
     force: bool = False,
     limits: Limits = DEFAULT_LIMITS,
+    client: PublicClient | None = None,
 ) -> dict[str, int]:
     await repository.acquire()
     start = time.monotonic()
@@ -171,7 +172,8 @@ async def run(
         "deferred_run": 0,
     }
     semaphore = asyncio.Semaphore(limits.concurrency)
-    client = PublicClient(limits)
+    if client is None:
+        client = PublicClient(limits)
 
     async def fetch(source: FeedSource) -> dict[str, int]:
         async with semaphore:

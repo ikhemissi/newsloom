@@ -1,5 +1,6 @@
 """Operator actions used by azd hooks; never provisions resources directly."""
 
+import base64
 import hashlib
 import json
 import math
@@ -75,7 +76,14 @@ def source_hash(root: Path) -> str:
     ).split("\0"):
         if raw and (
             raw.startswith(("packages/", "services/"))
-            or raw in ("config/feeds.json", "config/categories.json", "config/mcp-evaluation.json")
+            or raw.startswith("tests/azure/")
+            or raw
+            in (
+                "config/feeds.json",
+                "config/categories.json",
+                "config/mcp-evaluation.json",
+                "config/phase1-acceptance.json",
+            )
         ):
             paths.add(Path(raw))
     digest = hashlib.sha256()
@@ -88,7 +96,7 @@ def build(
     env: dict[str, str],
     correlation: str,
     *,
-    service: Literal["platform", "ingestion", "enrichment", "mcp"] = "platform",
+    service: Literal["platform", "ingestion", "enrichment", "mcp", "phase1"] = "platform",
 ) -> None:
     repository = f"newsloom-{service}"
     registry = env["AZURE_CONTAINER_REGISTRY_NAME"]
@@ -130,7 +138,14 @@ def build(
                     "--image",
                     f"{repository}:{tag}",
                     "--file",
-                    str(root / f"services/{service}/Dockerfile"),
+                    str(
+                        root
+                        / (
+                            "tests/azure/Dockerfile"
+                            if service == "phase1"
+                            else f"services/{service}/Dockerfile"
+                        )
+                    ),
                     "--no-logs",
                     "--timeout",
                     "900",
@@ -164,6 +179,8 @@ def build(
         f"{service.upper()}_IMAGE",
         f"{env['AZURE_CONTAINER_REGISTRY_ENDPOINT']}/{repository}@{digest}",
     )
+    if service == "phase1":
+        set_environment("PHASE1_IMAGE_REVISION", tag)
     event("image", "success", correlation, category=tag)
 
 
@@ -183,7 +200,18 @@ def temporary_jobs(env: dict[str, str]) -> dict[str, str]:
     return jobs
 
 
-def execute_job(job_id: str, correlation: str, *, arguments: list[str] | None = None) -> str:
+def execute_job(
+    job_id: str,
+    correlation: str,
+    *,
+    arguments: list[str] | None = None,
+    extra_environment: dict[str, str] | None = None,
+) -> str:
+    extra_environment = extra_environment or {}
+    if set(extra_environment) - {"PHASE1_CONFIG_BASE64"} or any(
+        len(value) > 16384 for value in extra_environment.values()
+    ):
+        raise PlatformFailure("unsafe_execution_environment_override")
     base = f"https://management.azure.com{job_id}"
     job = json_object(rest(f"{base}?api-version={API_VERSION}", "job_definition"))
     template = json_object(json_object(job["properties"])["template"])
@@ -197,8 +225,13 @@ def execute_job(job_id: str, correlation: str, *, arguments: list[str] | None = 
     if not isinstance(values, list):
         raise PlatformFailure("invalid_execution_environment")
     container["env"] = [
-        item for item in values if json_object(item).get("name") != "PLATFORM_PROBE_RUN_ID"
-    ] + [{"name": "PLATFORM_PROBE_RUN_ID", "value": correlation}]
+        item
+        for item in values
+        if json_object(item).get("name") not in {"PLATFORM_PROBE_RUN_ID", *extra_environment}
+    ] + [
+        {"name": "PLATFORM_PROBE_RUN_ID", "value": correlation},
+        *({"name": key, "value": value} for key, value in extra_environment.items()),
+    ]
     execution_container = {
         key: container[key]
         for key in ["name", "image", "command", "args", "resources", "env"]
@@ -392,6 +425,110 @@ def verify_mcp(env: dict[str, str], correlation: str) -> None:
         checks=5,
         counts={key: value for key, value in counts.items() if isinstance(value, int)},
     )
+
+
+def configure_phase1_github(env: dict[str, str], correlation: str) -> None:
+    expected = {
+        key: env[key]
+        for key in (
+            "PHASE1_CLIENT_ID",
+            "PHASE1_JOB_ID",
+            "PHASE1_IMAGE",
+            "PHASE1_IMAGE_REVISION",
+            "PHASE1_FIXTURE_REVISION",
+            "PHASE1_SCHEMA_REVISION",
+            "PHASE1_MODEL_REVISION",
+            "AZURE_SUBSCRIPTION_ID",
+        )
+    }
+    expected["PHASE1_LOG_WORKSPACE_ID"] = env["LOG_ANALYTICS_WORKSPACE_ID"]
+    log_environment = json_object(
+        azure(
+            ["containerapp", "env", "show", "--ids", env["AZURE_CONTAINER_APPS_ENVIRONMENT_ID"]],
+            "phase1_github_log_environment",
+        )
+    )
+    if (
+        text_field(log_environment, "id").casefold()
+        != env["AZURE_CONTAINER_APPS_ENVIRONMENT_ID"].casefold()
+    ):
+        raise PlatformFailure("phase1_log_environment_mismatch")
+    domain = text_field(json_object(log_environment["properties"]), "defaultDomain")
+    if not re.fullmatch(r"[a-z0-9]+(?:[.-][a-z0-9]+)*\.azurecontainerapps\.io", domain):
+        raise PlatformFailure("invalid_phase1_log_environment")
+    expected["PHASE1_LOG_ENVIRONMENT"] = domain.split(".", 1)[0]
+    tenant = azure(["account", "show", "--query", "tenantId"], "phase1_github_tenant")
+    if not isinstance(tenant, str):
+        raise PlatformFailure("invalid_phase1_github_tenant")
+    expected["AZURE_TENANT_ID"] = tenant
+    raw = json.loads(
+        run(
+            [
+                "gh",
+                "variable",
+                "list",
+                "--repo",
+                "ikhemissi/newsloom",
+                "--json",
+                "name,value",
+            ],
+            "phase1_github_variable_inventory",
+        )
+    )
+    if not isinstance(raw, list):
+        raise PlatformFailure("invalid_phase1_github_variable_inventory")
+    if any(not value for value in expected.values()):
+        raise PlatformFailure("phase1_github_setting_missing")
+    existing = {}
+    for value in raw:
+        row = json_object(value)
+        name = text_field(row, "name")
+        if name in expected:
+            existing[name] = text_field(row, "value")
+    if any(key in existing and existing[key] != value for key, value in expected.items()):
+        raise PlatformFailure("existing_phase1_github_variable_requires_review")
+    added = 0
+    for key, value in expected.items():
+        if key not in existing:
+            run(
+                [
+                    "gh",
+                    "variable",
+                    "set",
+                    key,
+                    "--repo",
+                    "ikhemissi/newsloom",
+                    "--body",
+                    value,
+                ],
+                "phase1_github_variable_create",
+            )
+            added += 1
+    readback = json.loads(
+        run(
+            [
+                "gh",
+                "variable",
+                "list",
+                "--repo",
+                "ikhemissi/newsloom",
+                "--json",
+                "name,value",
+            ],
+            "phase1_github_variable_readback",
+        )
+    )
+    if not isinstance(readback, list):
+        raise PlatformFailure("invalid_phase1_github_variable_readback")
+    observed = {}
+    for value in readback:
+        row = json_object(value)
+        name = text_field(row, "name")
+        if name in expected:
+            observed[name] = text_field(row, "value")
+    if any(observed.get(key) != value for key, value in expected.items()):
+        raise PlatformFailure("phase1_github_variable_readback_mismatch")
+    event("phase1_github_settings", "success", correlation, counts={"variables_added": added})
 
 
 def evaluate_mcp(env: dict[str, str], correlation: str) -> None:
@@ -589,6 +726,71 @@ def control(command: str, correlation: str, *, force: bool = False, limit: int =
         build(env, correlation, service="enrichment")
     elif command == "build-mcp":
         build(env, correlation, service="mcp")
+    elif command == "build-phase1":
+        build(env, correlation, service="phase1")
+    elif command == "prepare-phase1-layer":
+        enabled = env.get("PHASE1_ENABLED", "false")
+        if enabled not in ("true", "false"):
+            raise PlatformFailure("invalid_phase1_enabled_setting")
+        if "PHASE1_ENABLED" not in env:
+            set_environment("PHASE1_ENABLED", "false")
+        if enabled == "true":
+            build(env, correlation, service="phase1")
+        else:
+            for key in ("PHASE1_IMAGE", "PHASE1_IMAGE_REVISION"):
+                if key not in env:
+                    set_environment(key, "")
+            event("phase1_layer", "disabled", correlation)
+    elif command == "configure-phase1-github":
+        configure_phase1_github(env, correlation)
+    elif command in ("prepare-phase1-acceptance", "cleanup-phase1-acceptance"):
+        from newsloom_core.phase1_contracts import (
+            Settings,
+            TestConfig,
+            database_name,
+            fixture_revision,
+        )
+
+        from newsloom_platform.phase1_database import schema_revision
+
+        run_id = correlation if command == "prepare-phase1-acceptance" else env["PHASE1_RUN_ID"]
+        database_name(run_id)
+        settings = Settings.model_validate(
+            {
+                "principal_id": env["PHASE1_PRINCIPAL_ID"],
+                "client_id": env["PHASE1_CLIENT_ID"],
+                "postgres_host": env["POSTGRES_HOST"],
+                "model_endpoint": env["MODEL_ENDPOINT"],
+                "generation_deployment": env["ENRICHMENT_DEPLOYMENT"],
+                "generation_model": env["ENRICHMENT_MODEL"],
+                "generation_version": env["ENRICHMENT_VERSION"],
+                "embedding_deployment": env["EMBEDDINGS_DEPLOYMENT"],
+                "embedding_model": env["EMBEDDINGS_MODEL"],
+                "embedding_version": env["EMBEDDINGS_VERSION"],
+                "screening_deployment": env["SCREENING_DEPLOYMENT"],
+                "screening_model": env["SCREENING_MODEL"],
+                "screening_version": env["SCREENING_VERSION"],
+                "scanner_threshold": float(env["SCANNER_THRESHOLD"]),
+                "scanner_calibration_id": env["SCANNER_CALIBRATION_ID"],
+                "image_revision": env["PHASE1_IMAGE_REVISION"],
+            }
+        )
+        encoded = base64.b64encode(settings.model_dump_json().encode()).decode()
+        set_environment("PHASE1_RUN_ID", run_id)
+        set_environment("PHASE1_FIXTURE_REVISION", fixture_revision())
+        set_environment("PHASE1_SCHEMA_REVISION", schema_revision())
+        set_environment(
+            "PHASE1_MODEL_REVISION", TestConfig.from_encoded(encoded, run_id).model_revision()
+        )
+        name = execute_job(
+            env["MIGRATION_JOB_ID"],
+            run_id,
+            arguments=[
+                "phase1-prepare" if command == "prepare-phase1-acceptance" else "phase1-cleanup"
+            ],
+            extra_environment={"PHASE1_CONFIG_BASE64": encoded},
+        )
+        set_environment("PHASE1_ADMIN_LAST_EXECUTION", name)
     elif command == "verify-mcp":
         verify_mcp(env, correlation)
     elif command == "prepare-mcp-identity":

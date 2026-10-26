@@ -7,6 +7,7 @@ COPY pyproject.toml uv.lock README.md ./
 COPY packages/ packages/
 COPY services/ services/
 COPY config/mcp-evaluation.json config/mcp-evaluation.json
+COPY config/phase1-acceptance.json config/phase1-acceptance.json
 RUN uv sync --locked --no-dev --package newsloom-platform
 USER 65532:65532
 ENTRYPOINT ["/app/.venv/bin/newsloom-platform"]

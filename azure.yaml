@@ -62,6 +62,16 @@ infra:
           run: uv run --locked newsloom-platform build-mcp
           interactive: false
           continueOnError: false
+    - name: phase1-acceptance
+      path: infra/phase1-acceptance
+      dependsOn:
+        - migrations
+      hooks:
+        preprovision:
+          shell: sh
+          run: uv run --locked newsloom-platform prepare-phase1-layer
+          interactive: false
+          continueOnError: false
 hooks:
   preprovision:
     shell: sh
