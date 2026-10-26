@@ -8,6 +8,7 @@ import subprocess
 import tempfile
 import time
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Literal, Never
 from uuid import UUID
@@ -24,6 +25,14 @@ from pydantic import TypeAdapter, ValidationError
 
 API = "2025-07-01"
 TERMINAL = {"Succeeded", "Failed", "Stopped", "Canceled"}
+LOG_COLUMNS = [
+    {"name": "JobName", "type": "string"},
+    {"name": "EnvironmentName", "type": "string"},
+    {"name": "ContainerGroupName", "type": "string"},
+    {"name": "ContainerName", "type": "string"},
+    {"name": "TimeGenerated", "type": "datetime"},
+    {"name": "Log", "type": "string"},
+]
 
 
 class WorkflowFailure(Exception):
@@ -51,8 +60,10 @@ def command(arguments: list[str], *, timeout: int = 60) -> str:
     return result.stdout.strip()
 
 
-def api(url: str, *, body: object | None = None) -> dict[str, object]:
+def api(url: str, *, body: object | None = None, resource: str = "") -> dict[str, object]:
     arguments = ["rest", "--url", url, "--output", "json"]
+    if resource:
+        arguments.extend(["--resource", resource])
     if body is None:
         output = command(arguments)
     else:
@@ -76,6 +87,8 @@ class Inputs:
     workflow_sha: str
     temporary: Path
     client_id: UUID
+    log_workspace_id: UUID
+    log_environment: str
 
     @classmethod
     def environment(cls) -> Inputs:
@@ -108,6 +121,9 @@ class Inputs:
             raise WorkflowFailure("invalid_phase1_workflow_revision")
         if not re.fullmatch(r"[a-f0-9]{40}", env["GITHUB_SHA"]):
             raise WorkflowFailure("invalid_phase1_workflow_sha")
+        log_environment = env["PHASE1_LOG_ENVIRONMENT"]
+        if not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", log_environment):
+            raise WorkflowFailure("invalid_phase1_log_environment")
         return cls(
             run_id=run_id,
             scenario=scenario,
@@ -120,6 +136,8 @@ class Inputs:
             workflow_sha=env["GITHUB_SHA"],
             temporary=Path(env["RUNNER_TEMP"]),
             client_id=UUID(env["PHASE1_CLIENT_ID"]),
+            log_workspace_id=UUID(env["PHASE1_LOG_WORKSPACE_ID"]),
+            log_environment=log_environment,
         )
 
     @property
@@ -173,6 +191,8 @@ class Controller:
             "scenario": inputs.scenario,
             "job_id": inputs.job_id,
             "image": inputs.image,
+            "log_workspace_id": str(inputs.log_workspace_id),
+            "log_environment": inputs.log_environment,
         }
         self.receipt: WorkflowReceipt | None = None
 
@@ -181,6 +201,12 @@ class Controller:
         if str(row.get("id", "")).casefold() != self.inputs.job_id.casefold():
             raise WorkflowFailure("phase1_job_identity_mismatch")
         properties = object_value(row.get("properties"))
+        expected_environment = self.inputs.job_id.split("/providers/")[0] + (
+            "/providers/Microsoft.App/managedEnvironments/cae-"
+            + self.inputs.job_name.removeprefix("accept-")
+        )
+        if str(properties.get("environmentId", "")).casefold() != expected_environment.casefold():
+            raise WorkflowFailure("phase1_job_environment_mismatch")
         if object_value(properties.get("configuration")).get("triggerType") != "Manual":
             raise WorkflowFailure("phase1_job_not_manual")
         template = object_value(properties.get("template"))
@@ -245,10 +271,15 @@ class Controller:
             arguments += ["--scenario", self.inputs.scenario]
         execution["args"] = arguments
         self.state["run_id"] = self.inputs.run_id
+        self.state["cleanup_started_at" if cleanup else "execution_started_at"] = datetime.now(
+            UTC
+        ).isoformat()
         save(self.inputs.state_path, self.state)
         row = api(self.base + "/start?api-version=" + API, body={"containers": [execution]})
         name = row.get("name")
-        if not isinstance(name, str) or not re.fullmatch(r"[a-z0-9-]{1,80}", name):
+        if not isinstance(name, str) or not re.fullmatch(
+            re.escape(self.inputs.job_name) + r"-[a-z0-9]{1,20}", name
+        ):
             raise WorkflowFailure("phase1_execution_name_invalid")
         self.state["cleanup_execution" if cleanup else "execution"] = name
         save(self.inputs.state_path, self.state)
@@ -266,28 +297,67 @@ class Controller:
         return str(result)
 
     def logs(self, execution: str) -> list[dict[str, object]]:
-        output = command(
-            [
-                "containerapp",
-                "job",
-                "logs",
-                "show",
-                "--name",
-                self.inputs.job_name,
-                "--resource-group",
-                self.inputs.group,
-                "--container",
-                "acceptance",
-                "--execution",
-                execution,
-                "--tail",
-                "300",
-                "--format",
-                "text",
-            ],
-            timeout=40,
+        if not re.fullmatch(re.escape(self.inputs.job_name) + r"-[a-z0-9]{1,20}", execution):
+            raise WorkflowFailure("phase1_log_execution_mismatch")
+        if self.state.get("execution") == execution:
+            start = self.state.get("execution_started_at")
+        elif self.state.get("cleanup_execution") == execution:
+            start = self.state.get("cleanup_started_at")
+        else:
+            raise WorkflowFailure("phase1_log_execution_mismatch")
+        if not isinstance(start, str):
+            raise WorkflowFailure("phase1_log_start_missing")
+        started_at = datetime.fromisoformat(start)
+        now = datetime.now(UTC)
+        if started_at.tzinfo is None or started_at > now or now - started_at > timedelta(hours=2):
+            raise WorkflowFailure("phase1_log_time_window_invalid")
+        lower_bound = started_at - timedelta(minutes=1)
+        upper_bound = now + timedelta(minutes=1)
+        expression = (
+            "ContainerAppConsoleLogs "
+            f"| where TimeGenerated between (datetime({lower_bound.isoformat()}) "
+            f".. datetime({upper_bound.isoformat()})) "
+            f"| where JobName == '{self.inputs.job_name}' "
+            f"and EnvironmentName == '{self.inputs.log_environment}' "
+            "and ContainerName == 'acceptance' "
+            f"and ContainerGroupName startswith '{execution}-' "
+            "| project JobName, EnvironmentName, ContainerGroupName, ContainerName, "
+            "TimeGenerated, Log | take 301"
         )
-        return log_records(output)
+        response = api(
+            f"https://api.loganalytics.azure.com/v1/workspaces/{self.inputs.log_workspace_id}/query",
+            body={"query": expression},
+            resource="https://api.loganalytics.io",
+        )
+        tables = response.get("tables")
+        if "error" in response or not isinstance(tables, list) or len(tables) != 1:
+            raise WorkflowFailure("phase1_log_query_incomplete")
+        table = object_value(tables[0])
+        rows = table.get("rows")
+        if table.get("columns") != LOG_COLUMNS or not isinstance(rows, list) or len(rows) > 300:
+            raise WorkflowFailure("phase1_log_query_shape_invalid")
+        records = []
+        for row in rows:
+            if (
+                not isinstance(row, list)
+                or len(row) != 6
+                or any(not isinstance(value, str) for value in row)
+            ):
+                raise WorkflowFailure("phase1_log_record_shape_invalid")
+            job_name, environment, replica, container, timestamp, message = row
+            observed_at = datetime.fromisoformat(timestamp)
+            if (
+                job_name != self.inputs.job_name
+                or environment != self.inputs.log_environment
+                or not re.fullmatch(re.escape(execution) + r"-[a-z0-9]{1,20}", replica)
+                or container != "acceptance"
+                or observed_at.tzinfo is None
+                or not lower_bound <= observed_at <= upper_bound
+                or len(message) > 32768
+            ):
+                raise WorkflowFailure("phase1_log_record_metadata_mismatch")
+            records.extend(log_records(message))
+        return records
 
     def stop(self, execution: str) -> None:
         command(
@@ -356,6 +426,7 @@ class Controller:
             raise WorkflowFailure("phase1_execution_state_already_exists")
         execution = self.start()
         deadline = time.monotonic() + 1260
+        terminal_deadline = deadline
         report = None
         while time.monotonic() < deadline:
             status = self.status(execution)
@@ -380,7 +451,11 @@ class Controller:
                 report = reports[0]
             if status in TERMINAL:
                 if report is None:
-                    raise WorkflowFailure("phase1_execution_report_missing")
+                    terminal_deadline = min(terminal_deadline, time.monotonic() + 240)
+                    if time.monotonic() >= terminal_deadline:
+                        raise WorkflowFailure("phase1_execution_report_missing")
+                    time.sleep(5)
+                    continue
                 if status != "Succeeded" or report.outcome != "success":
                     self.envelope(outcome="failure", category=report.category, report=report)
                     raise WorkflowFailure("phase1_execution_failed")
@@ -425,6 +500,9 @@ class Controller:
             if status in TERMINAL:
                 records = self.logs(execution)
                 cleaned = [row for row in records if row.get("event") == "phase1_cleanup"]
+                if not cleaned:
+                    time.sleep(5)
+                    continue
                 if (
                     status != "Succeeded"
                     or len(cleaned) != 1

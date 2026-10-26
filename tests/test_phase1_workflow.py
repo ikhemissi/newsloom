@@ -3,6 +3,7 @@ import json
 import re
 import subprocess
 from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
 
@@ -19,6 +20,23 @@ from pydantic import ValidationError
 from test_phase1_contracts import phase_config as phase_config
 
 from scripts import phase1_workflow as workflow
+
+
+class Clock:
+    elapsed = 0.0
+
+    def monotonic(self) -> float:
+        return self.elapsed
+
+    def sleep(self, seconds: float) -> None:
+        self.elapsed += seconds
+
+
+@pytest.fixture(autouse=True)
+def clock(monkeypatch: pytest.MonkeyPatch) -> Clock:
+    value = Clock()
+    monkeypatch.setattr(workflow, "time", value)
+    return value
 
 
 @pytest.fixture
@@ -45,6 +63,8 @@ def inputs(
         "PHASE1_FIXTURE_REVISION": "e" * 64,
         "PHASE1_SCHEMA_REVISION": "d" * 64,
         "PHASE1_MODEL_REVISION": phase_config.model_revision(),
+        "PHASE1_LOG_WORKSPACE_ID": str(uuid4()),
+        "PHASE1_LOG_ENVIRONMENT": "synthetic-environment",
         "AZURE_SUBSCRIPTION_ID": subscription,
         "RUNNER_TEMP": str(tmp_path),
     }
@@ -103,6 +123,9 @@ def job(inputs: workflow.Inputs, config: TestConfig, fault: str = "") -> dict[st
             }
         },
         "properties": {
+            "environmentId": inputs.job_id.split("/providers/")[0]
+            + "/providers/Microsoft.App/managedEnvironments/"
+            + ("foreign" if fault == "environment" else "cae-newsloom-test"),
             "configuration": {"triggerType": "Schedule" if fault == "schedule" else "Manual"},
             "template": {
                 "containers": [
@@ -133,6 +156,8 @@ def job(inputs: workflow.Inputs, config: TestConfig, fault: str = "") -> dict[st
         ("PHASE1_JOB_ID", "https://unapproved.invalid/job"),
         ("PHASE1_IMAGE", "test.azurecr.io/newsloom-phase1:latest"),
         ("PHASE1_IMAGE_REVISION", "unbound"),
+        ("PHASE1_LOG_WORKSPACE_ID", "https://unapproved.invalid/query"),
+        ("PHASE1_LOG_ENVIRONMENT", "foreign' OR 'true"),
         ("GITHUB_SHA", "not-a-commit"),
     ],
 )
@@ -147,7 +172,7 @@ def test_untrusted_inputs_fail_before_azure(
         workflow.Inputs.environment()
 
 
-@pytest.mark.parametrize("fault", ["image", "identity", "client", "schedule"])
+@pytest.mark.parametrize("fault", ["image", "identity", "client", "schedule", "environment"])
 def test_live_job_contract_cannot_substitute_image_identity_or_schedule(
     inputs: workflow.Inputs,
     phase_config: TestConfig,
@@ -160,6 +185,39 @@ def test_live_job_contract_cannot_substitute_image_identity_or_schedule(
     assert not inputs.state_path.exists()
 
 
+def query_response(
+    inputs: workflow.Inputs, execution: str, records: list[dict[str, object]]
+) -> dict[str, object]:
+    return {
+        "tables": [
+            {
+                "name": "PrimaryResult",
+                "columns": workflow.LOG_COLUMNS,
+                "rows": [
+                    [
+                        inputs.job_name,
+                        inputs.log_environment,
+                        execution + "-replica",
+                        "acceptance",
+                        datetime.now(UTC).isoformat(),
+                        json.dumps(record),
+                    ]
+                    for record in records
+                ],
+            }
+        ]
+    }
+
+
+def query_execution(body: object) -> str:
+    assert isinstance(body, dict) and set(body) == {"query"}
+    expression = body["query"]
+    assert isinstance(expression, str)
+    match = re.search(r"ContainerGroupName startswith '(accept-newsloom-test-[a-z]+)-'", expression)
+    assert match is not None
+    return match[1]
+
+
 def fake_api(
     inputs: workflow.Inputs,
     config: TestConfig,
@@ -168,7 +226,17 @@ def fake_api(
 ) -> tuple[Callable[..., dict[str, object]], list[str]]:
     starts: list[str] = []
 
-    def api(url: str, *, body: object | None = None) -> dict[str, object]:
+    def api(url: str, *, body: object | None = None, resource: str = "") -> dict[str, object]:
+        if url.startswith("https://api.loganalytics.azure.com/"):
+            assert url.endswith(f"/{inputs.log_workspace_id}/query")
+            assert resource == "https://api.loganalytics.io"
+            execution = query_execution(body)
+            value = (
+                {"event": "phase1_cleanup", "run_id": inputs.run_id, "absent": 1}
+                if execution.endswith("cleanup")
+                else report(inputs).model_dump(mode="json")
+            )
+            return query_response(inputs, execution, [value])
         if "/start?" in url:
             assert isinstance(body, dict)
             containers = body["containers"]
@@ -195,18 +263,6 @@ def test_success_requires_bound_report_job_success_and_independent_cleanup(
     api, starts = fake_api(inputs, phase_config)
     monkeypatch.setattr(workflow, "api", api)
 
-    def command(arguments: list[str], **kwargs: object) -> str:
-        assert arguments[:4] == ["containerapp", "job", "logs", "show"]
-        assert arguments[arguments.index("--resource-group") + 1] == "rg-newsloom-test"
-        execution = arguments[arguments.index("--execution") + 1]
-        value = (
-            {"event": "phase1_cleanup", "run_id": inputs.run_id, "absent": 1}
-            if execution.endswith("cleanup")
-            else report(inputs).model_dump(mode="json")
-        )
-        return json.dumps({"Log": json.dumps(value)})
-
-    monkeypatch.setattr(workflow, "command", command)
     controller = workflow.Controller(inputs)
     controller.run()
     workflow.Controller(inputs).cleanup()
@@ -217,6 +273,7 @@ def test_success_requires_bound_report_job_success_and_independent_cleanup(
     assert str(phase_config.client_id) not in inputs.report_path.read_text()
     assert str(phase_config.principal_id) not in inputs.report_path.read_text()
     assert "PHASE1_CONFIG_BASE64" not in inputs.report_path.read_text()
+    assert str(inputs.log_workspace_id) not in inputs.report_path.read_text()
 
 
 @pytest.mark.parametrize(
@@ -253,14 +310,14 @@ def test_incomplete_stale_or_failed_proof_cannot_report_success(
     if fault == "incomplete":
         value["stages"] = value["stages"][:-1]
 
-    def command(*args: object, **kwargs: object) -> str:
+    def logs(self: workflow.Controller, execution: str) -> list[dict[str, object]]:
         if fault == "log_failed":
             raise workflow.WorkflowFailure("phase1_azure_command_failed")
         if fault == "missing":
-            return "no report"
-        return "\n".join(json.dumps(value) for _ in range(2 if fault == "duplicate" else 1))
+            return []
+        return [value] * (2 if fault == "duplicate" else 1)
 
-    monkeypatch.setattr(workflow, "command", command)
+    monkeypatch.setattr(workflow.Controller, "logs", logs)
     monkeypatch.setattr("sys.argv", ["phase1_workflow.py", "run"])
     with pytest.raises(SystemExit) as result:
         workflow.main()
@@ -307,7 +364,7 @@ def test_cleanup_does_not_touch_foreign_targets_or_accept_ambiguous_absence(
         value["run_id"] = uuid4().hex
     if fault == "boolean_cleanup":
         value["absent"] = True
-    monkeypatch.setattr(workflow, "command", lambda *args, **kwargs: json.dumps(value))
+    monkeypatch.setattr(workflow.Controller, "logs", lambda *args, **kwargs: [value])
     monkeypatch.setattr("sys.argv", ["phase1_workflow.py", "cleanup"])
     with pytest.raises(SystemExit):
         workflow.main()
@@ -359,7 +416,17 @@ def test_negative_drills_stay_failed_while_same_identity_cleanup_is_verified(
     stopped = False
     starts: list[str] = []
 
-    def api(url: str, *, body: object | None = None) -> dict[str, object]:
+    def api(url: str, *, body: object | None = None, resource: str = "") -> dict[str, object]:
+        if url.startswith("https://api.loganalytics.azure.com/"):
+            assert resource == "https://api.loganalytics.io"
+            execution = query_execution(body)
+            if execution.endswith("cleanup"):
+                value = {"event": "phase1_cleanup", "run_id": inputs.run_id, "absent": 1}
+            elif scenario == "cancel-after-claim":
+                value = {"event": "phase1_checkpoint", "stage": "claim_committed"}
+            else:
+                value = failure.model_dump(mode="json")
+            return query_response(current, execution, [value])
         if "/start?" in url:
             assert isinstance(body, dict) and isinstance(body["containers"], list)
             first = workflow.object_value(body["containers"][0])
@@ -406,12 +473,7 @@ def test_negative_drills_stay_failed_while_same_identity_cleanup_is_verified(
             )
             stopped = True
             return "{}"
-        execution = arguments[arguments.index("--execution") + 1]
-        if execution.endswith("cleanup"):
-            return json.dumps({"event": "phase1_cleanup", "run_id": inputs.run_id, "absent": 1})
-        if scenario == "cancel-after-claim":
-            return json.dumps({"event": "phase1_checkpoint", "stage": "claim_committed"})
-        return failure.model_dump_json()
+        raise AssertionError("unexpected_development_api_command")
 
     monkeypatch.setattr(workflow, "api", api)
     monkeypatch.setattr(workflow, "command", command)
@@ -427,3 +489,210 @@ def test_negative_drills_stay_failed_while_same_identity_cleanup_is_verified(
     assert stopped == (scenario == "cancel-after-claim")
     if scenario == "failure-after-ingestion":
         assert receipt["report"]["category"] == "intentional_failure_after_ingestion"
+
+
+@pytest.mark.parametrize(
+    "fault",
+    [
+        "partial",
+        "tables",
+        "columns",
+        "rows",
+        "too_many",
+        "row_shape",
+        "typed",
+        "job",
+        "environment",
+        "replica",
+        "container",
+        "naive_time",
+        "past",
+        "future",
+        "oversized_message",
+    ],
+)
+def test_log_query_rejects_partial_or_foreign_platform_evidence(
+    inputs: workflow.Inputs,
+    phase_config: TestConfig,
+    fault: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    api, _ = fake_api(inputs, phase_config)
+    monkeypatch.setattr(workflow, "api", api)
+    controller = workflow.Controller(inputs)
+    execution = controller.start()
+    response = query_response(inputs, execution, [report(inputs).model_dump(mode="json")])
+    tables = response["tables"]
+    assert isinstance(tables, list)
+    table = workflow.object_value(tables[0])
+    tables[0] = table
+    rows = table["rows"]
+    assert isinstance(rows, list)
+    row = rows[0]
+    assert isinstance(row, list)
+    if fault == "partial":
+        response["error"] = {"code": "PartialError", "message": "NEWSLOOM_CREDENTIAL_CANARY"}
+    elif fault == "tables":
+        response["tables"] = []
+    elif fault == "columns":
+        table["columns"] = []
+    elif fault == "rows":
+        table["rows"] = {}
+    elif fault == "too_many":
+        table["rows"] = rows * 301
+    elif fault == "row_shape":
+        rows[0] = row[:-1]
+    elif fault == "typed":
+        row[0] = True
+    elif fault == "naive_time":
+        row[4] = datetime.now().isoformat()
+    elif fault in ("past", "future"):
+        row[4] = (datetime.now(UTC) + timedelta(hours=1 if fault == "future" else -1)).isoformat()
+    elif fault == "oversized_message":
+        row[5] = "x" * 32769
+    else:
+        row[{"job": 0, "environment": 1, "replica": 2, "container": 3}[fault]] = "foreign"
+    monkeypatch.setattr(workflow, "api", lambda *args, **kwargs: response)
+    with pytest.raises(workflow.WorkflowFailure, match="phase1_log_"):
+        controller.logs(execution)
+    assert not inputs.report_path.exists()
+
+
+def test_queries_use_fixed_entra_audience_and_bounded_exact_execution_metadata(
+    inputs: workflow.Inputs,
+    phase_config: TestConfig,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    base, _ = fake_api(inputs, phase_config)
+    expressions = []
+
+    def api(url: str, *, body: object | None = None, resource: str = "") -> dict[str, object]:
+        if resource:
+            assert resource == "https://api.loganalytics.io"
+            assert url == (
+                f"https://api.loganalytics.azure.com/v1/workspaces/{inputs.log_workspace_id}/query"
+            )
+            query_execution(body)
+            assert isinstance(body, dict)
+            expression = str(body["query"])
+            expressions.append(expression)
+            assert expression.startswith("ContainerAppConsoleLogs | where TimeGenerated between")
+            assert f"JobName == '{inputs.job_name}'" in expression
+            assert f"EnvironmentName == '{inputs.log_environment}'" in expression
+            assert "ContainerName == 'acceptance'" in expression
+            assert expression.endswith("TimeGenerated, Log | take 301")
+            assert "getAuthToken" not in expression and "union" not in expression
+        return base(url, body=body, resource=resource)
+
+    monkeypatch.setattr(workflow, "api", api)
+    workflow.Controller(inputs).run()
+    workflow.Controller(inputs).cleanup()
+    assert len(expressions) == 2
+
+
+def test_terminal_status_still_polls_for_delayed_reports_and_cleanup(
+    inputs: workflow.Inputs,
+    phase_config: TestConfig,
+    clock: Clock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    base, starts = fake_api(inputs, phase_config)
+    calls: dict[str, int] = {}
+
+    def api(url: str, *, body: object | None = None, resource: str = "") -> dict[str, object]:
+        if resource:
+            execution = query_execution(body)
+            calls[execution] = calls.get(execution, 0) + 1
+            if calls[execution] < 4:
+                return query_response(inputs, execution, [])
+        return base(url, body=body, resource=resource)
+
+    monkeypatch.setattr(workflow, "api", api)
+    workflow.Controller(inputs).run()
+    workflow.Controller(inputs).cleanup()
+    assert starts == ["run", "cleanup"] and clock.elapsed == 30
+    assert json.loads(inputs.report_path.read_text())["cleanup_verified"] is True
+
+
+@pytest.mark.parametrize("cleanup", [False, True])
+def test_missing_query_evidence_expires_without_success_or_category_loss(
+    inputs: workflow.Inputs,
+    phase_config: TestConfig,
+    cleanup: bool,
+    clock: Clock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    base, _ = fake_api(inputs, phase_config)
+
+    def api(url: str, *, body: object | None = None, resource: str = "") -> dict[str, object]:
+        if resource:
+            return query_response(inputs, query_execution(body), [])
+        return base(url, body=body, resource=resource)
+
+    monkeypatch.setattr(workflow, "api", api)
+    if cleanup:
+        controller = workflow.Controller(inputs)
+        workflow.save(inputs.state_path, controller.state)
+        controller.envelope(outcome="failure", category="original_failure")
+    monkeypatch.setattr("sys.argv", ["phase1_workflow.py", "cleanup" if cleanup else "run"])
+    with pytest.raises(SystemExit):
+        workflow.main()
+    receipt = json.loads(inputs.report_path.read_text())
+    assert receipt["outcome"] == "failure" and receipt["cleanup_verified"] is False
+    assert 240 <= clock.elapsed < 250
+    if cleanup:
+        assert receipt["category"] == "original_failure"
+        assert receipt["cleanup_category"] == "phase1_cleanup_deadline"
+    else:
+        assert receipt["category"] == "phase1_execution_report_missing"
+
+
+@pytest.mark.parametrize("setting", ["PHASE1_LOG_WORKSPACE_ID", "PHASE1_LOG_ENVIRONMENT"])
+def test_changed_log_binding_cannot_reuse_another_execution_state(
+    inputs: workflow.Inputs,
+    phase_config: TestConfig,
+    setting: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    base, starts = fake_api(inputs, phase_config)
+    monkeypatch.setattr(workflow, "api", base)
+    workflow.Controller(inputs).run()
+    monkeypatch.setenv(
+        setting, str(uuid4()) if setting == "PHASE1_LOG_WORKSPACE_ID" else "foreign-environment"
+    )
+    with pytest.raises(workflow.WorkflowFailure, match="phase1_cleanup_state_mismatch"):
+        workflow.Controller(workflow.Inputs.environment()).cleanup()
+    assert starts == ["run"]
+
+
+def test_oversized_cli_response_is_not_a_valid_query_result(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(["az"], 0, "x" * 262145, ""),
+    )
+    with pytest.raises(workflow.WorkflowFailure, match="phase1_command_response_limit"):
+        workflow.command(["rest", "--url", "https://api.loganalytics.azure.com"])
+
+
+def test_query_api_does_not_print_private_error_payloads(
+    inputs: workflow.Inputs,
+    phase_config: TestConfig,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    base, _ = fake_api(inputs, phase_config)
+
+    def api(url: str, *, body: object | None = None, resource: str = "") -> dict[str, object]:
+        if resource:
+            return {"error": {"code": "PartialError", "message": "NEWSLOOM_CONTENT_CANARY"}}
+        return base(url, body=body, resource=resource)
+
+    monkeypatch.setattr(workflow, "api", api)
+    monkeypatch.setattr("sys.argv", ["phase1_workflow.py", "run"])
+    with pytest.raises(SystemExit):
+        workflow.main()
+    output = capsys.readouterr()
+    assert "CANARY" not in output.out + output.err + inputs.report_path.read_text()

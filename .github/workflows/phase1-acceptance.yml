@@ -37,6 +37,8 @@ jobs:
       PHASE1_SCENARIO: ${{ inputs.scenario }}
       PHASE1_CLIENT_ID: ${{ vars.PHASE1_CLIENT_ID }}
       PHASE1_JOB_ID: ${{ vars.PHASE1_JOB_ID }}
+      PHASE1_LOG_WORKSPACE_ID: ${{ vars.PHASE1_LOG_WORKSPACE_ID }}
+      PHASE1_LOG_ENVIRONMENT: ${{ vars.PHASE1_LOG_ENVIRONMENT }}
       PHASE1_IMAGE: ${{ vars.PHASE1_IMAGE }}
       PHASE1_IMAGE_REVISION: ${{ vars.PHASE1_IMAGE_REVISION }}
       PHASE1_FIXTURE_REVISION: ${{ vars.PHASE1_FIXTURE_REVISION }}
@@ -54,7 +56,8 @@ jobs:
         run: |
           import os
           for name in ("PHASE1_CLIENT_ID", "AZURE_TENANT_ID", "AZURE_SUBSCRIPTION_ID",
-                       "PHASE1_JOB_ID", "PHASE1_IMAGE"):
+                       "PHASE1_JOB_ID", "PHASE1_IMAGE", "PHASE1_LOG_WORKSPACE_ID",
+                       "PHASE1_LOG_ENVIRONMENT"):
               value = os.environ.get(name, "")
               if value:
                   escaped = value.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
@@ -64,7 +67,7 @@ jobs:
           client-id: ${{ vars.PHASE1_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-      - name: Install the tested preview job-log client
+      - name: Install the tested job-control client
         run: az extension add --name containerapp --version 1.3.0b4 --upgrade --yes --only-show-errors
       - name: Run isolated real-model integration
         run: uv run --locked python scripts/phase1_workflow.py run
