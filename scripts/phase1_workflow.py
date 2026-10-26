@@ -45,7 +45,9 @@ def object_value(value: object) -> dict[str, object]:
     return dict(value)
 
 
-def command(arguments: list[str], *, timeout: int = 60) -> str:
+def command(arguments: list[str], *, timeout: float = 60) -> str:
+    if timeout <= 0:
+        raise WorkflowFailure("phase1_command_deadline")
     result = subprocess.run(
         ["az", *arguments, "--only-show-errors"],
         capture_output=True,
@@ -60,17 +62,23 @@ def command(arguments: list[str], *, timeout: int = 60) -> str:
     return result.stdout.strip()
 
 
-def api(url: str, *, body: object | None = None, resource: str = "") -> dict[str, object]:
+def api(
+    url: str, *, body: object | None = None, resource: str = "", timeout: float = 60
+) -> dict[str, object]:
+    deadline = time.monotonic() + timeout
     arguments = ["rest", "--url", url, "--output", "json"]
     if resource:
         arguments.extend(["--resource", resource])
     if body is None:
-        output = command(arguments)
+        output = command(arguments, timeout=deadline - time.monotonic())
     else:
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json") as current:
             json.dump(body, current)
             current.flush()
-            output = command([*arguments, "--method", "post", "--body", "@" + current.name])
+            output = command(
+                [*arguments, "--method", "post", "--body", "@" + current.name],
+                timeout=deadline - time.monotonic(),
+            )
     return object_value(json.loads(output))
 
 
@@ -89,6 +97,10 @@ class Inputs:
     client_id: UUID
     log_workspace_id: UUID
     log_environment: str
+    workflow_started_at: datetime
+    workflow_deadline: datetime
+    github_run_id: str
+    github_run_attempt: str
 
     @classmethod
     def environment(cls) -> Inputs:
@@ -124,6 +136,23 @@ class Inputs:
         log_environment = env["PHASE1_LOG_ENVIRONMENT"]
         if not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", log_environment):
             raise WorkflowFailure("invalid_phase1_log_environment")
+        try:
+            started_at = datetime.fromisoformat(env["PHASE1_WORKFLOW_STARTED_AT"])
+            deadline = datetime.fromisoformat(env["PHASE1_WORKFLOW_DEADLINE"])
+        except ValueError:
+            raise WorkflowFailure("phase1_workflow_deadline_invalid") from None
+        if (
+            started_at.utcoffset() != timedelta(0)
+            or deadline.utcoffset() != timedelta(0)
+            or deadline - started_at != timedelta(minutes=28)
+            or started_at > datetime.now(UTC)
+        ):
+            raise WorkflowFailure("phase1_workflow_deadline_invalid")
+        if any(
+            re.fullmatch(r"[1-9][0-9]{0,19}", env[key]) is None
+            for key in ("GITHUB_RUN_ID", "GITHUB_RUN_ATTEMPT")
+        ):
+            raise WorkflowFailure("phase1_workflow_run_invalid")
         return cls(
             run_id=run_id,
             scenario=scenario,
@@ -138,6 +167,10 @@ class Inputs:
             client_id=UUID(env["PHASE1_CLIENT_ID"]),
             log_workspace_id=UUID(env["PHASE1_LOG_WORKSPACE_ID"]),
             log_environment=log_environment,
+            workflow_started_at=started_at,
+            workflow_deadline=deadline,
+            github_run_id=env["GITHUB_RUN_ID"],
+            github_run_attempt=env["GITHUB_RUN_ATTEMPT"],
         )
 
     @property
@@ -185,6 +218,12 @@ def log_records(output: str) -> list[dict[str, object]]:
 class Controller:
     def __init__(self, inputs: Inputs) -> None:
         self.inputs = inputs
+        self.entered_at = time.monotonic()
+        self.shared_deadline = (
+            self.entered_at + (inputs.workflow_deadline - datetime.now(UTC)).total_seconds()
+        )
+        self.phase_deadline = self.shared_deadline
+        self.deadline_category = "phase1_workflow_deadline"
         self.base = "https://management.azure.com" + inputs.job_id
         self.state: dict[str, object] = {
             "run_id": inputs.run_id,
@@ -193,11 +232,60 @@ class Controller:
             "image": inputs.image,
             "log_workspace_id": str(inputs.log_workspace_id),
             "log_environment": inputs.log_environment,
+            "workflow_started_at": inputs.workflow_started_at.isoformat(),
+            "workflow_deadline": inputs.workflow_deadline.isoformat(),
+            "github_run_id": inputs.github_run_id,
+            "github_run_attempt": inputs.github_run_attempt,
+            "workflow_sha": inputs.workflow_sha,
+            "client_id": str(inputs.client_id),
+            "image_revision": inputs.image_revision,
+            "fixture_revision": inputs.fixture_revision,
+            "schema_revision": inputs.schema_revision,
+            "model_revision": inputs.model_revision,
         }
         self.receipt: WorkflowReceipt | None = None
 
+    def remaining(self) -> float:
+        remaining = min(self.shared_deadline, self.phase_deadline) - time.monotonic()
+        if remaining <= 0:
+            raise WorkflowFailure(self.deadline_category)
+        return remaining
+
+    def pause(self, seconds: float) -> None:
+        time.sleep(min(seconds, self.remaining()))
+        self.remaining()
+
+    def request(
+        self,
+        url: str,
+        operation: Literal["template", "start", "status", "query"],
+        *,
+        body: object | None = None,
+        resource: str = "",
+    ) -> dict[str, object]:
+        for attempt in range(3):
+            timeout = min(60, self.remaining())
+            try:
+                result = api(url, body=body, resource=resource, timeout=timeout)
+            except subprocess.TimeoutExpired:
+                self.remaining()
+                if operation not in ("status", "query") or attempt == 2:
+                    raise WorkflowFailure(f"phase1_{operation}_timeout") from None
+                self.pause(5)
+            except json.JSONDecodeError:
+                raise WorkflowFailure(f"phase1_{operation}_invalid_json") from None
+            except OSError:
+                raise WorkflowFailure(f"phase1_{operation}_process_error") from None
+            except WorkflowFailure:
+                self.remaining()
+                raise
+            else:
+                self.remaining()
+                return result
+        raise WorkflowFailure("phase1_read_retries_exhausted")
+
     def template(self) -> dict[str, object]:
-        row = api(self.base + "?api-version=" + API)
+        row = self.request(self.base + "?api-version=" + API, "template")
         if str(row.get("id", "")).casefold() != self.inputs.job_id.casefold():
             raise WorkflowFailure("phase1_job_identity_mismatch")
         properties = object_value(row.get("properties"))
@@ -274,19 +362,23 @@ class Controller:
         self.state["cleanup_started_at" if cleanup else "execution_started_at"] = datetime.now(
             UTC
         ).isoformat()
+        self.state["pending_start"] = "cleanup" if cleanup else "main"
         save(self.inputs.state_path, self.state)
-        row = api(self.base + "/start?api-version=" + API, body={"containers": [execution]})
+        row = self.request(
+            self.base + "/start?api-version=" + API, "start", body={"containers": [execution]}
+        )
         name = row.get("name")
         if not isinstance(name, str) or not re.fullmatch(
             re.escape(self.inputs.job_name) + r"-[a-z0-9]{1,20}", name
         ):
             raise WorkflowFailure("phase1_execution_name_invalid")
         self.state["cleanup_execution" if cleanup else "execution"] = name
+        del self.state["pending_start"]
         save(self.inputs.state_path, self.state)
         return name
 
     def status(self, execution: str) -> str:
-        row = api(self.base + "/executions/" + execution + "?api-version=" + API)
+        row = self.request(self.base + "/executions/" + execution + "?api-version=" + API, "status")
         result = object_value(row.get("properties")).get("status")
         if not isinstance(result, str) or result not in TERMINAL | {
             "Processing",
@@ -324,8 +416,9 @@ class Controller:
             "| project JobName, EnvironmentName, ContainerGroupName, ContainerName, "
             "TimeGenerated, Log | take 301"
         )
-        response = api(
+        response = self.request(
             f"https://api.loganalytics.azure.com/v1/workspaces/{self.inputs.log_workspace_id}/query",
+            "query",
             body={"query": expression},
             resource="https://api.loganalytics.io",
         )
@@ -360,21 +453,30 @@ class Controller:
         return records
 
     def stop(self, execution: str) -> None:
-        command(
-            [
-                "containerapp",
-                "job",
-                "stop",
-                "--name",
-                self.inputs.job_name,
-                "--resource-group",
-                self.inputs.group,
-                "--job-execution-name",
-                execution,
-                "--output",
-                "json",
-            ]
-        )
+        self.state["stop_requested"] = execution
+        save(self.inputs.state_path, self.state)
+        try:
+            command(
+                [
+                    "containerapp",
+                    "job",
+                    "stop",
+                    "--name",
+                    self.inputs.job_name,
+                    "--resource-group",
+                    self.inputs.group,
+                    "--job-execution-name",
+                    execution,
+                    "--output",
+                    "json",
+                ],
+                timeout=min(60, self.remaining()),
+            )
+        except subprocess.TimeoutExpired:
+            raise WorkflowFailure("phase1_stop_timeout") from None
+        except OSError:
+            raise WorkflowFailure("phase1_stop_process_error") from None
+        self.remaining()
 
     def report(self, value: dict[str, object]) -> Report:
         report = Report.model_validate(value)
@@ -422,16 +524,17 @@ class Controller:
         save(self.inputs.report_path, self.receipt.model_dump(mode="json"))
 
     def run(self) -> None:
+        self.phase_deadline = min(self.shared_deadline, self.entered_at + 1260)
+        self.deadline_category = "phase1_execution_deadline"
+        self.remaining()
         if self.inputs.state_path.exists() or self.inputs.report_path.exists():
             raise WorkflowFailure("phase1_execution_state_already_exists")
         execution = self.start()
-        deadline = time.monotonic() + 1260
-        terminal_deadline = deadline
         report = None
-        while time.monotonic() < deadline:
+        while True:
             status = self.status(execution)
             if status in ("Processing", "Unknown"):
-                time.sleep(5)
+                self.pause(5)
                 continue
             records = self.logs(execution)
             if self.inputs.scenario == "cancel-after-claim" and any(
@@ -451,26 +554,22 @@ class Controller:
                 report = reports[0]
             if status in TERMINAL:
                 if report is None:
-                    terminal_deadline = min(terminal_deadline, time.monotonic() + 240)
-                    if time.monotonic() >= terminal_deadline:
-                        raise WorkflowFailure("phase1_execution_report_missing")
-                    time.sleep(5)
+                    self.deadline_category = "phase1_execution_report_missing"
+                    self.pause(5)
                     continue
                 if status != "Succeeded" or report.outcome != "success":
                     self.envelope(outcome="failure", category=report.category, report=report)
                     raise WorkflowFailure("phase1_execution_failed")
+                self.remaining()
                 self.envelope(outcome="success", report=report)
                 return
-            time.sleep(5)
-        raise WorkflowFailure("phase1_execution_deadline")
+            self.pause(5)
 
     def cleanup(self) -> None:
+        self.phase_deadline = min(self.shared_deadline, self.entered_at + 600)
+        self.deadline_category = "phase1_cleanup_deadline"
         if not self.inputs.state_path.is_file():
             raise WorkflowFailure("phase1_cleanup_needs_operator")
-        state = object_value(json.loads(self.inputs.state_path.read_text()))
-        if any(state.get(key) != value for key, value in self.state.items()):
-            raise WorkflowFailure("phase1_cleanup_state_mismatch")
-        self.state = state
         if self.inputs.report_path.is_file():
             receipt = WorkflowReceipt.model_validate_json(self.inputs.report_path.read_bytes())
             if (
@@ -482,26 +581,40 @@ class Controller:
             self.receipt = receipt
         else:
             self.envelope(outcome="failure", category="phase1_main_execution_incomplete")
+        try:
+            state = object_value(json.loads(self.inputs.state_path.read_text()))
+        except json.JSONDecodeError:
+            raise WorkflowFailure("phase1_state_invalid_json") from None
+        if any(state.get(key) != value for key, value in self.state.items()):
+            raise WorkflowFailure("phase1_cleanup_state_mismatch")
+        self.state = state
+        self.remaining()
+        if state.get("pending_start") is not None:
+            raise WorkflowFailure("phase1_start_outcome_needs_operator")
         execution = state.get("execution")
         if isinstance(execution, str):
             if not re.fullmatch(r"[a-z0-9-]{1,80}", execution):
                 raise WorkflowFailure("phase1_cleanup_execution_mismatch")
-            if self.status(execution) not in TERMINAL:
-                self.stop(execution)
-                deadline = time.monotonic() + 90
-                while self.status(execution) not in TERMINAL:
-                    if time.monotonic() >= deadline:
-                        raise WorkflowFailure("phase1_execution_stop_not_verified")
-                    time.sleep(2)
+            phase_deadline = self.phase_deadline
+            self.phase_deadline = min(phase_deadline, time.monotonic() + 90)
+            self.deadline_category = "phase1_execution_stop_not_verified"
+            try:
+                if self.status(execution) not in TERMINAL:
+                    if state.get("stop_requested") != execution:
+                        self.stop(execution)
+                    while self.status(execution) not in TERMINAL:
+                        self.pause(2)
+            finally:
+                self.phase_deadline = phase_deadline
+                self.deadline_category = "phase1_cleanup_deadline"
         execution = self.start(cleanup=True)
-        deadline = time.monotonic() + 240
-        while time.monotonic() < deadline:
+        while True:
             status = self.status(execution)
             if status in TERMINAL:
                 records = self.logs(execution)
                 cleaned = [row for row in records if row.get("event") == "phase1_cleanup"]
                 if not cleaned:
-                    time.sleep(5)
+                    self.pause(5)
                     continue
                 if (
                     status != "Succeeded"
@@ -513,6 +626,7 @@ class Controller:
                     raise WorkflowFailure("phase1_cleanup_not_verified")
                 if self.receipt is None:
                     raise WorkflowFailure("phase1_workflow_receipt_missing")
+                self.remaining()
                 self.receipt = WorkflowReceipt.model_validate(
                     {
                         **self.receipt.model_dump(),
@@ -521,8 +635,7 @@ class Controller:
                 )
                 save(self.inputs.report_path, self.receipt.model_dump(mode="json"))
                 return
-            time.sleep(5)
-        raise WorkflowFailure("phase1_cleanup_deadline")
+            self.pause(5)
 
 
 class Parser(argparse.ArgumentParser):
@@ -557,11 +670,14 @@ def main() -> None:
         OSError,
         subprocess.SubprocessError,
     ) as error:
-        category = (
-            str(error)
-            if isinstance(error, (WorkflowFailure, AcceptanceFailure))
-            else "phase1_launcher_input_or_api_error"
-        )
+        if isinstance(error, (WorkflowFailure, AcceptanceFailure)):
+            category = str(error)
+        elif isinstance(error, OSError):
+            category = "phase1_launcher_io_error"
+        elif isinstance(error, subprocess.SubprocessError):
+            category = "phase1_launcher_process_error"
+        else:
+            category = "phase1_launcher_input_invalid"
         if controller is not None:
             controller.failure(category, cleanup=operation == "cleanup")
         print(json.dumps({"event": "phase1_launcher", "outcome": "failure", "category": category}))

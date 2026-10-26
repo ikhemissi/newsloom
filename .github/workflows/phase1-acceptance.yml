@@ -47,6 +47,16 @@ jobs:
       AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
       AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
     steps:
+      - name: Establish the shared acceptance deadline
+        shell: python
+        run: |
+          import os
+          from datetime import UTC, datetime, timedelta
+          started = datetime.now(UTC)
+          deadline = started + timedelta(minutes=28)
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as environment:
+              environment.write("PHASE1_WORKFLOW_STARTED_AT=" + started.isoformat() + "\n")
+              environment.write("PHASE1_WORKFLOW_DEADLINE=" + deadline.isoformat() + "\n")
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
         with:

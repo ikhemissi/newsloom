@@ -2,9 +2,12 @@ import base64
 import json
 import re
 import subprocess
+import sys
+import textwrap
 from collections.abc import Callable
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, tzinfo
 from pathlib import Path
+from typing import IO, Literal
 from uuid import uuid4
 
 import pytest
@@ -23,7 +26,9 @@ from scripts import phase1_workflow as workflow
 
 
 class Clock:
-    elapsed = 0.0
+    def __init__(self) -> None:
+        self.elapsed = 0.0
+        self.origin = datetime.now(UTC)
 
     def monotonic(self) -> float:
         return self.elapsed
@@ -35,7 +40,21 @@ class Clock:
 @pytest.fixture(autouse=True)
 def clock(monkeypatch: pytest.MonkeyPatch) -> Clock:
     value = Clock()
+    real_datetime = datetime
+
+    class DateTime:
+        @staticmethod
+        def now(tz: tzinfo | None = None) -> datetime:
+            current = value.origin + timedelta(seconds=value.elapsed)
+            return current.astimezone(tz) if tz is not None else current.replace(tzinfo=None)
+
+        @staticmethod
+        def fromisoformat(text: str) -> datetime:
+            return real_datetime.fromisoformat(text)
+
     monkeypatch.setattr(workflow, "time", value)
+    monkeypatch.setattr(workflow, "datetime", DateTime)
+    monkeypatch.setattr(sys.modules[__name__], "datetime", DateTime)
     return value
 
 
@@ -51,6 +70,10 @@ def inputs(
         "GITHUB_REF": "refs/heads/main",
         "GITHUB_REPOSITORY": "ikhemissi/newsloom",
         "GITHUB_SHA": "c" * 40,
+        "GITHUB_RUN_ID": "123",
+        "GITHUB_RUN_ATTEMPT": "1",
+        "PHASE1_WORKFLOW_STARTED_AT": datetime.now(UTC).isoformat(),
+        "PHASE1_WORKFLOW_DEADLINE": (datetime.now(UTC) + timedelta(minutes=28)).isoformat(),
         "PHASE1_CLIENT_ID": str(phase_config.client_id),
         "PHASE1_RUN_ID": phase_config.run_id,
         "PHASE1_SCENARIO": "acceptance",
@@ -226,7 +249,9 @@ def fake_api(
 ) -> tuple[Callable[..., dict[str, object]], list[str]]:
     starts: list[str] = []
 
-    def api(url: str, *, body: object | None = None, resource: str = "") -> dict[str, object]:
+    def api(
+        url: str, *, body: object | None = None, resource: str = "", timeout: float = 60
+    ) -> dict[str, object]:
         if url.startswith("https://api.loganalytics.azure.com/"):
             assert url.endswith(f"/{inputs.log_workspace_id}/query")
             assert resource == "https://api.loganalytics.io"
@@ -416,7 +441,9 @@ def test_negative_drills_stay_failed_while_same_identity_cleanup_is_verified(
     stopped = False
     starts: list[str] = []
 
-    def api(url: str, *, body: object | None = None, resource: str = "") -> dict[str, object]:
+    def api(
+        url: str, *, body: object | None = None, resource: str = "", timeout: float = 60
+    ) -> dict[str, object]:
         if url.startswith("https://api.loganalytics.azure.com/"):
             assert resource == "https://api.loganalytics.io"
             execution = query_execution(body)
@@ -566,7 +593,9 @@ def test_queries_use_fixed_entra_audience_and_bounded_exact_execution_metadata(
     base, _ = fake_api(inputs, phase_config)
     expressions = []
 
-    def api(url: str, *, body: object | None = None, resource: str = "") -> dict[str, object]:
+    def api(
+        url: str, *, body: object | None = None, resource: str = "", timeout: float = 60
+    ) -> dict[str, object]:
         if resource:
             assert resource == "https://api.loganalytics.io"
             assert url == (
@@ -599,7 +628,9 @@ def test_terminal_status_still_polls_for_delayed_reports_and_cleanup(
     base, starts = fake_api(inputs, phase_config)
     calls: dict[str, int] = {}
 
-    def api(url: str, *, body: object | None = None, resource: str = "") -> dict[str, object]:
+    def api(
+        url: str, *, body: object | None = None, resource: str = "", timeout: float = 60
+    ) -> dict[str, object]:
         if resource:
             execution = query_execution(body)
             calls[execution] = calls.get(execution, 0) + 1
@@ -624,7 +655,9 @@ def test_missing_query_evidence_expires_without_success_or_category_loss(
 ) -> None:
     base, _ = fake_api(inputs, phase_config)
 
-    def api(url: str, *, body: object | None = None, resource: str = "") -> dict[str, object]:
+    def api(
+        url: str, *, body: object | None = None, resource: str = "", timeout: float = 60
+    ) -> dict[str, object]:
         if resource:
             return query_response(inputs, query_execution(body), [])
         return base(url, body=body, resource=resource)
@@ -639,7 +672,7 @@ def test_missing_query_evidence_expires_without_success_or_category_loss(
         workflow.main()
     receipt = json.loads(inputs.report_path.read_text())
     assert receipt["outcome"] == "failure" and receipt["cleanup_verified"] is False
-    assert 240 <= clock.elapsed < 250
+    assert clock.elapsed == (600 if cleanup else 1260)
     if cleanup:
         assert receipt["category"] == "original_failure"
         assert receipt["cleanup_category"] == "phase1_cleanup_deadline"
@@ -685,7 +718,9 @@ def test_query_api_does_not_print_private_error_payloads(
 ) -> None:
     base, _ = fake_api(inputs, phase_config)
 
-    def api(url: str, *, body: object | None = None, resource: str = "") -> dict[str, object]:
+    def api(
+        url: str, *, body: object | None = None, resource: str = "", timeout: float = 60
+    ) -> dict[str, object]:
         if resource:
             return {"error": {"code": "PartialError", "message": "NEWSLOOM_CONTENT_CANARY"}}
         return base(url, body=body, resource=resource)
@@ -696,3 +731,443 @@ def test_query_api_does_not_print_private_error_payloads(
         workflow.main()
     output = capsys.readouterr()
     assert "CANARY" not in output.out + output.err + inputs.report_path.read_text()
+
+
+@pytest.mark.parametrize("fault", ["missing", "naive", "extended", "future", "run", "attempt"])
+def test_invalid_deadline_or_workflow_identity_fails_before_azure(
+    inputs: workflow.Inputs,
+    fault: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    if fault == "missing":
+        monkeypatch.delenv("PHASE1_WORKFLOW_DEADLINE")
+    elif fault == "naive":
+        monkeypatch.setenv(
+            "PHASE1_WORKFLOW_STARTED_AT",
+            inputs.workflow_started_at.replace(tzinfo=None).isoformat(),
+        )
+    elif fault == "extended":
+        monkeypatch.setenv(
+            "PHASE1_WORKFLOW_DEADLINE",
+            (inputs.workflow_deadline + timedelta(seconds=1)).isoformat(),
+        )
+    elif fault == "future":
+        for key, value in (
+            ("PHASE1_WORKFLOW_STARTED_AT", inputs.workflow_started_at),
+            ("PHASE1_WORKFLOW_DEADLINE", inputs.workflow_deadline),
+        ):
+            monkeypatch.setenv(key, (value + timedelta(seconds=1)).isoformat())
+    else:
+        monkeypatch.setenv("GITHUB_RUN_ID" if fault == "run" else "GITHUB_RUN_ATTEMPT", "untrusted")
+    with pytest.raises((workflow.WorkflowFailure, KeyError)):
+        workflow.Inputs.environment()
+
+
+@pytest.mark.parametrize(
+    "setting", ["GITHUB_RUN_ID", "GITHUB_RUN_ATTEMPT", "GITHUB_SHA", "PHASE1_WORKFLOW_DEADLINE"]
+)
+def test_cleanup_cannot_reset_deadline_or_reuse_a_foreign_workflow(
+    inputs: workflow.Inputs,
+    phase_config: TestConfig,
+    setting: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    base, starts = fake_api(inputs, phase_config)
+    monkeypatch.setattr(workflow, "api", base)
+    workflow.Controller(inputs).run()
+    if setting == "PHASE1_WORKFLOW_DEADLINE":
+        for key, value in (
+            ("PHASE1_WORKFLOW_STARTED_AT", inputs.workflow_started_at),
+            ("PHASE1_WORKFLOW_DEADLINE", inputs.workflow_deadline),
+        ):
+            monkeypatch.setenv(key, (value - timedelta(seconds=1)).isoformat())
+    else:
+        monkeypatch.setenv(setting, "d" * 40 if setting == "GITHUB_SHA" else "2")
+    expected = (
+        "stale_phase1_workflow_receipt"
+        if setting == "GITHUB_SHA"
+        else "phase1_cleanup_state_mismatch"
+    )
+    with pytest.raises(workflow.WorkflowFailure, match=expected):
+        workflow.Controller(workflow.Inputs.environment()).cleanup()
+    assert starts == ["run"]
+
+
+def test_measured_delivery_delays_fit_the_shared_budget(
+    inputs: workflow.Inputs,
+    phase_config: TestConfig,
+    clock: Clock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    base, starts = fake_api(inputs, phase_config)
+    cleanup_available = 0.0
+
+    def api(
+        url: str, *, body: object | None = None, resource: str = "", timeout: float = 60
+    ) -> dict[str, object]:
+        nonlocal cleanup_available
+        if "/start?" in url:
+            result = base(url, body=body, resource=resource)
+            if starts[-1] == "cleanup":
+                cleanup_available = clock.elapsed + 35 + 218
+                clock.sleep(35)
+            return result
+        if resource:
+            execution = query_execution(body)
+            available = cleanup_available if execution.endswith("cleanup") else 359 + 271
+            if clock.elapsed < available:
+                return query_response(inputs, execution, [])
+        return base(url, body=body, resource=resource)
+
+    monkeypatch.setattr(workflow, "api", api)
+    workflow.Controller(inputs).run()
+    assert clock.elapsed == 630
+    workflow.Controller(inputs).cleanup()
+    assert 883 <= clock.elapsed < 890 and starts == ["run", "cleanup"]
+    assert json.loads(inputs.report_path.read_text())["cleanup_verified"] is True
+
+
+def test_template_and_start_time_are_inside_the_main_phase(
+    inputs: workflow.Inputs,
+    phase_config: TestConfig,
+    clock: Clock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    base, _ = fake_api(inputs, phase_config)
+
+    def api(
+        url: str, *, body: object | None = None, resource: str = "", timeout: float = 60
+    ) -> dict[str, object]:
+        if resource:
+            return query_response(inputs, query_execution(body), [])
+        if "/executions/" not in url:
+            clock.sleep(40)
+        return base(url, body=body, resource=resource)
+
+    monkeypatch.setattr(workflow, "api", api)
+    with pytest.raises(workflow.WorkflowFailure, match="phase1_execution_report_missing"):
+        workflow.Controller(inputs).run()
+    assert clock.elapsed == 1260
+
+
+@pytest.mark.parametrize("elapsed", [1100, 1679, 1680])
+def test_cleanup_uses_only_original_shared_remaining_time(
+    inputs: workflow.Inputs,
+    phase_config: TestConfig,
+    elapsed: int,
+    clock: Clock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    base, starts = fake_api(inputs, phase_config)
+    controller = workflow.Controller(inputs)
+    workflow.save(inputs.state_path, controller.state)
+    controller.envelope(outcome="failure", category="original_failure")
+    clock.sleep(elapsed)
+
+    def api(
+        url: str, *, body: object | None = None, resource: str = "", timeout: float = 60
+    ) -> dict[str, object]:
+        assert 0 < timeout <= min(60, 1680 - clock.elapsed)
+        if resource:
+            return query_response(inputs, query_execution(body), [])
+        return base(url, body=body, resource=resource)
+
+    monkeypatch.setattr(workflow, "api", api)
+    monkeypatch.setattr("sys.argv", ["phase1_workflow.py", "cleanup"])
+    with pytest.raises(SystemExit):
+        workflow.main()
+    receipt = json.loads(inputs.report_path.read_text())
+    assert clock.elapsed == 1680 and receipt["category"] == "original_failure"
+    assert receipt["cleanup_category"] == "phase1_cleanup_deadline"
+    assert starts == ([] if elapsed == 1680 else ["cleanup"])
+
+
+@pytest.mark.parametrize("operation", ["template", "start", "status", "query"])
+def test_only_read_only_timeouts_have_bounded_retries(
+    inputs: workflow.Inputs,
+    operation: Literal["template", "start", "status", "query"],
+    clock: Clock,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    calls = []
+
+    def api(
+        url: str, *, body: object | None = None, resource: str = "", timeout: float = 60
+    ) -> dict[str, object]:
+        calls.append(timeout)
+        clock.sleep(timeout)
+        raise subprocess.TimeoutExpired(["NEWSLOOM_CREDENTIAL_CANARY"], timeout)
+
+    monkeypatch.setattr(workflow, "api", api)
+    with pytest.raises(workflow.WorkflowFailure, match=f"phase1_{operation}_timeout"):
+        workflow.Controller(inputs).request("https://management.azure.com", operation)
+    count = 3 if operation in ("status", "query") else 1
+    assert calls == [60] * count and clock.elapsed == count * 60 + (count - 1) * 5
+    output = capsys.readouterr()
+    assert "CANARY" not in output.out + output.err
+
+
+def test_read_timeout_retry_cannot_extend_the_shared_deadline(
+    inputs: workflow.Inputs,
+    clock: Clock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = []
+    clock.sleep(1619)
+
+    def api(
+        url: str, *, body: object | None = None, resource: str = "", timeout: float = 60
+    ) -> dict[str, object]:
+        calls.append(timeout)
+        clock.sleep(timeout)
+        raise subprocess.TimeoutExpired(["az"], timeout)
+
+    monkeypatch.setattr(workflow, "api", api)
+    with pytest.raises(workflow.WorkflowFailure, match="phase1_workflow_deadline"):
+        workflow.Controller(inputs).request("https://management.azure.com", "query")
+    assert calls == [60] and clock.elapsed == 1680
+
+
+@pytest.mark.parametrize("fault", ["json", "exit", "foreign"])
+def test_bad_responses_are_not_retried_or_exposed(
+    inputs: workflow.Inputs,
+    fault: str,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    calls = 0
+
+    def api(*args: object, **kwargs: object) -> dict[str, object]:
+        nonlocal calls
+        calls += 1
+        if fault == "json":
+            raise json.JSONDecodeError("private", "NEWSLOOM_CONTENT_CANARY", 0)
+        raise workflow.WorkflowFailure(
+            "phase1_azure_command_failed"
+            if fault == "exit"
+            else "phase1_log_record_metadata_mismatch"
+        )
+
+    monkeypatch.setattr(workflow, "api", api)
+    with pytest.raises(workflow.WorkflowFailure):
+        workflow.Controller(inputs).request("https://management.azure.com", "query")
+    assert calls == 1
+    output = capsys.readouterr()
+    assert "CANARY" not in output.out + output.err
+
+
+def test_uncertain_start_is_not_replayed_by_cleanup(
+    inputs: workflow.Inputs,
+    phase_config: TestConfig,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    base, _ = fake_api(inputs, phase_config)
+    starts = 0
+
+    def api(
+        url: str, *, body: object | None = None, resource: str = "", timeout: float = 60
+    ) -> dict[str, object]:
+        nonlocal starts
+        if "/start?" in url:
+            starts += 1
+            raise subprocess.TimeoutExpired(["az"], timeout)
+        return base(url, body=body, resource=resource)
+
+    monkeypatch.setattr(workflow, "api", api)
+    for operation in ("run", "cleanup"):
+        monkeypatch.setattr("sys.argv", ["phase1_workflow.py", operation])
+        with pytest.raises(SystemExit):
+            workflow.main()
+    receipt = json.loads(inputs.report_path.read_text())
+    assert starts == 1 and receipt["category"] == "phase1_start_timeout"
+    assert receipt["cleanup_category"] == "phase1_start_outcome_needs_operator"
+
+
+def test_late_api_result_cannot_be_accepted_after_the_deadline(
+    inputs: workflow.Inputs,
+    clock: Clock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    clock.sleep(1679)
+    calls = []
+
+    def api(*args: object, **kwargs: object) -> dict[str, object]:
+        calls.append(kwargs["timeout"])
+        clock.sleep(2)
+        return {"properties": {"status": "Succeeded"}}
+
+    monkeypatch.setattr(workflow, "api", api)
+    with pytest.raises(workflow.WorkflowFailure, match="phase1_workflow_deadline"):
+        workflow.Controller(inputs).request("https://management.azure.com", "status")
+    assert calls == [1]
+
+
+def test_claim_delivery_delay_does_not_reset_the_original_deadline(
+    inputs: workflow.Inputs,
+    phase_config: TestConfig,
+    clock: Clock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PHASE1_SCENARIO", "cancel-after-claim")
+    inputs = workflow.Inputs.environment()
+    base, starts = fake_api(inputs, phase_config, main_status="Running")
+    stops = []
+
+    def api(
+        url: str, *, body: object | None = None, resource: str = "", timeout: float = 60
+    ) -> dict[str, object]:
+        if resource:
+            records: list[dict[str, object]] = (
+                [{"event": "phase1_checkpoint", "stage": "claim_committed"}]
+                if clock.elapsed >= 43 + 289
+                else []
+            )
+            return query_response(inputs, query_execution(body), records)
+        return base(url, body=body, resource=resource)
+
+    monkeypatch.setattr(workflow, "api", api)
+
+    def stop(args: list[str], *, timeout: float = 60) -> str:
+        stops.append(timeout)
+        return ""
+
+    monkeypatch.setattr(workflow, "command", stop)
+    with pytest.raises(workflow.WorkflowFailure, match="intentional_phase1_cancellation_drill"):
+        workflow.Controller(inputs).run()
+    state = json.loads(inputs.state_path.read_text())
+    assert clock.elapsed == 335 and starts == ["run"] and len(stops) == 1
+    assert state["workflow_deadline"] == inputs.workflow_deadline.isoformat()
+
+
+def test_uncertain_stop_is_not_replayed_and_stop_wait_is_bounded(
+    inputs: workflow.Inputs,
+    phase_config: TestConfig,
+    clock: Clock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PHASE1_SCENARIO", "cancel-after-claim")
+    inputs = workflow.Inputs.environment()
+    base, starts = fake_api(inputs, phase_config, main_status="Running")
+    stops = []
+
+    def api(
+        url: str, *, body: object | None = None, resource: str = "", timeout: float = 60
+    ) -> dict[str, object]:
+        if resource:
+            return query_response(
+                inputs,
+                query_execution(body),
+                [{"event": "phase1_checkpoint", "stage": "claim_committed"}],
+            )
+        return base(url, body=body, resource=resource)
+
+    def stop(args: list[str], *, timeout: float = 60) -> str:
+        stops.append(timeout)
+        clock.sleep(20)
+        raise subprocess.TimeoutExpired(args, timeout)
+
+    monkeypatch.setattr(workflow, "api", api)
+    monkeypatch.setattr(workflow, "command", stop)
+    for operation in ("run", "cleanup"):
+        monkeypatch.setattr("sys.argv", ["phase1_workflow.py", operation])
+        with pytest.raises(SystemExit):
+            workflow.main()
+    receipt = json.loads(inputs.report_path.read_text())
+    assert stops == [60] and starts == ["run"] and clock.elapsed == 110
+    assert receipt["category"] == "phase1_stop_timeout"
+    assert receipt["cleanup_category"] == "phase1_execution_stop_not_verified"
+
+
+def test_exact_stop_cap_includes_status_and_mutation_time(
+    inputs: workflow.Inputs,
+    clock: Clock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    controller = workflow.Controller(inputs)
+    workflow.save(inputs.state_path, {**controller.state, "execution": "accept-newsloom-main"})
+    controller.envelope(outcome="failure", category="original_failure")
+    calls = []
+
+    def api(
+        url: str, *, body: object | None = None, resource: str = "", timeout: float = 60
+    ) -> dict[str, object]:
+        calls.append(timeout)
+        clock.sleep(min(40, timeout))
+        return {"properties": {"status": "Running"}}
+
+    def stop(args: list[str], *, timeout: float = 60) -> str:
+        calls.append(timeout)
+        clock.sleep(40)
+        return ""
+
+    monkeypatch.setattr(workflow, "api", api)
+    monkeypatch.setattr(workflow, "command", stop)
+    with pytest.raises(workflow.WorkflowFailure, match="phase1_execution_stop_not_verified"):
+        workflow.Controller(inputs).cleanup()
+    assert clock.elapsed == 90 and calls == [60, 50, 10]
+
+
+def test_read_only_query_can_recover_on_the_last_timeout_retry(
+    inputs: workflow.Inputs,
+    clock: Clock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = []
+
+    def api(
+        url: str, *, body: object | None = None, resource: str = "", timeout: float = 60
+    ) -> dict[str, object]:
+        calls.append(timeout)
+        if len(calls) < 3:
+            clock.sleep(timeout)
+            raise subprocess.TimeoutExpired(["az"], timeout)
+        return {"tables": []}
+
+    monkeypatch.setattr(workflow, "api", api)
+    assert workflow.Controller(inputs).request("https://api.loganalytics.azure.com", "query") == {
+        "tables": []
+    }
+    assert calls == [60, 60, 60] and clock.elapsed == 130
+
+
+def test_request_preparation_cannot_start_a_command_after_expiration(
+    inputs: workflow.Inputs,
+    clock: Clock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    clock.sleep(1679)
+    dump = json.dump
+
+    def slow_dump(value: object, stream: IO[str]) -> None:
+        dump(value, stream)
+        clock.sleep(2)
+
+    monkeypatch.setattr(json, "dump", slow_dump)
+    monkeypatch.setattr(subprocess, "run", lambda *args, **kwargs: pytest.fail("late command"))
+    with pytest.raises(workflow.WorkflowFailure, match="phase1_workflow_deadline"):
+        workflow.Controller(inputs).request(
+            "https://api.loganalytics.azure.com", "query", body={"query": "content-free"}
+        )
+
+
+def test_first_workflow_step_generates_the_fixed_utc_deadline(tmp_path: Path) -> None:
+    text = Path(".github/workflows/phase1-acceptance.yml").read_text()
+    assert text.index("Establish the shared acceptance deadline") < text.index(
+        "uses: actions/checkout"
+    )
+    program = textwrap.dedent(text.split("run: |\n", 1)[1].split("      - uses:", 1)[0])
+    destination = tmp_path / "environment"
+    subprocess.run(
+        [sys.executable, "-c", program],
+        env={"GITHUB_ENV": str(destination)},
+        check=True,
+        capture_output=True,
+        timeout=5,
+    )
+    values = dict(line.split("=", 1) for line in destination.read_text().splitlines())
+    start = datetime.fromisoformat(values["PHASE1_WORKFLOW_STARTED_AT"])
+    end = datetime.fromisoformat(values["PHASE1_WORKFLOW_DEADLINE"])
+    assert start.utcoffset() == end.utcoffset() == timedelta(0)
+    assert end - start == timedelta(seconds=1680)
+    assert "timeout-minutes: 30" in text
