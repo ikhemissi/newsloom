@@ -239,6 +239,10 @@ content or leaking sensitive data.
 
 **Outcome:** Maintainers can demonstrate correctness and quality before Phase 2 starts.
 
+**Status:** Runtime criteria and implementation CI are verified in the
+[phase acceptance matrix](phase1-acceptance.md#verified-phase-acceptance-matrix).
+Final status CI remains pending before overall phase completion.
+
 **User stories**
 - **P1-C11-US1:** As a maintainer, I want repeatable adversarial and concurrency
   tests so that reruns and hostile inputs cannot silently break the platform.
@@ -253,11 +257,14 @@ content or leaking sensitive data.
 - Phase acceptance demonstrates Entra-signed-in VS Code browsing/semantic search,
   hostile-fixture quarantine, and duplicate-free rerun/crash recovery in Azure.
 
-## Decisions still required
+## Decisions and operational follow-ups
 
-The owning slices must settle core/model regions, PostgreSQL capacity/SKU, model
-capacities, category-list values, scanner threshold/replacement, and VS Code
-sign-in compatibility. Verify current model availability, including ADR-6's preview
-limits and deprecation date, and evaluate whether the decision model should classify
-categories. Do not invent numeric operating limits or evaluation pass thresholds;
-define and verify them in the relevant OpenSpec changes.
+Phase 1's region/SKU/capacity, taxonomy, calibrated scanner and native-client
+choices have verified owning-slice evidence in the [ADRs](adrs.md) and
+[phase matrix](phase1-acceptance.md#verified-phase-acceptance-matrix).
+Category assignment belongs to the verified enrichment model, not the scanner.
+ADR-6's Decision preview limits and 2027-02-04 inference deprecation remain
+operational follow-ups; replacing that model requires a separately verified
+owning change and calibration, not a runtime bypass.
+Numeric limits and evaluation thresholds stay with their measured owning
+evidence. Phase 1 acceptance does not establish Phase 2 agent/OBO readiness.

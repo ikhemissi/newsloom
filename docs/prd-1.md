@@ -19,7 +19,11 @@ Step 1.5 is complete with
 [local, Azure, real-model, native-client and exact-commit CI evidence](../openspec/changes/mcp-server/tasks.md#acceptance-evidence),
 including actual workload denials and warning-free VS Code/Copilot browser
 sign-in. The MCP change remains unarchived.
-Step 1.6 and phase acceptance are not complete.
+Step 1.6 runtime acceptance and implementation CI are verified in the
+[phase acceptance matrix](phase1-acceptance.md#verified-phase-acceptance-matrix).
+The separate final status-CI gate remains pending before overall phase
+completion is recorded. Enrichment, MCP and acceptance remain unarchived;
+Phase 2 has not started.
 
 This document owns phase sequencing and capability-to-slice assignments.
 [Capabilities](prd-1-capabilities.md) own behavior, user stories, acceptance

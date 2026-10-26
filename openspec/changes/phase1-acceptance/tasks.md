@@ -42,7 +42,7 @@ cloud apply still needs its owning native preview reviewed.
 ## 5. Phase evidence and persistent delivery
 
 - [x] 5.1 Assemble the phase acceptance matrix from this real federated integration/cleanup, current local regressions, delivered scanner calibration/holdouts, enrichment quality/hostile study, separate filtered/unfiltered retrieval study, actual production-role denials and warning-free native user evidence. Verify source/model/policy/prompt/taxonomy/fixture provenance and unchanged production identities/schedules/data invariants; rerun the owning study on drift. Document retained dead-letter history and distinguish all reused versus newly measured results.
-- [ ] 5.2 After local, operator Azure and actual workflow gates pass, commit/push the remaining verified implementation with the required trailer and verify the complete primary CI for its exact SHA. Preserve bootstrap and failed/drill workflow evidence without amending verified commits or claiming a documentation-only HEAD was deployed.
+- [x] 5.2 After local, operator Azure and actual workflow gates pass, commit/push the remaining verified implementation with the required trailer and verify the complete primary CI for its exact SHA. Preserve bootstrap and failed/drill workflow evidence without amending verified commits or claiming a documentation-only HEAD was deployed.
 - [ ] 5.3 Update the owning acceptance runbook, PRD-1/capability/ADR status and this change's evidence with actual limits/results, tested immutable references and unchanged production behavior. Check local links, safe committed content and exact-head CI for separate evidence/status commits before marking Step 1.6 or Phase 1 complete. Leave any unverified prerequisite/task open and stop before Phase 2 work.
 
 ## Workflow follow-up
@@ -676,3 +676,21 @@ cloud apply still needs its owning native preview reviewed.
 - Tasks 4.5 and 5.1 are complete, bringing progress to **16/18**. Persistent
   implementation and final status delivery still require their own exact-SHA
   CI. No archive or Phase 2 work is authorized by these measured results.
+
+### Verified implementation release CI, 2026-10-26
+
+- After all local, operator, actual federated integration and negative-drill
+  gates passed, published the remaining verified implementation as
+  **`c9f55dba968496e0545e74f3870f87231dcce10b`** with the required Copilot
+  co-author trailer. Exact staged bytes matched the locally/cloud-tested tree;
+  its runtime source hash still matched the reviewed deployed image input.
+- Published only 37 owning files. Unrelated prompt deletions and replacement
+  OpenSpec skills were preserved and excluded. No verified commit was amended,
+  failed/drill workflow deleted, resource redeployed or image retagged.
+- [Exact-SHA primary CI 40327851772](https://github.com/ikhemissi/newsloom/actions/runs/40327851772)
+  completed successfully. This is the full implementation gate, not the
+  standalone bootstrap's narrower local selection.
+- Task 5.2 is complete, bringing progress to **17/18**. The owning README,
+  PRD/capability/ADR status and runbook updates have their own final status-CI
+  gate before task 5.3 and overall Phase 1 completion may be recorded.
+  Enrichment, MCP and acceptance remain unarchived; Phase 2 has not started.
