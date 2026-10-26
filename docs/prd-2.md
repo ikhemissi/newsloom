@@ -3,6 +3,12 @@
 Status: planned. Prerequisite: acceptance of [Phase 1](prd-1.md), including its
 final tests/evals slice.
 
+Phase 1 is complete and its delivered contracts are archived. The
+[`agent-skeleton` proposal](../openspec/changes/agent-skeleton/proposal.md)
+plans Step 2.1 with actual secretless OBO as the first go/no-go gate.
+This is planning only: agent implementation and live OBO acceptance have not
+started, and the proposal does not authorize deployment.
+
 This document owns phase sequencing and capability-to-slice assignments.
 [Capabilities](prd-2-capabilities.md) own behavior, user stories, acceptance
 criteria, and unresolved product decisions. See [the ADRs](adrs.md) for technical choices.
