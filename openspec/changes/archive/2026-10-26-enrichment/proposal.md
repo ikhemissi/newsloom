@@ -8,12 +8,12 @@ structured, searchable news before the MCP serving slice can begin.
 
 ## What Changes
 
-- Deliver one end-to-end [PRD-1](../../../docs/prd-1.md) enrichment slice, owning
+- Deliver one end-to-end [PRD-1](../../../../docs/prd-1.md) enrichment slice, owning
   P1-C04 processing, P1-C05 model enrichment, and P1-C10 runtime visibility.
   Prerequisites are the archived, verified
-  [ingestion](../archive/2026-10-23-feed-ingestion/tasks.md),
-  [resilience](../archive/2026-10-23-resilient-feed-ingestion/tasks.md), and
-  [contextual screening](../archive/2026-10-23-contextual-content-screening/tasks.md)
+  [ingestion](../2026-10-23-feed-ingestion/tasks.md),
+  [resilience](../2026-10-23-resilient-feed-ingestion/tasks.md), and
+  [contextual screening](../2026-10-23-contextual-content-screening/tasks.md)
   slices and the existing Azure platform.
 - Use one structured GPT request per logical enrichment attempt for an English
   summary of 2-3 sentences and at most 100 words, one primary category, and 3-5
@@ -59,15 +59,15 @@ services, a new queue/vector datastore, and automatic re-enrichment of history.
 
 ## Impact
 
-- Implement the existing [enrichment package](../../../services/enrichment/),
+- Implement the existing [enrichment package](../../../../services/enrichment),
   add only its required existing-workspace dependency families, and keep typed
   `LlmProvider`, `EmbeddingProvider`, and repository interfaces.
 - Reuse the normalized entry contract through
-  [core](../../../packages/newsloom-core/) without coupling enrichment to the
-  ingestion service. Extend [versioned migrations](../../../services/platform/src/newsloom_platform/database.py)
+  [core](../../../../packages/newsloom-core) without coupling enrichment to the
+  ingestion service. Extend [versioned migrations](../../../../services/platform/src/newsloom_platform/database.py)
   and operator readbacks; do not edit applied migration SQL.
 - Add an enrichment azd/Terraform layer and immutable-image/operator wiring
-  following [the existing flow](../../../azure.yaml). No existing shared resource,
+  following [the existing flow](../../../../azure.yaml). No existing shared resource,
   environment state, runtime identity, region, or model capacity is replaced.
   Manual-to-scheduled transition may require replacement of only the newly
   introduced enrichment job; its preview requires explicit approval.

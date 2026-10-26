@@ -1,10 +1,10 @@
 # Enrichment operations
 
 Status: implemented and verified locally, in Azure, and by exact-commit CI. The owning
-[change](../openspec/changes/enrichment/tasks.md) retains actual acceptance evidence.
+[change](../openspec/changes/archive/2026-10-26-enrichment/tasks.md) retains actual acceptance evidence.
 See [PRD-1](prd-1.md) for sequencing and
-[the capability contract](../openspec/changes/enrichment/specs/news-enrichment/spec.md)
-for behavior; MCP serving remains a later slice.
+[the delivered capability contract](../openspec/specs/news-enrichment/spec.md)
+for behavior; [MCP serving](mcp.md) is delivered separately.
 
 ## Contracts and taxonomy
 
@@ -252,7 +252,7 @@ attempts, plus one retryable item on attempt one at that later snapshot.
 The audit exposed counts and safe categories only, not generated content.
 
 See the owning change's
-[acceptance evidence](../openspec/changes/enrichment/tasks.md#acceptance-evidence)
+[acceptance evidence](../openspec/changes/archive/2026-10-26-enrichment/tasks.md#acceptance-evidence)
 for execution references, retained limitations and delivery/CI state.
 
 Implementation `512344adc91dff9cf505fdfd7a04e93e4a86784d` was committed only after

@@ -1,5 +1,10 @@
 # Tasks
 
+Archived on 2026-10-26 after user approval, completed acceptance and passing
+completion-receipt CI. The [delivered contract](../../../specs/phase1-acceptance/spec.md)
+is published in the main specs. Evidence below retains its original chronology;
+no historical failed workflow is relabelled or runtime image redeployed.
+
 All 18 tasks have verified local/operator Azure, actual federated workflow,
 negative-drill, quality/native-user provenance and implementation/status CI
 evidence. Follow [the design](design.md) and
@@ -664,7 +669,7 @@ cloud apply still needs its owning native preview reviewed.
   conditional workspace assignment without broader overlapping readers; and
   all eleven repository variables unchanged. The verified runtime source hash
   still matches **`17d11d7a264222c161e90d3de2fb67a3e32effbbf2b9a9abb587d4cabaca0605`**.
-- Assembled the [phase matrix](../../../docs/phase1-acceptance.md#verified-phase-acceptance-matrix).
+- Assembled the [phase matrix](../../../../docs/phase1-acceptance.md#verified-phase-acceptance-matrix).
   Earlier scanner/enrichment/retrieval/native-user evidence is explicitly
   reused, not rerun or replaced by the tiny integration corpus. Business-code
   and frozen evaluation configuration comparison against MCP delivery found
@@ -723,3 +728,17 @@ cloud apply still needs its owning native preview reviewed.
 - The final receipt revalidated **111 local links/anchors**, safe identifiers,
   whitespace and **9/9 strict OpenSpec items**. Task 5.3 is complete and overall
   progress is **18/18**; all tracked Phase 1 acceptance work is complete.
+
+### Completion receipt verified before archival, 2026-10-26
+
+- Completion receipt **`076e9a575ad39d0958b37e532134a4067a09c4fa`** was
+  committed and pushed without amending the verified implementation or status
+  commits. [Its exact-head CI 40329320889](https://github.com/ikhemissi/newsloom/actions/runs/40329320889)
+  completed successfully before the user requested archival.
+- All 18 tracked tasks and all artifact states were checked again. Every
+  delivered requirement and scenario was compared against the synced main
+  specs before moving the change, preserving authored purpose text, historical
+  failures, independent cleanup and reused quality/native-client provenance.
+- Archival is documentation-only. It changes no resource, grant, image,
+  schedule, model, database or retained quarantine/dead-letter record, and does
+  not implement or establish Phase 2 OBO readiness.

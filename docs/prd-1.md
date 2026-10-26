@@ -14,15 +14,16 @@ is verified locally, in Azure, and by exact-commit CI.
 [findings](findings/contextual-content-screening.md) separate historical
 quarantine decisions from newly measured results.
 Step 1.4 is implemented with
-[local, real-model, Azure and exact-commit CI acceptance evidence](../openspec/changes/enrichment/tasks.md#acceptance-evidence).
+[local, real-model, Azure and exact-commit CI acceptance evidence](../openspec/changes/archive/2026-10-26-enrichment/tasks.md#acceptance-evidence).
 Step 1.5 is complete with
-[local, Azure, real-model, native-client and exact-commit CI evidence](../openspec/changes/mcp-server/tasks.md#acceptance-evidence),
+[local, Azure, real-model, native-client and exact-commit CI evidence](../openspec/changes/archive/2026-10-26-mcp-server/tasks.md#acceptance-evidence),
 including actual workload denials and warning-free VS Code/Copilot browser
-sign-in. The MCP change remains unarchived.
+sign-in.
 Step 1.6 and overall Phase 1 acceptance are complete and verified in the
 [phase acceptance matrix](phase1-acceptance.md#verified-phase-acceptance-matrix).
 Separate implementation and status exact-commit CI passed before this completion
-record. Enrichment, MCP and acceptance remain unarchived; Phase 2 has not started.
+record. Enrichment, MCP and acceptance are archived with their delivered
+contracts in the [main specs](../openspec/specs/); Phase 2 has not started.
 
 This document owns phase sequencing and capability-to-slice assignments.
 [Capabilities](prd-1-capabilities.md) own behavior, user stories, acceptance

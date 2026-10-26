@@ -8,10 +8,10 @@ data accessible to an Entra-signed-in VS Code user before phase acceptance.
 
 ## What Changes
 
-- Deliver the `mcp-server` slice of [PRD-1](../../../docs/prd-1.md), owning P1-C06
+- Deliver the `mcp-server` slice of [PRD-1](../../../../docs/prd-1.md), owning P1-C06
   browsing/discovery, P1-C07 filtered search, P1-C08 user access and P1-C10 service
   visibility. Prerequisites are the verified shared platform and
-  [completed enrichment](../enrichment/tasks.md#acceptance-evidence), including
+  [completed enrichment](../2026-10-26-enrichment/tasks.md#acceptance-evidence), including
   its existing `news` schema. Enrichment is complete but not yet archived; this
   proposal does not archive it or change its acceptance evidence.
 - Expose an authenticated Streamable HTTP MCP endpoint with four read-only tools:
@@ -60,14 +60,14 @@ acceptance or modifying ingestion/enrichment semantics.
 
 ## Impact
 
-- Implement the existing [MCP package](../../../services/mcp/) with the official
+- Implement the existing [MCP package](../../../../services/mcp) with the official
   MCP Python SDK, typed tools/repository/authentication and focused tests.
   Add only owning runtime/test dependencies and lock supported stable versions.
 - Add an additive migration granting the existing MCP role read access only to
   the public-news projection. Reuse the existing category catalogue and news
   indexes; the runtime does not query feed/queue/quarantine tables or run DDL.
-- Extend [operator image/deployment wiring](../../../services/platform/src/newsloom_platform/control.py)
-  and [azd](../../../azure.yaml) with an owning MCP app layer and explicit Entra
+- Extend [operator image/deployment wiring](../../../../services/platform/src/newsloom_platform/control.py)
+  and [azd](../../../../azure.yaml) with an owning MCP app layer and explicit Entra
   registration setup. Keep actual directory/resource/client identifiers in ignored
   environment configuration, never committed examples.
 - Document sign-in/consent, allowed callbacks, the endpoint and troubleshooting

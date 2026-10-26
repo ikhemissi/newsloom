@@ -3,7 +3,7 @@
 ## Why
 
 Newsloom's ingestion, enrichment and MCP slices are individually verified, but
-[PRD-1 Step 1.6](../../../docs/prd-1.md#delivery-plan) still lacks a repeatable
+[PRD-1 Step 1.6](../../../../docs/prd-1.md#delivery-plan) still lacks a repeatable
 federated Azure integration run tying their real processing paths together.
 Phase 2 needs that evidence without injecting fixtures into production news or
 disturbing the live schedules.
@@ -18,7 +18,7 @@ broader permissions or repeated model tuning.
 
 ## What Changes
 
-- Deliver [P1-C11](../../../docs/prd-1-capabilities.md#p1-c11-evidence-based-platform-acceptance)
+- Deliver [P1-C11](../../../../docs/prd-1-capabilities.md#p1-c11-evidence-based-platform-acceptance)
   with a bounded, manually dispatched GitHub Actions workflow authenticated by
   OIDC, a dedicated acceptance identity and one manual Container Apps test job.
   The user explicitly approved this isolated scope during planning.
@@ -60,11 +60,11 @@ injection, data repair/releases, scanner/prompt/taxonomy tuning, privileged
 GitHub deployment access, and broad firewall or consent changes.
 
 Prerequisites are the delivered
-[platform](../../specs/persistent-azure-platform/spec.md),
-[ingestion](../archive/2026-10-23-feed-ingestion/tasks.md#acceptance-evidence),
-[contextual screening](../archive/2026-10-23-contextual-content-screening/tasks.md),
-[enrichment](../enrichment/tasks.md#acceptance-evidence), and
-[MCP](../mcp-server/tasks.md#acceptance-evidence) acceptance. No prior result is
+[platform](../../../specs/persistent-azure-platform/spec.md),
+[ingestion](../2026-10-23-feed-ingestion/tasks.md#acceptance-evidence),
+[contextual screening](../2026-10-23-contextual-content-screening/tasks.md),
+[enrichment](../2026-10-26-enrichment/tasks.md#acceptance-evidence), and
+[MCP](../2026-10-26-mcp-server/tasks.md#acceptance-evidence) acceptance. No prior result is
 invented, reset or silently substituted by the new workflow.
 
 ## Capabilities

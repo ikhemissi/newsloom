@@ -4,7 +4,7 @@ Curated AI news for MCP clients, research agents, and people.
 
 **Status: Phase 1 complete and verified.**
 - Available: Python workspace, 41-feed catalogue, local/CI checks, azd-managed Azure infrastructure, managed-identity migrations, RSS/Atom ingestion with real Decision-model screening, and durable queue/quarantine storage. Enrichment produces validated summaries, one of 11 categories, tags, and 1536-dimensional embeddings in PostgreSQL. The deployed MCP service provides four read-only browsing/search tools with verified Entra browser sign-in.
-- The [phase acceptance matrix](docs/phase1-acceptance.md#verified-phase-acceptance-matrix) links real federated integration, exact cleanup, failure/cancellation drills, separate quality/native-client studies and passing implementation/status CI. The research agent and browser UI remain future work; see the [phase delivery plan](docs/prd-1.md). Completed changes remain unarchived, and no Phase 2 work has started.
+- The [phase acceptance matrix](docs/phase1-acceptance.md#verified-phase-acceptance-matrix) links real federated integration, exact cleanup, failure/cancellation drills, separate quality/native-client studies and passing implementation/status CI. The research agent and browser UI remain future work; see the [phase delivery plan](docs/prd-1.md). Phase 1 changes are archived with their delivered contracts in the [main specs](openspec/specs/); Phase 2 has not started.
 
 ## Architecture
 
@@ -124,6 +124,11 @@ Delivered platform contracts are maintained in the
 [platform](openspec/specs/persistent-azure-platform/spec.md),
 [workload access](openspec/specs/workload-access/spec.md), and
 [telemetry](openspec/specs/safe-telemetry/spec.md) main specs.
+Delivered product contracts cover
+[enrichment](openspec/specs/news-enrichment/spec.md),
+[MCP serving](openspec/specs/mcp-serving/spec.md),
+[news search](openspec/specs/news-search/spec.md), and
+[phase acceptance](openspec/specs/phase1-acceptance/spec.md).
 
 ## Documentation
 

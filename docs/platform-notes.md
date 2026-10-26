@@ -23,7 +23,7 @@ existing v2 API, and Copilot needed its private flat OAuth client configuration
 instead of relying on legacy VS Code forwarding. These were measured integration
 issues, not reasons to add a proxy, secret, broader grant or token bypass.
 The [MCP runbook](mcp.md) owns the current setup and troubleshooting procedure;
-the [acceptance record](../openspec/changes/mcp-server/tasks.md#acceptance-evidence)
+the [acceptance record](../openspec/changes/archive/2026-10-26-mcp-server/tasks.md#acceptance-evidence)
 retains the actual corrections and client/tool results.
 
 ## PostgreSQL capacity and server stability

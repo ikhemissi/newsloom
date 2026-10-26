@@ -8,19 +8,19 @@ and [the enrichment contract](specs/news-enrichment/spec.md) for acceptance.
 Observed implementation constraints:
 
 - The enrichment package contains only its boundary and core dependency.
-- [The current migration](../../../services/platform/src/newsloom_platform/migrations/002_ingestion.sql)
+- [The current migration](../../../../services/platform/src/newsloom_platform/migrations/002_ingestion.sql)
   restricts queue status to `pending`; no `news` table or processing lease exists.
   Add a new migration through the existing migration ledger, not startup DDL.
-- [Platform model probes](../../../services/platform/src/newsloom_platform/models.py)
+- [Platform model probes](../../../../services/platform/src/newsloom_platform/models.py)
   already exercise strict JSON Chat Completions and 1536-dimensional embeddings.
   The enrichment identity already has those inference operations, registry pull,
   telemetry publishing and an Entra database principal, but not domain-table grants.
-- Both [ingestion counts](../../../services/ingestion/src/newsloom_ingestion/repository.py)
-  and [operator readback](../../../services/platform/src/newsloom_platform/database.py)
+- Both [ingestion counts](../../../../services/ingestion/src/newsloom_ingestion/repository.py)
+  and [operator readback](../../../../services/platform/src/newsloom_platform/database.py)
   currently call all queue rows pending. Their meaning must change when completed
   rows remain for deduplication.
 - The existing azd build, immutable-image, execution and readback pattern is usable.
-  [Manual-to-scheduled transitions](../../../docs/ingestion.md) require job
+  [Manual-to-scheduled transitions](../../../../docs/ingestion.md) require job
   replacement with the current provider; shared platform state must remain intact.
 
 ## Goals / Non-Goals

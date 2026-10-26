@@ -4,8 +4,11 @@ Status: delivered with local, real-model retrieval, actual workload-denial
 and warning-free VS Code/Copilot browser sign-in acceptance.
 [Implementation CI](https://github.com/ikhemissi/newsloom/actions/runs/40133602862)
 and [separate evidence-head CI](https://github.com/ikhemissi/newsloom/actions/runs/40133806766)
-passed. The change remains unarchived; phase-wide acceptance is separate.
-See the [owning change](../openspec/changes/mcp-server/tasks.md) for actual progress.
+passed. The change is archived; [phase-wide acceptance](phase1-acceptance.md)
+is also complete and verified.
+See the [archived change](../openspec/changes/archive/2026-10-26-mcp-server/tasks.md)
+for evidence and the delivered [serving](../openspec/specs/mcp-serving/spec.md)
+and [search](../openspec/specs/news-search/spec.md) contracts for behavior.
 
 ## Read-only tools and public data
 
@@ -76,7 +79,7 @@ Protected-resource metadata lives at `/.well-known/oauth-protected-resource/mcp`
 401 challenges advertise that route. The public VS Code/Copilot client requests
 the Newsloom API scope with PKCE after reviewed registration/consent setup, not a
 database/Foundry token. Actual sign-in and all four native tools are verified in
-the [acceptance evidence](../openspec/changes/mcp-server/tasks.md#acceptance-evidence).
+the [acceptance evidence](../openspec/changes/archive/2026-10-26-mcp-server/tasks.md#acceptance-evidence).
 
 ## Private VS Code/Copilot connection
 
@@ -242,7 +245,7 @@ script --quiet --return --command \
 
 The first deployed study measured recall@5 1.00 separately for both ten-case
 groups, zero errors/filter violations and successful exact-schema cleanup.
-See the [acceptance evidence](../openspec/changes/mcp-server/tasks.md#acceptance-evidence)
+See the [acceptance evidence](../openspec/changes/archive/2026-10-26-mcp-server/tasks.md#acceptance-evidence)
 for scope and remaining verification; this does not replace actual VS Code
 sign-in or workload-denial tests.
 
@@ -286,7 +289,7 @@ delegated VS Code browser sign-in. Runtime/inference failures fail the command.
 
 The deployed verifier passed all five read/search checks and ten SQL denials,
 plus embedding, model-denial and signed wrong-resource/app-only token checks.
-The [acceptance evidence](../openspec/changes/mcp-server/tasks.md#acceptance-evidence)
+The [acceptance evidence](../openspec/changes/archive/2026-10-26-mcp-server/tasks.md#acceptance-evidence)
 separates these results from synthetic-token tests and actual user acceptance.
 
 ## Instrumentation

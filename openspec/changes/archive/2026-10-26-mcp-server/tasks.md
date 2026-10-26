@@ -1,7 +1,11 @@
 # Tasks
 
 All tasks have verified local/Azure/user/exact-commit CI evidence.
-The change is complete and remains unarchived; PRD-1 Step 1.6 is separate.
+The change is complete and archived on 2026-10-26 after user approval.
+Delivered [serving](../../../specs/mcp-serving/spec.md) and
+[search](../../../specs/news-search/spec.md) contracts are published in the main
+specs. Evidence below retains its original chronology; PRD-1 Step 1.6 is recorded
+separately, and archival does not redeploy the runtime.
 Follow [the design](design.md),
 [the serving contract](specs/mcp-serving/spec.md), and
 [the search contract](specs/news-search/spec.md).

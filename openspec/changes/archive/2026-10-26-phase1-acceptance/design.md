@@ -8,24 +8,24 @@ the gates. This design adds an isolated test unit, not a fourth business service
 
 Observed implementation constraints:
 
-- The [normal CI workflow](../../../.github/workflows/checks.yml) runs the
+- The [normal CI workflow](../../../../.github/workflows/checks.yml) runs the
   credential-free primary gate against disposable local PostgreSQL. It has no
   OIDC permission, Azure test identity or cloud integration job.
-- [Platform configuration](../../../services/platform/src/newsloom_platform/config.py)
+- [Platform configuration](../../../../services/platform/src/newsloom_platform/config.py)
   deliberately fixes the production database to `newsloom`.
-  [Migration initialization](../../../services/platform/src/newsloom_platform/database.py)
+  [Migration initialization](../../../../services/platform/src/newsloom_platform/database.py)
   also manages the four production principal mappings, and
-  [001_vector.sql](../../../services/platform/src/newsloom_platform/migrations/001_vector.sql)
+  [001_vector.sql](../../../../services/platform/src/newsloom_platform/migrations/001_vector.sql)
   explicitly revokes/grants privileges on `newsloom`. Blindly replaying that
   setup for another database would touch production permissions.
 - Ingestion separates protected retrieval, parsing/staging and
-  [screening/durable processing](../../../services/ingestion/src/newsloom_ingestion/job.py).
-  Enrichment's [worker](../../../services/enrichment/src/newsloom_enrichment/job.py)
-  and [repository](../../../services/enrichment/src/newsloom_enrichment/repository.py)
+  [screening/durable processing](../../../../services/ingestion/src/newsloom_ingestion/job.py).
+  Enrichment's [worker](../../../../services/enrichment/src/newsloom_enrichment/job.py)
+  and [repository](../../../../services/enrichment/src/newsloom_enrichment/repository.py)
   already expose real finite claims, atomic completion and a 300-second lease.
-  The MCP [repository](../../../services/mcp/src/newsloom_mcp/repository.py)
+  The MCP [repository](../../../../services/mcp/src/newsloom_mcp/repository.py)
   accepts a connection and uses fixed public-news projections.
-- Existing [grant definitions](../../../infra/main.tf) distinguish Decision
+- Existing [grant definitions](../../../../infra/main.tf) distinguish Decision
   provider, chat and embedding API actions. This new test unit needs those
   operations together, but must inherit none of the production identities.
 - The old temporary platform probes include a migration-admin job; the new CI

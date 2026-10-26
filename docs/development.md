@@ -9,6 +9,8 @@
 | Architectural choices and rationale | [ADRs](adrs.md) |
 | Repository guarantees and bootstrap acceptance | [OpenSpec repository foundation](../openspec/specs/repository-foundation/spec.md) |
 | Delivered Azure platform contracts | [Persistent platform](../openspec/specs/persistent-azure-platform/spec.md), [workload access](../openspec/specs/workload-access/spec.md), [safe telemetry](../openspec/specs/safe-telemetry/spec.md) |
+| Delivered enrichment and MCP contracts | [News enrichment](../openspec/specs/news-enrichment/spec.md), [MCP serving](../openspec/specs/mcp-serving/spec.md), [news search](../openspec/specs/news-search/spec.md) |
+| Delivered Phase 1 acceptance contract | [Phase acceptance](../openspec/specs/phase1-acceptance/spec.md) |
 | Commands and operational procedures | This guide, the [Azure bootstrap runbook](azure-bootstrap.md), and the [platform runbook](azure-platform.md) |
 | Capacity warnings and real-world input lessons | [Platform notes](platform-notes.md) |
 | AI contributor working instructions | [AGENTS.md](../AGENTS.md) |

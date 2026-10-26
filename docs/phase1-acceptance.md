@@ -1,19 +1,21 @@
 # Phase 1 acceptance operations
 
 Status: complete and verified, including implementation and separate status CI.
-The [owning checklist](../openspec/changes/phase1-acceptance/tasks.md)
+The [owning checklist](../openspec/changes/archive/2026-10-26-phase1-acceptance/tasks.md)
 is authoritative for verified progress. The dedicated identity, isolated
 operator run and independent cleanup are verified in Azure. Actual main-branch
 OIDC acceptance now passes with four cases, all eight stage gates and automatic
 cleanup; see the
-[federated acceptance evidence](../openspec/changes/phase1-acceptance/tasks.md#actual-deadline-corrected-federated-acceptance-2026-10-26).
+[federated acceptance evidence](../openspec/changes/archive/2026-10-26-phase1-acceptance/tasks.md#actual-deadline-corrected-federated-acceptance-2026-10-26).
 Both separate negative drills and their independent cleanup checks now pass
 their intended gates while retaining failed workflow outcomes. The phase matrix and separate exact-commit implementation/status gates are
-verified. Completed changes remain unarchived; Phase 2 has not started.
+verified. Completed changes are archived with their
+[delivered acceptance contract](../openspec/specs/phase1-acceptance/spec.md);
+Phase 2 has not started.
 The conditional query boundary is proven under the dedicated identity.
 The approved launcher-only timing correction is published with passing exact-SHA
 offline CI; see the
-[verified timing evidence](../openspec/changes/phase1-acceptance/tasks.md#verified-shared-deadline-bootstrap-correction-2026-10-26).
+[verified timing evidence](../openspec/changes/archive/2026-10-26-phase1-acceptance/tasks.md#verified-shared-deadline-bootstrap-correction-2026-10-26).
 All three earlier failed workflows remain failures; late operator readbacks
 never turn them into acceptance.
 
@@ -27,14 +29,14 @@ remain unchanged. The four integration items are not a new quality benchmark.
 | --- | --- |
 | Local correctness and hostile inputs | Current [primary gate](../scripts/check.sh): 636 Python tests passed, one opt-in live-publisher test deliberately skipped, strict types for 95 files, eight Terraform roots and 41 mocked-provider tests. All five wheels/sdists build. Hostile transport/parsing, SQL/concurrency and authentication/contract tests remain local; supplied integration feed documents do not prove public-publisher retrieval. |
 | Scanner calibration and validation, reused | [Delivered scanner evidence](../openspec/changes/archive/2026-10-23-contextual-content-screening/tasks.md#acceptance-evidence): threshold selected from 16 calibration cases; 16 separate holdouts with zero candidate errors; eight legacy attacks rejected. The 23 selected review regressions are not unseen holdouts or a population estimate; their rejections fell from 22 to two. Policy/model/calibration binding remains unchanged. |
-| Enrichment quality and hostile study, reused | [Delivered enrichment evidence](../openspec/changes/enrichment/tasks.md#acceptance-evidence): 20/20 valid, category-correct and content-valid quality cases; six hostile defences (five safe generations and one confirmed upstream block), zero overrides/errors, 25 vectors and all 26 case records. Frozen prompts/taxonomy/fixtures and deployed model versions remain unchanged. |
-| Filtered/unfiltered retrieval, reused | [Real-model retrieval study](../openspec/changes/mcp-server/tasks.md#approved-service-deployment-and-real-retrieval-2026-10-24): ten unfiltered and ten filtered cases, each recall@5 1.00, no errors or filter violations, exact evaluation-schema cleanup. The serving image and frozen evaluation inputs remain unchanged. |
-| Separate production-workload authority, reused | [Packaged and native MCP verification](../openspec/changes/mcp-server/tasks.md#warning-free-migrated-client-and-final-acceptance-2026-10-24) includes ten actual SQL denials, two model denials, signed wrong-resource 401 and three signed app-only 403 responses. The combined acceptance identity is not a substitute for these production-role boundaries. |
-| Native Entra user access, reused | [Warning-free VS Code/Copilot acceptance](../openspec/changes/mcp-server/tasks.md#warning-free-migrated-client-and-final-acceptance-2026-10-24): actual browser sign-in and all four tools, metadata/semantic filtering and boundary parity. This was not an operator bearer-token probe. Actual MCP identity, serving image and configuration remain unchanged. |
+| Enrichment quality and hostile study, reused | [Delivered enrichment evidence](../openspec/changes/archive/2026-10-26-enrichment/tasks.md#acceptance-evidence): 20/20 valid, category-correct and content-valid quality cases; six hostile defences (five safe generations and one confirmed upstream block), zero overrides/errors, 25 vectors and all 26 case records. Frozen prompts/taxonomy/fixtures and deployed model versions remain unchanged. |
+| Filtered/unfiltered retrieval, reused | [Real-model retrieval study](../openspec/changes/archive/2026-10-26-mcp-server/tasks.md#approved-service-deployment-and-real-retrieval-2026-10-24): ten unfiltered and ten filtered cases, each recall@5 1.00, no errors or filter violations, exact evaluation-schema cleanup. The serving image and frozen evaluation inputs remain unchanged. |
+| Separate production-workload authority, reused | [Packaged and native MCP verification](../openspec/changes/archive/2026-10-26-mcp-server/tasks.md#warning-free-migrated-client-and-final-acceptance-2026-10-24) includes ten actual SQL denials, two model denials, signed wrong-resource 401 and three signed app-only 403 responses. The combined acceptance identity is not a substitute for these production-role boundaries. |
+| Native Entra user access, reused | [Warning-free VS Code/Copilot acceptance](../openspec/changes/archive/2026-10-26-mcp-server/tasks.md#warning-free-migrated-client-and-final-acceptance-2026-10-24): actual browser sign-in and all four tools, metadata/semantic filtering and boundary parity. This was not an operator bearer-token probe. Actual MCP identity, serving image and configuration remain unchanged. |
 | New federated Azure integration | [Workflow 40320123955](https://github.com/ikhemissi/newsloom/actions/runs/40320123955) passed all four cases/eight stages: two accepted/two rejected; four replay duplicates; two distinct claims/one worker loss; attempt-two natural recovery measured at 300.016 seconds; two news/vector rows, five query checks and exact cleanup. |
 | New failure/cancellation recovery | [Failure drill 40322828355](https://github.com/ikhemissi/newsloom/actions/runs/40322828355) and [cancellation drill 40324687356](https://github.com/ikhemissi/newsloom/actions/runs/40324687356) intentionally remain red with original safe categories. Exact failed/stopped main executions and successful same-identity cleanup were independently checked. All three fresh databases are independently absent. |
-| New final production safety | [Post-drill readback](../openspec/changes/phase1-acceptance/tasks.md#verified-negative-drills-and-final-production-checks-2026-10-26): 1,968 completed/news, zero structural/vector/completion/duplicate/published-rejection failures, nine retained dead letters and 23 rejected records. Production identities, images, schedules, models and conditional authorization remain unchanged. |
-| Persistent delivery | Verified implementation `c9f55dba968496e0545e74f3870f87231dcce10b` has [passing exact-SHA primary CI](https://github.com/ikhemissi/newsloom/actions/runs/40327851772). Separate evidence/status commit `f0d9e8cb37eeb56ecf1bea13c396e2ab8ab02a40` has [passing exact-SHA CI](https://github.com/ikhemissi/newsloom/actions/runs/40328538930). The completion receipt also requires exact-head CI before handoff. |
+| New final production safety | [Post-drill readback](../openspec/changes/archive/2026-10-26-phase1-acceptance/tasks.md#verified-negative-drills-and-final-production-checks-2026-10-26): 1,968 completed/news, zero structural/vector/completion/duplicate/published-rejection failures, nine retained dead letters and 23 rejected records. Production identities, images, schedules, models and conditional authorization remain unchanged. |
+| Persistent delivery | Verified implementation `c9f55dba968496e0545e74f3870f87231dcce10b` has [passing exact-SHA primary CI](https://github.com/ikhemissi/newsloom/actions/runs/40327851772). Separate evidence/status commit `f0d9e8cb37eeb56ecf1bea13c396e2ab8ab02a40` has [passing exact-SHA CI](https://github.com/ikhemissi/newsloom/actions/runs/40328538930). Completion receipt `076e9a575ad39d0958b37e532134a4067a09c4fa` also has [passing exact-head CI](https://github.com/ikhemissi/newsloom/actions/runs/40329320889), verified before archival. |
 
 The three new workflows use launcher revision
 `61c8d80d8d1adbcff508b6720123e8eee3c5945b` and reviewed runtime image-input
@@ -277,10 +279,10 @@ only the approved bootstrap delta. Verify its exact-SHA offline CI before
 dispatch. Preserve all three failed workflows and cleanup evidence, and use fresh
 prepared databases for acceptance and each drill. No new grant, corrected
 bootstrap CI or live query acceptance is implied by the local implementation.
-The [owning evidence](../openspec/changes/phase1-acceptance/tasks.md#approved-conditional-correction-and-verified-bootstrap-2026-10-26)
+The [owning evidence](../openspec/changes/archive/2026-10-26-phase1-acceptance/tasks.md#approved-conditional-correction-and-verified-bootstrap-2026-10-26)
 records the approved apply, actual dedicated-identity no-filter/foreign/table
 denials and exact-SHA corrective bootstrap CI separately from the
-[failed corrected run](../openspec/changes/phase1-acceptance/tasks.md#corrected-federated-run-blocked-by-evidence-delivery-2026-10-26)
+[failed corrected run](../openspec/changes/archive/2026-10-26-phase1-acceptance/tasks.md#corrected-federated-run-blocked-by-evidence-delivery-2026-10-26)
 and pending negative drills. The failed run's exact database absence was
 independently verified through the retained migration authority.
 

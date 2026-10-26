@@ -8,17 +8,17 @@ contracts for observable behavior.
 
 Observed integration surfaces:
 
-- [The MCP package](../../../services/mcp/pyproject.toml) contains only its
+- [The MCP package](../../../../services/mcp/pyproject.toml) contains only its
   boundary/core dependency; no server or user-token verifier exists.
-- [Enrichment's migration](../../../services/platform/src/newsloom_platform/migrations/003_enrichment.sql)
+- [Enrichment's migration](../../../../services/platform/src/newsloom_platform/migrations/003_enrichment.sql)
   already provides stored attribution, summary/category/tags, `vector(1536)`,
   embedding model/version metadata, uniqueness and date/source/category/tag/
   cosine indexes. The MCP role does not yet have news access.
-- [The platform](../../../infra/main.tf) already provisions the MCP managed
+- [The platform](../../../../infra/main.tf) already provisions the MCP managed
   identity, embedding-only inference grant, registry pull and telemetry access.
   There is no API/public-client registration or `news.read` implementation.
-- The existing [azd layers](../../../azure.yaml) and
-  [operator build helper](../../../services/platform/src/newsloom_platform/control.py)
+- The existing [azd layers](../../../../azure.yaml) and
+  [operator build helper](../../../../services/platform/src/newsloom_platform/control.py)
   provide immutable registry images and native previews. Both real pipeline
   schedules are operating; this slice must not disturb them.
 

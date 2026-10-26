@@ -1,5 +1,10 @@
 # Tasks
 
+Archived on 2026-10-26 after user approval and verified acceptance. The
+[delivered enrichment contract](../../../specs/news-enrichment/spec.md) is
+published in the main specs. Evidence below retains its original chronology;
+archival does not rebuild or redeploy a runtime image.
+
 Only checked tasks are verified. Follow [the design](design.md),
 [the enrichment contract](specs/news-enrichment/spec.md), and
 [the ingestion visibility delta](specs/feed-ingestion/spec.md).

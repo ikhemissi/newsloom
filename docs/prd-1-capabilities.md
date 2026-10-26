@@ -116,7 +116,7 @@ or publish duplicate news.
 - Feed text is delimited as untrusted data, enrichment has no tools, and invalid
   outputs cannot be treated as successful enrichment.
 - Labelled evaluations check output validity and category accuracy.
-- The implemented [enrichment contract](../openspec/changes/enrichment/specs/news-enrichment/spec.md)
+- The implemented [enrichment contract](../openspec/specs/news-enrichment/spec.md)
   uses the [approved category catalogue](../config/categories.json).
   Governance covers AI-agent governance and AI gateways, separately from Regulations.
 
@@ -140,7 +140,7 @@ or publish duplicate news.
   fetch a URL supplied by a caller.
 - A signed-in VS Code user can retrieve correct structured results from Azure.
 - Actual browsing, discovery and detail evidence is retained in the
-  [MCP acceptance record](../openspec/changes/mcp-server/tasks.md#acceptance-evidence).
+  [MCP acceptance record](../openspec/changes/archive/2026-10-26-mcp-server/tasks.md#acceptance-evidence).
 
 ## P1-C07: Filtered semantic search
 
@@ -160,7 +160,7 @@ or publish duplicate news.
 - Stored embeddings use `vector(1536)` and an HNSW index; source, category, tags,
   and publication date have supporting indexes.
 - Frozen-query evaluations measure recall@k with and without filters.
-- The [MCP acceptance record](../openspec/changes/mcp-server/tasks.md#acceptance-evidence)
+- The [MCP acceptance record](../openspec/changes/archive/2026-10-26-mcp-server/tasks.md#acceptance-evidence)
   retains the separate filtered/unfiltered frozen-query measurements.
 
 ## P1-C08: User authentication and least-privilege workload access
@@ -185,7 +185,7 @@ the database and inference permissions its role needs.
   inference permissions are limited per workload. No passwords, keys, or client
   secrets are introduced.
 - VS Code sign-in compatibility without Entra dynamic client registration is
-  [verified rather than assumed](../openspec/changes/mcp-server/tasks.md#acceptance-evidence).
+  [verified rather than assumed](../openspec/changes/archive/2026-10-26-mcp-server/tasks.md#acceptance-evidence).
 
 ## P1-C09: Independently deployable, persistent Azure platform
 
