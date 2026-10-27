@@ -3,7 +3,8 @@
 Implementation is in progress. Only checked tasks are verified; the live
 delegation gate, local model/telemetry checks and deployed signed-in
 streaming/cancellation/telemetry/denial/preservation acceptance have passed.
-Publication and exact-SHA CI remain unverified. Follow
+Implementation publication and exact-SHA CI have passed; the separate final
+evidence/status receipt and its CI remain pending. Follow
 [the design](design.md), [A2A serving](specs/a2a-serving/spec.md) and
 [delegated access](specs/delegated-mcp-access/spec.md). The live gate in 3.2
 blocks group 4; a failed identity proof must not become a model-only workaround.
@@ -35,7 +36,7 @@ blocks group 4; a failed identity proof must not become a model-only workaround.
 
 ## 5. Persistent verified slice delivery
 
-- [ ] 5.1 Only after local and Azure acceptance, commit/push the verified implementation with the required trailer and check the primary CI for that exact SHA. Retain runtime source/image/configuration and measured evidence separately from later documentation heads; do not amend away failures or include unrelated customization changes.
+- [x] 5.1 Only after local and Azure acceptance, commit/push the verified implementation with the required trailer and check the primary CI for that exact SHA. Retain runtime source/image/configuration and measured evidence separately from later documentation heads; do not amend away failures or include unrelated customization changes.
 - [ ] 5.2 Update the owning runbook, PRD-2/capability/ADR status and this checklist with the measured OBO/streaming/denial/telemetry/local/CI results. Validate links, identifiers and specs, and verify exact-head CI for a separate evidence/status receipt before checking completion. Mark only Step 2.1 complete, leaving research, frozen evaluations and the UI pending.
 
 ## Workflow follow-up

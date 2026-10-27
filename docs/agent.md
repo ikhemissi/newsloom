@@ -18,9 +18,10 @@ The model-backed revision is now deployed with verified local and Azure runtime
 acceptance: actual signed-in streaming, cancellation, authenticated private
 telemetry and final workload/data preservation. See the
 [live model-stage receipt](#actual-model-stage-azure-acceptance).
-Tasks 1-4 are verified; implementation publication, exact-SHA CI and the separate
-final evidence/status receipt remain pending. Step 2.1 is not yet declared
-delivered.
+Implementation publication and exact-SHA CI are verified; see the
+[publication receipt](#verified-implementation-publication).
+The separate final evidence/status receipt and its CI remain pending.
+Step 2.1 is not yet declared delivered.
 Research and the browser UI belong to later slices.
 
 This runbook owns commands and measured implementation facts, not another
@@ -1312,7 +1313,48 @@ mistakes, older-baseline comparison, corrected actual results and final
 requests was made; no data was restored, rewritten or deleted. No owned listener
 or remote probe remains running.
 
-Task 4.4 is verified: **13/15 tasks complete**. Implementation publication,
-exact-implementation-SHA CI and the separate final status receipt/CI remain
-pending. Full research, phase-wide quality evaluations and browser UI remain
-later slices.
+This live receipt verified task 4.4 at **13/15 tasks complete**.
+The following publication receipt records subsequent delivery gates.
+Full research, phase-wide quality evaluations and browser UI remain later slices.
+
+## Verified implementation publication
+
+On 2026-10-27, after local and actual Azure acceptance, the verified
+implementation was committed and pushed as
+[`1b8d4af01fd9a88d880d654c0d984bcdebed5c1f`](https://github.com/ikhemissi/newsloom/commit/1b8d4af01fd9a88d880d654c0d984bcdebed5c1f).
+Its primary
+[CI run 40500304977](https://github.com/ikhemissi/newsloom/actions/runs/40500304977)
+completed successfully for that exact SHA. The required contributor trailer
+is present. Unrelated prompt deletions/new customization skills, ignored
+environment/state and private operator evidence were excluded.
+
+Immediately before publication, the complete `bash scripts/check.sh` gate
+passed again with the disposable loopback PostgreSQL service:
+
+| Check | Actual result |
+| --- | --- |
+| Ruff lint/format | Passed; 204 files formatted |
+| Strict types | 120 source files passed |
+| Local tests | 1,012 passed, one intentional live-publisher skip; 144.28 seconds |
+| CI tests | 1,012 passed, the same intentional skip; 38.35 seconds |
+| Isolated package startup | Agent, enrichment and MCP checks passed |
+| Catalogue, identifier and strict OpenSpec guards | Passed; 11 OpenSpec items |
+| Terraform | All ten owning layers validated and mocked-provider suites passed |
+| Workspace builds | All six packages produced source archives and wheels |
+| Owned local PostgreSQL | Stopped/removed; loopback port closed |
+
+CI is offline runtime/regression evidence, not another Azure acceptance run.
+Publication caused no deployment, grant or model invocation. Runtime provenance
+remains source-input hash
+`4e3290d2d03a2e9fb6fc340c39529c439383fc210cd1fef99bf518bcd1b1e2a9`
+and image digest
+`sha256:3330932020ffdbd758298ea7a649989687427a704dceb0b02b519e5c1ad763d6`.
+The hash binds the original build input, including its then-current README;
+it is not a Git SHA or a claim that later status-only documentation has the
+same conservative build-input hash. The immutable deployed code was not rebuilt
+to reconcile documentation.
+
+Task 5.1 is verified: **14/15 tasks complete**. This separate evidence/status
+receipt must pass its own exact-head CI before task 5.2 is checked. Step 2.1
+is not yet declared delivered; no full-research, frozen-evaluation, browser-UI
+or archival acceptance is implied.

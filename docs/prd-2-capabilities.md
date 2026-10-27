@@ -4,6 +4,10 @@ This document owns behavior, user stories, acceptance criteria, and open product
 decisions. [PRD-2](prd-2.md) owns phase status, prerequisites, and the delivery plan.
 See [the ADRs](adrs.md) for architecture.
 
+The [agent runbook](agent.md#actual-model-stage-azure-acceptance) records actual
+runtime evidence for P2-C01/P2-C02; [PRD-2](prd-2.md) owns delivery status.
+This demonstrator does not establish P2-C03-P2-C06 research or quality acceptance.
+
 ## P2-C01: Discoverable, streaming A2A access
 
 **Outcome:** Compatible clients can discover and converse with the research agent.
@@ -117,7 +121,8 @@ and correctly delegated as the agent changes.
 
 ## Decisions still required
 
-The feasibility check in [P2-C02](#p2-c02-secretless-access-on-behalf-of-the-user)
-is a blocking identity decision. Define frozen questions and evaluation pass criteria
-when implementing P2-C06. UI-specific transport selection belongs to
+The feasibility gate in [P2-C02](#p2-c02-secretless-access-on-behalf-of-the-user)
+is verified in Azure; see the [live delegation receipt](agent.md#status-and-scope).
+Define frozen questions and evaluation pass criteria when implementing P2-C06.
+UI-specific transport selection belongs to
 [P3-C06](prd-3-capabilities.md#p3-c06-supported-ui-integration-and-verified-azure-hosting).
