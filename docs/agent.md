@@ -1392,5 +1392,9 @@ Both purposes and all 13 requirement blocks matched their accepted delta
 verbatim; all 12 main specs passed strict validation before moving the change.
 The [archive](../openspec/changes/archive/2026-10-27-agent-skeleton/tasks.md#verified-archival)
 retains all 15 checked tasks and links to the original acceptance evidence.
+Archive commit
+[`2c160e395bf2e0106a0d910c1118292da4f48cff`](https://github.com/ikhemissi/newsloom/commit/2c160e395bf2e0106a0d910c1118292da4f48cff)
+passed its own
+[exact-head CI](https://github.com/ikhemissi/newsloom/actions/runs/40559574136).
 No runtime, environment/state, grant, model, schedule or stored data was changed;
 no additional inference was performed.

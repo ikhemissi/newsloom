@@ -54,6 +54,8 @@ This demonstrator does not establish P2-C03-P2-C06 research or quality acceptanc
   this week so that I can understand developments across several news items.
 - **P2-C03-US2:** As a researcher, I want the agent to compare reporting from
   different sources so that I can understand where their accounts agree.
+- **P2-C03-US3:** As a reader, I want explanations of one or multiple selected
+  items tailored to my stated audience, language, detail and focus preferences.
 
 **Acceptance criteria**
 - The agent can make multiple relevant MCP calls to discover sources, retrieve
@@ -61,6 +63,10 @@ This demonstrator does not establish P2-C03-P2-C06 research or quality acceptanc
 - Answers are grounded in MCP results only, not unsupported model recollection
   or an independent web-fetching path.
 - Research remains read-only and does not modify news, feed configuration, or jobs.
+- Preferences supplied in the current request guide presentation without
+  overriding evidence, filters or access controls; no persistent memory is implied.
+- Explanations distinguish what the stored summaries support from detail absent
+  from the collection; a detail lookup is not full-article or web access.
 - Manual scenarios and frozen questions cover multi-step research and tool use.
 
 ## P2-C04: Cited answers and explicit lack of evidence

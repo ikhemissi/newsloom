@@ -30,6 +30,13 @@ with [A2A serving](../openspec/specs/a2a-serving/spec.md) and
 contracts. Multi-step research, frozen phase-wide evaluations and
 the Phase 3 browser UI remain future work.
 
+Step 2.2 is now
+[proposed separately](../openspec/changes/agent-research/proposal.md): deepen or
+compare one or multiple stored MCP items and tailor the response to preferences
+provided in the current request. It is not implemented or Azure-verified.
+Progress precedes a validated final answer; external web enrichment and
+persistent personalization are explicitly deferred below.
+
 This document owns phase sequencing and capability-to-slice assignments.
 [Capabilities](prd-2-capabilities.md) own behavior, user stories, acceptance
 criteria, and unresolved product decisions. See [the ADRs](adrs.md) for technical choices.
@@ -43,3 +50,24 @@ criteria, and unresolved product decisions. See [the ADRs](adrs.md) for technica
 | 2.3 | Phase tests/evals | [P2-C06](prd-2-capabilities.md#p2-c06-repeatable-agent-quality-and-azure-acceptance) |
 
 Use [the development guide](development.md#openspec) to execute each slice.
+
+## Deferred research TODOs
+
+- [ ] Revisit optional web enrichment for user-requested deeper research on MCP
+  news, starting with Foundry Toolbox/Web Search or a reviewed read-only provider.
+  The 2026-10-27 read-only check found no usable project/toolbox in the retained
+  environment: the AIServices account has project management disabled and zero
+  Foundry projects; no project/toolbox endpoint is configured. The user chose to
+  proceed without it for Step 2.2. The feature is
+  [documented](https://learn.microsoft.com/azure/foundry/agents/how-to/tools/toolbox),
+  not disproven: a later owning change must review account/project prerequisites,
+  secretless consumer identity/RBAC, region/client compatibility, costs, query
+  privacy and web-search data/display terms before provisioning or inference.
+  Distinguish external evidence/citations from stored MCP evidence. Do not send
+  credentials, private preferences or full news bodies to external search.
+- [ ] Add persistent user preferences through a separately designed memory
+  system; investigate Microsoft Work IQ as a possible source of user work
+  context, not an assumed substitute for a preference/memory store. Verify its
+  capabilities, licensing, consent, delegated authorization, retention and
+  deletion semantics before choosing it. Step 2.2 uses only preferences supplied
+  in the current request and claims no persistent memory or Microsoft 365 access.
