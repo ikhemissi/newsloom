@@ -4,6 +4,7 @@ from typing import Literal
 import psycopg
 import pytest
 from azure.identity.aio import ManagedIdentityCredential
+from newsloom_core.feeds import FeedSource
 from newsloom_ingestion.job import ingest_source, run
 from newsloom_ingestion.models import (
     DEFAULT_LIMITS,
@@ -292,29 +293,46 @@ async def test_four_feed_concurrency_is_bounded(
 
     active = 0
     maximum = 0
+    first_wave = asyncio.Event()
+    original_ingest = job.ingest_source
 
     class Client(PublicClient):
         async def fetch(
             self, url: str, headers: dict[str, str], deadline: float, *, robots: bool = False
         ) -> Document:
-            nonlocal active, maximum
-            active += 1
-            maximum = max(maximum, active)
-            try:
-                await asyncio.sleep(0.02)
-                return Document(200, url, rss(), {})
-            finally:
-                active -= 1
+            return Document(200, url, rss(), {})
+
+    async def tracked_ingest(
+        feed: FeedSource,
+        client: PublicClient,
+        repo: Repository,
+        correlation: str,
+        force: bool,
+        limits: Limits,
+    ) -> dict[str, int]:
+        nonlocal active, maximum
+        active += 1
+        maximum = max(maximum, active)
+        if active >= 4:
+            first_wave.set()
+        try:
+            # Hold the first wave before database I/O can hide worker overlap.
+            await first_wave.wait()
+            return await original_ingest(feed, client, repo, correlation, force, limits)
+        finally:
+            active -= 1
 
     class Scanner:
         async def scan(self, item: Entry, deadline: float) -> Decision:
             return Decision("accepted", "screened", 0.1, 0.5)
 
     monkeypatch.setattr(job, "PublicClient", Client)
+    monkeypatch.setattr(job, "ingest_source", tracked_ingest)
     sources = tuple(source().model_copy(update={"id": f"feed-{i}"}) for i in range(5))
     await repository.release()
     try:
-        counts = await run(sources, repository, Scanner(), "bounded")
+        async with asyncio.timeout(10):
+            counts = await run(sources, repository, Scanner(), "bounded")
         assert counts["feeds_ok"] == 5 and maximum == 4 and active == 0
     finally:
         await repository.acquire()

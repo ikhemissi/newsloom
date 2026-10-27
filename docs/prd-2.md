@@ -1,13 +1,28 @@
 # PRD-2: A2A research agent
 
-Status: planned. Prerequisite: acceptance of [Phase 1](prd-1.md), including its
+Status: Step 2.1 local and Azure runtime acceptance verified; publication and
+exact-SHA CI pending. Prerequisite:
+acceptance of [Phase 1](prd-1.md), including its
 final tests/evals slice.
 
 Phase 1 is complete and its delivered contracts are archived. The
 [`agent-skeleton` proposal](../openspec/changes/agent-skeleton/proposal.md)
-plans Step 2.1 with actual secretless OBO as the first go/no-go gate.
-This is planning only: agent implementation and live OBO acceptance have not
-started, and the proposal does not authorize deployment.
+defines Step 2.1 with actual secretless OBO as the first go/no-go gate.
+Local protocol/delegation, isolated owning layers and full offline checks are
+verified; see the [agent runbook](agent.md) and
+[implementation checklist](../openspec/changes/agent-skeleton/tasks.md).
+After separately approved owning previews, consent and cost, the non-generative
+agent app is deployed with verified identity/image/configuration and public
+authorization guards. Actual signed-in OBO, a user-preserving MCP read and the
+required live workload denials passed. The first delegation gate is complete;
+model-backed streaming and final telemetry are implemented and verified locally.
+The separately approved model-stage image is deployed with independent
+configuration/readiness verification and unchanged existing workloads/models.
+Actual signed-in Foundry streaming, completed/cancelled task parity, authenticated
+content-free telemetry ingestion and final denial/preservation checks passed.
+Tasks 1-4 are verified: 13/15 complete. Implementation publication, its exact-SHA
+CI and the separate final evidence/status receipt remain pending; Step 2.1 is
+not yet declared delivered.
 
 This document owns phase sequencing and capability-to-slice assignments.
 [Capabilities](prd-2-capabilities.md) own behavior, user stories, acceptance

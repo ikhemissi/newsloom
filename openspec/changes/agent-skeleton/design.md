@@ -65,7 +65,7 @@ agreed hosting and resource scope.
 
 ```text
 Signed-in PKCE client
-  -- user token A: agent audience / agent.invoke -->
+  -- user token A: agent audience / news.agent -->
 Agent API + its user-assigned managed identity
   -- validated token A + managed-identity assertion --> Entra OBO endpoint
   <-- token B: existing MCP audience / news.read ------
@@ -74,7 +74,7 @@ Agent API + its user-assigned managed identity
   -- A2A response stream --> Signed-in client
 ```
 
-The new middle-tier app exposes delegated `agent.invoke` and requests only the
+The new middle-tier app exposes delegated `news.agent` and requests only the
 existing MCP API's delegated `news.read`. Give the acceptance client its own
 public PKCE registration, with reviewed exact loopback callbacks and no stored
 credential. Preserve the working MCP public client's IDs, redirects and consent.
@@ -113,7 +113,7 @@ async credential can be verified.
 Extract only the framework-neutral verified-token/key-refresh logic needed by
 both services into core, keeping the MCP SDK adapter and `news.read` behavior
 unchanged. Add the agent's own audience/scope policy and required user identity
-claims separately; do not make `agent.invoke` an alternate MCP permission.
+claims separately; do not make `news.agent` an alternate MCP permission.
 Run existing MCP signed-key/HTTP/canary tests unchanged and add two-audience
 regressions. If extraction changes existing outcomes, fix that before deployment.
 

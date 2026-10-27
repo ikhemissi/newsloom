@@ -96,7 +96,7 @@ def build(
     env: dict[str, str],
     correlation: str,
     *,
-    service: Literal["platform", "ingestion", "enrichment", "mcp", "phase1"] = "platform",
+    service: Literal["platform", "ingestion", "enrichment", "mcp", "phase1", "agent"] = "platform",
 ) -> None:
     repository = f"newsloom-{service}"
     registry = env["AZURE_CONTAINER_REGISTRY_NAME"]
@@ -179,8 +179,8 @@ def build(
         f"{service.upper()}_IMAGE",
         f"{env['AZURE_CONTAINER_REGISTRY_ENDPOINT']}/{repository}@{digest}",
     )
-    if service == "phase1":
-        set_environment("PHASE1_IMAGE_REVISION", tag)
+    if service in ("phase1", "agent"):
+        set_environment(f"{service.upper()}_IMAGE_REVISION", tag)
     event("image", "success", correlation, category=tag)
 
 
@@ -797,6 +797,19 @@ def control(command: str, correlation: str, *, force: bool = False, limit: int =
         from newsloom_platform.mcp_identity import prepare
 
         prepare(env, correlation)
+    elif command == "prepare-agent-identity":
+        from newsloom_platform.agent_identity import prepare
+
+        prepare(env, correlation)
+    elif command in ("prepare-agent-layer", "build-agent", "verify-agent"):
+        from newsloom_platform import agent_control
+
+        action = {
+            "prepare-agent-layer": agent_control.prepare,
+            "build-agent": agent_control.build,
+            "verify-agent": agent_control.verify,
+        }[command]
+        action(env, correlation)
     elif command == "evaluate-mcp":
         evaluate_mcp(env, correlation)
     elif command in ("prepare-mcp-evaluation", "cleanup-mcp-evaluation"):

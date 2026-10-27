@@ -1,0 +1,32 @@
+[project]
+name = "newsloom-agent"
+version = "0.1.0"
+description = "Newsloom delegated A2A agent; implemented in the agent-skeleton slice."
+requires-python = ">=3.15,<3.16"
+dependencies = [
+    "a2a-sdk[http-server]==1.2.3",
+    "agent-framework-a2a==1.0.0b261022",
+    "agent-framework-core==1.23.0",
+    "agent-framework-openai==1.17.0",
+    "aiohttp>=3.12,<4",
+    "azure-identity==1.26.0",
+    "azure-monitor-opentelemetry-exporter>=1.0.0b50,<2",
+    "httpx>=0.28,<1",
+    "httpx2==2.16.0",
+    "mcp==2.3.0",
+    "newsloom-core[auth,telemetry]",
+    "openai>=2.25,<4",
+    "opentelemetry-sdk>=1.39,<2",
+    "starlette==1.9.0",
+    "uvicorn==0.54.0",
+]
+
+[project.scripts]
+newsloom-agent = "newsloom_agent.cli:main"
+
+[tool.uv.sources]
+newsloom-core = { workspace = true }
+
+[build-system]
+requires = ["uv_build>=0.13.5,<0.14"]
+build-backend = "uv_build"

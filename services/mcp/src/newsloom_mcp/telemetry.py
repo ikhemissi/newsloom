@@ -8,6 +8,7 @@ from azure.monitor.opentelemetry.exporter import (
     AzureMonitorTraceExporter,
 )
 from newsloom_core.model_transport import ModelClient
+from newsloom_core.telemetry import private_span
 from opentelemetry import trace
 from opentelemetry.metrics import CallbackOptions, Observation
 from opentelemetry.sdk.metrics import MeterProvider
@@ -15,25 +16,12 @@ from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter, SpanExportResult
-from opentelemetry.trace import SpanContext, Status, TraceState
 
 from newsloom_mcp.models import McpFailure
 
 TOOLS = {"get_recent_news", "get_news_item", "list_sources", "search_news"}
 METHODS = {"initialize", "tools/list", "tools/call", "ping", "notifications/initialized"}
 OUTCOMES = {"success", "failure", "cancelled", "unauthorized", "forbidden", "overloaded", "other"}
-
-
-def private_context(context: SpanContext | None) -> SpanContext | None:
-    if context is None:
-        return None
-    return SpanContext(
-        trace_id=context.trace_id,
-        span_id=context.span_id,
-        is_remote=context.is_remote,
-        trace_flags=context.trace_flags,
-        trace_state=TraceState(),
-    )
 
 
 class PrivateSpanExporter(SpanExporter):
@@ -58,18 +46,11 @@ class PrivateSpanExporter(SpanExporter):
             if isinstance(elapsed, float) and 0 <= elapsed < 1000:
                 attributes["elapsed_seconds"] = elapsed
             safe.append(
-                ReadableSpan(
+                private_span(
+                    span,
                     name="newsloom.mcp.request",
-                    context=private_context(span.context),
-                    parent=private_context(span.parent),
-                    resource=Resource({"service.name": "newsloom-mcp"}),
+                    service="newsloom-mcp",
                     attributes=attributes,
-                    events=(),
-                    links=(),
-                    kind=span.kind,
-                    status=Status(span.status.status_code),
-                    start_time=span.start_time,
-                    end_time=span.end_time,
                 )
             )
         return self.exporter.export(safe)

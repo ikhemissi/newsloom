@@ -6,6 +6,7 @@ import pytest
 @pytest.mark.parametrize(
     "name",
     [
+        "newsloom_agent",
         "newsloom_core",
         "newsloom_ingestion",
         "newsloom_enrichment",

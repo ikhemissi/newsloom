@@ -215,10 +215,10 @@ def test_failed_build_never_sets_an_image(monkeypatch: pytest.MonkeyPatch) -> No
     assert not updates
 
 
-@pytest.mark.parametrize("service", ["enrichment", "mcp"])
+@pytest.mark.parametrize("service", ["enrichment", "mcp", "agent"])
 def test_service_build_uses_own_dockerfile_and_immutable_image(
     monkeypatch: pytest.MonkeyPatch,
-    service: Literal["enrichment", "mcp"],
+    service: Literal["enrichment", "mcp", "agent"],
 ) -> None:
     responses: list[object] = [
         [],
@@ -244,9 +244,12 @@ def test_service_build_uses_own_dockerfile_and_immutable_image(
         "fixture",
         service=service,
     )
-    assert updates == [
+    expected = [
         (service.upper() + "_IMAGE", f"test.azurecr.io/newsloom-{service}@sha256:" + "a" * 64)
     ]
+    if service == "agent":
+        expected.append(("AGENT_IMAGE_REVISION", "b" * 64))
+    assert updates == expected
     assert any(str(Path.cwd() / f"services/{service}/Dockerfile") in call for call in calls)
 
 

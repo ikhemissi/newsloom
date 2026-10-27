@@ -9,6 +9,7 @@ dependencies = []
 [dependency-groups]
 dev = [
     "mypy>=1.19",
+    "newsloom-agent",
     "newsloom-core",
     "newsloom-enrichment",
     "newsloom-ingestion",
@@ -19,6 +20,7 @@ dev = [
     "pytest-asyncio>=1.2",
     "pytest-cov>=6.2",
     "ruff>=0.14",
+    "types-protobuf>=7.35.1.20260906",
 ]
 
 [tool.uv]
@@ -29,6 +31,7 @@ required-version = ">=0.13.5"
 members = ["packages/*", "services/*"]
 
 [tool.uv.sources]
+newsloom-agent = { workspace = true }
 newsloom-core = { workspace = true }
 newsloom-ingestion = { workspace = true }
 newsloom-enrichment = { workspace = true }

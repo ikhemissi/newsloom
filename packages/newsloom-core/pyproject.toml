@@ -5,6 +5,12 @@ description = "Shared typed configuration and domain foundations for Newsloom."
 requires-python = ">=3.15,<3.16"
 dependencies = ["azure-core>=1.35,<2", "httpx>=0.28,<1", "pydantic>=2.12,<3"]
 
+[project.optional-dependencies]
+auth = ["pyjwt[crypto]==2.15.1"]
+telemetry = [
+    "opentelemetry-sdk>=1.39,<2",
+]
+
 [project.scripts]
 newsloom-validate-feeds = "newsloom_core.feeds:main"
 

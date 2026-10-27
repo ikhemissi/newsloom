@@ -27,7 +27,7 @@ notifications and UI transports MUST NOT be advertised.
 ### Requirement: Agent-specific delegated authorization
 Every invocation and task operation SHALL require a signature-verified,
 single-tenant Entra user access token for the agent's own audience and delegated
-`agent.invoke` scope. Missing, expired, forged, wrong-tenant, wrong-audience,
+`news.agent` scope. Missing, expired, forged, wrong-tenant, wrong-audience,
 ID and application-only tokens MUST fail before token exchange, tool access or
 inference. Caller-controlled signing-key URLs MUST NOT be followed.
 

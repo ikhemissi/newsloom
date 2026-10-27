@@ -5,6 +5,29 @@ metadata:
 infra:
   provider: terraform
   layers:
+    - name: agent-identity
+      path: infra/agent-identity
+      dependsOn:
+        - application
+        - mcp-identity
+      hooks:
+        preprovision:
+          shell: sh
+          run: uv run --locked newsloom-platform prepare-agent-identity
+          interactive: false
+          continueOnError: false
+    - name: agent
+      path: infra/agent
+      dependsOn:
+        - agent-identity
+        - application
+        - mcp-identity
+      hooks:
+        preprovision:
+          shell: sh
+          run: uv run --locked newsloom-platform prepare-agent-layer
+          interactive: false
+          continueOnError: false
     - name: mcp-identity
       path: infra/mcp-identity
       dependsOn:
