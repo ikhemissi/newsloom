@@ -1,7 +1,7 @@
 # PRD-2: A2A research agent
 
-Status: Step 2.1 local/Azure runtime acceptance and implementation CI verified;
-final evidence/status receipt CI pending. Prerequisite:
+Status: Step 2.1 complete and verified, including local/Azure acceptance and
+exact-SHA implementation/status CI. Steps 2.2-2.3 remain pending. Prerequisite:
 acceptance of [Phase 1](prd-1.md), including its
 final tests/evals slice.
 
@@ -22,8 +22,11 @@ Actual signed-in Foundry streaming, completed/cancelled task parity, authenticat
 content-free telemetry ingestion and final denial/preservation checks passed.
 Implementation publication and its
 [exact-SHA CI](https://github.com/ikhemissi/newsloom/actions/runs/40500304977)
-passed: 14/15 tasks complete. The separate final evidence/status receipt and its
-CI remain pending; Step 2.1 is not yet declared delivered.
+passed, followed by the separate
+[evidence/status receipt CI](https://github.com/ikhemissi/newsloom/actions/runs/40501029431).
+All 15 tasks are verified; only Step 2.1 is delivered. The active change awaits
+review and archival. Multi-step research, frozen phase-wide evaluations and
+the Phase 3 browser UI remain future work.
 
 This document owns phase sequencing and capability-to-slice assignments.
 [Capabilities](prd-2-capabilities.md) own behavior, user stories, acceptance

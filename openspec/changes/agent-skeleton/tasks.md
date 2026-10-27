@@ -1,10 +1,10 @@
 # Tasks
 
-Implementation is in progress. Only checked tasks are verified; the live
-delegation gate, local model/telemetry checks and deployed signed-in
-streaming/cancellation/telemetry/denial/preservation acceptance have passed.
-Implementation publication and exact-SHA CI have passed; the separate final
-evidence/status receipt and its CI remain pending. Follow
+All 15 tasks are verified: the live delegation gate, local model/telemetry checks,
+deployed signed-in streaming/cancellation/telemetry/denial/preservation acceptance,
+implementation publication and separate evidence/status exact-SHA CI passed.
+Only Step 2.1 is complete; research, frozen evaluations and the UI remain pending.
+Follow
 [the design](design.md), [A2A serving](specs/a2a-serving/spec.md) and
 [delegated access](specs/delegated-mcp-access/spec.md). The live gate in 3.2
 blocks group 4; a failed identity proof must not become a model-only workaround.
@@ -37,7 +37,19 @@ blocks group 4; a failed identity proof must not become a model-only workaround.
 ## 5. Persistent verified slice delivery
 
 - [x] 5.1 Only after local and Azure acceptance, commit/push the verified implementation with the required trailer and check the primary CI for that exact SHA. Retain runtime source/image/configuration and measured evidence separately from later documentation heads; do not amend away failures or include unrelated customization changes.
-- [ ] 5.2 Update the owning runbook, PRD-2/capability/ADR status and this checklist with the measured OBO/streaming/denial/telemetry/local/CI results. Validate links, identifiers and specs, and verify exact-head CI for a separate evidence/status receipt before checking completion. Mark only Step 2.1 complete, leaving research, frozen evaluations and the UI pending.
+- [x] 5.2 Update the owning runbook, PRD-2/capability/ADR status and this checklist with the measured OBO/streaming/denial/telemetry/local/CI results. Validate links, identifiers and specs, and verify exact-head CI for a separate evidence/status receipt before checking completion. Mark only Step 2.1 complete, leaving research, frozen evaluations and the UI pending.
+
+## Delivery evidence
+
+- Runtime source/image/configuration, actual user-preserving OBO, streaming,
+  cancellation, telemetry, denials, data/history preservation and local results:
+  [agent runbook](../../../docs/agent.md#actual-model-stage-azure-acceptance).
+- Implementation `1b8d4af01fd9a88d880d654c0d984bcdebed5c1f`:
+  [passing exact-SHA CI](https://github.com/ikhemissi/newsloom/actions/runs/40500304977).
+- Separate evidence/status receipt `58afd2132d85f11531ee64dde11f20c70a5abd6f`:
+  [passing exact-SHA CI](https://github.com/ikhemissi/newsloom/actions/runs/40501029431),
+  verified before checking 5.2. Later documentation heads do not replace the
+  immutable runtime provenance.
 
 ## Workflow follow-up
 

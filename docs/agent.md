@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-[Step 2.1](prd-2.md) is in progress, not accepted. Its
+[Step 2.1](prd-2.md) is complete and verified. Its
 [change checklist](../openspec/changes/agent-skeleton/tasks.md) owns delivery
 progress. Local package/protocol compatibility, the agent's separate authorization policy,
 request-local delegated adapters and the non-generative authenticated A2A
@@ -18,10 +18,12 @@ The model-backed revision is now deployed with verified local and Azure runtime
 acceptance: actual signed-in streaming, cancellation, authenticated private
 telemetry and final workload/data preservation. See the
 [live model-stage receipt](#actual-model-stage-azure-acceptance).
-Implementation publication and exact-SHA CI are verified; see the
-[publication receipt](#verified-implementation-publication).
-The separate final evidence/status receipt and its CI remain pending.
-Step 2.1 is not yet declared delivered.
+Implementation publication and the separate evidence/status receipt passed
+their own exact-SHA CI; see the
+[publication receipt](#verified-implementation-publication) and
+[final delivery receipt](#verified-evidencestatus-delivery).
+All 15 tasks are verified; only Step 2.1 is accepted. Its active OpenSpec change
+awaits separate review and archival.
 Research and the browser UI belong to later slices.
 
 This runbook owns commands and measured implementation facts, not another
@@ -1354,7 +1356,27 @@ it is not a Git SHA or a claim that later status-only documentation has the
 same conservative build-input hash. The immutable deployed code was not rebuilt
 to reconcile documentation.
 
-Task 5.1 is verified: **14/15 tasks complete**. This separate evidence/status
-receipt must pass its own exact-head CI before task 5.2 is checked. Step 2.1
-is not yet declared delivered; no full-research, frozen-evaluation, browser-UI
-or archival acceptance is implied.
+This implementation-publication receipt verified task 5.1 at **14/15 tasks
+complete**. The following separate receipt closes 5.2 only after its own
+exact-head CI passed.
+
+## Verified evidence/status delivery
+
+The separate documentation-only evidence/status receipt was committed and
+pushed as
+[`58afd2132d85f11531ee64dde11f20c70a5abd6f`](https://github.com/ikhemissi/newsloom/commit/58afd2132d85f11531ee64dde11f20c70a5abd6f).
+Its primary
+[CI run 40501029431](https://github.com/ikhemissi/newsloom/actions/runs/40501029431)
+completed successfully for that exact SHA **before task 5.2 was checked**.
+It updates this runbook, phase/capability/ADR status, README and checklist;
+the production source, deployed configuration and runtime digest are unchanged.
+Local receipt checks passed all 118 local links/anchors, 16 shell blocks,
+identifier hygiene and all 11 strict OpenSpec items.
+
+Task 5.2 is verified: **15/15 tasks complete**. Step 2.1's A2A and secretless
+delegation slice is delivered, not a complete research agent or Phase 2.
+Full research, frozen quality evaluations and the browser UI remain pending.
+The active change awaits review, spec synchronization and archival; none was
+performed automatically. Closure/status-only heads require their own exact-head
+CI before publication is reported complete and do not replace runtime or
+implementation provenance.
