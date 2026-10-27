@@ -6,11 +6,11 @@ acceptance of [Phase 1](prd-1.md), including its
 final tests/evals slice.
 
 Phase 1 is complete and its delivered contracts are archived. The
-[`agent-skeleton` proposal](../openspec/changes/agent-skeleton/proposal.md)
+[`agent-skeleton` proposal](../openspec/changes/archive/2026-10-27-agent-skeleton/proposal.md)
 defines Step 2.1 with actual secretless OBO as the first go/no-go gate.
 Local protocol/delegation, isolated owning layers and full offline checks are
 verified; see the [agent runbook](agent.md) and
-[implementation checklist](../openspec/changes/agent-skeleton/tasks.md).
+[archived implementation checklist](../openspec/changes/archive/2026-10-27-agent-skeleton/tasks.md).
 After separately approved owning previews, consent and cost, the non-generative
 agent app is deployed with verified identity/image/configuration and public
 authorization guards. Actual signed-in OBO, a user-preserving MCP read and the
@@ -24,8 +24,10 @@ Implementation publication and its
 [exact-SHA CI](https://github.com/ikhemissi/newsloom/actions/runs/40500304977)
 passed, followed by the separate
 [evidence/status receipt CI](https://github.com/ikhemissi/newsloom/actions/runs/40501029431).
-All 15 tasks are verified; only Step 2.1 is delivered. The active change awaits
-review and archival. Multi-step research, frozen phase-wide evaluations and
+All 15 tasks are verified; only Step 2.1 is delivered. The change is archived,
+with [A2A serving](../openspec/specs/a2a-serving/spec.md) and
+[delegation](../openspec/specs/delegated-mcp-access/spec.md) published as delivered
+contracts. Multi-step research, frozen phase-wide evaluations and
 the Phase 3 browser UI remain future work.
 
 This document owns phase sequencing and capability-to-slice assignments.

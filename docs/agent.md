@@ -3,7 +3,7 @@
 ## Status and scope
 
 [Step 2.1](prd-2.md) is complete and verified. Its
-[change checklist](../openspec/changes/agent-skeleton/tasks.md) owns delivery
+[archived change checklist](../openspec/changes/archive/2026-10-27-agent-skeleton/tasks.md) owns delivery
 progress. Local package/protocol compatibility, the agent's separate authorization policy,
 request-local delegated adapters and the non-generative authenticated A2A
 application are verified locally, as are the opt-in owning layers with mocked
@@ -22,15 +22,15 @@ Implementation publication and the separate evidence/status receipt passed
 their own exact-SHA CI; see the
 [publication receipt](#verified-implementation-publication) and
 [final delivery receipt](#verified-evidencestatus-delivery).
-All 15 tasks are verified; only Step 2.1 is accepted. Its active OpenSpec change
-awaits separate review and archival.
+All 15 tasks are verified; only Step 2.1 is accepted. Its OpenSpec change is
+archived with the delivered A2A/delegation contracts synchronized to main specs.
 Research and the browser UI belong to later slices.
 
 This runbook owns commands and measured implementation facts, not another
 requirements copy. See the
-[design](../openspec/changes/agent-skeleton/design.md), [A2A capability
-delta](../openspec/changes/agent-skeleton/specs/a2a-serving/spec.md) and
-[delegation capability delta](../openspec/changes/agent-skeleton/specs/delegated-mcp-access/spec.md).
+[archived design](../openspec/changes/archive/2026-10-27-agent-skeleton/design.md),
+[A2A serving contract](../openspec/specs/a2a-serving/spec.md) and
+[delegation contract](../openspec/specs/delegated-mcp-access/spec.md).
 
 ## Verified local package and protocol set
 
@@ -1376,7 +1376,21 @@ identifier hygiene and all 11 strict OpenSpec items.
 Task 5.2 is verified: **15/15 tasks complete**. Step 2.1's A2A and secretless
 delegation slice is delivered, not a complete research agent or Phase 2.
 Full research, frozen quality evaluations and the browser UI remain pending.
-The active change awaits review, spec synchronization and archival; none was
-performed automatically. Closure/status-only heads require their own exact-head
+Archival was separately approved after the closure receipt passed CI, as
+recorded below. Closure/status-only heads require their own exact-head
 CI before publication is reported complete and do not replace runtime or
 implementation provenance.
+
+## Verified skeleton archival
+
+The final delivery closure
+[`8bf48bedc48d9a0298233b229a0b2c4930d97f69`](https://github.com/ikhemissi/newsloom/commit/8bf48bedc48d9a0298233b229a0b2c4930d97f69)
+passed its own
+[exact-head CI](https://github.com/ikhemissi/newsloom/actions/runs/40501562347).
+On 2026-10-27, the operator then approved synchronizing the delivered specs.
+Both purposes and all 13 requirement blocks matched their accepted delta
+verbatim; all 12 main specs passed strict validation before moving the change.
+The [archive](../openspec/changes/archive/2026-10-27-agent-skeleton/tasks.md#verified-archival)
+retains all 15 checked tasks and links to the original acceptance evidence.
+No runtime, environment/state, grant, model, schedule or stored data was changed;
+no additional inference was performed.

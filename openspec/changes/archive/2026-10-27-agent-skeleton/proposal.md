@@ -2,15 +2,15 @@
 
 ## Why
 
-[Phase 1 is accepted](../../../docs/phase1-acceptance.md#verified-phase-acceptance-matrix)
+[Phase 1 is accepted](../../../../docs/phase1-acceptance.md#verified-phase-acceptance-matrix)
 and its delivered contracts are archived. The next slice,
-[PRD-2 Step 2.1](../../../docs/prd-2.md#delivery-plan), must establish a real
+[PRD-2 Step 2.1](../../../../docs/prd-2.md#delivery-plan), must establish a real
 authenticated agent boundary without assuming that a managed identity can act
 on behalf of a user.
 
 ## What Changes
 
-- Deliver [P2-C01 and P2-C02](../../../docs/prd-2-capabilities.md): a Python
+- Deliver [P2-C01 and P2-C02](../../../../docs/prd-2-capabilities.md): a Python
   Microsoft Agent Framework A2A service on the existing ACA environment, with
   agent-card discovery, authenticated requests and streamed responses.
 - Make live secretless OBO the first go/no-go gate: an actual signed-in A2A

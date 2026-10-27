@@ -43,7 +43,7 @@ blocks group 4; a failed identity proof must not become a model-only workaround.
 
 - Runtime source/image/configuration, actual user-preserving OBO, streaming,
   cancellation, telemetry, denials, data/history preservation and local results:
-  [agent runbook](../../../docs/agent.md#actual-model-stage-azure-acceptance).
+  [agent runbook](../../../../docs/agent.md#actual-model-stage-azure-acceptance).
 - Implementation `1b8d4af01fd9a88d880d654c0d984bcdebed5c1f`:
   [passing exact-SHA CI](https://github.com/ikhemissi/newsloom/actions/runs/40500304977).
 - Separate evidence/status receipt `58afd2132d85f11531ee64dde11f20c70a5abd6f`:
@@ -58,3 +58,15 @@ blocks group 4; a failed identity proof must not become a model-only workaround.
   archive this change, preserving evidence and exact runtime provenance.
 - Propose Step 2.2 research separately; no implementation follows automatically
   from this planning change.
+
+## Verified archival
+
+Archived on 2026-10-27 after all 15 tasks and
+[exact closure-head CI](https://github.com/ikhemissi/newsloom/actions/runs/40501562347)
+passed for `8bf48bedc48d9a0298233b229a0b2c4930d97f69`.
+The operator approved synchronization; all 13 requirements and both authored
+purposes were verified against the delivered
+[A2A serving](../../../specs/a2a-serving/spec.md) and
+[delegated MCP access](../../../specs/delegated-mcp-access/spec.md) main specs.
+Runtime source/image/configuration provenance and original failed-attempt
+evidence remain unchanged. Archival performed no deployment or inference.

@@ -3,9 +3,9 @@
 ## Context
 
 See [the proposal](proposal.md#why) for motivation and
-[PRD-2 Step 2.1](../../../docs/prd-2.md#delivery-plan) for ownership.
-The [MCP serving](../../specs/mcp-serving/spec.md) and
-[workload-access](../../specs/workload-access/spec.md) contracts are delivered.
+[PRD-2 Step 2.1](../../../../docs/prd-2.md#delivery-plan) for ownership.
+The [MCP serving](../../../specs/mcp-serving/spec.md) and
+[workload-access](../../../specs/workload-access/spec.md) contracts are delivered.
 The MCP verifier already checks trusted v2 tenant keys, its own audience and
 `news.read`; its public client has actual browser sign-in evidence. None of that
 proves middle-tier OBO.
