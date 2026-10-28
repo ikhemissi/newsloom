@@ -1,8 +1,8 @@
 # Tasks
 
-Local implementation, the current owning deployment, signed-in acceptance and
-preservation are verified; publication remains open. The delivered skeleton is
-the prerequisite, not evidence
+Local implementation, the current owning deployment, signed-in acceptance,
+preservation and separate implementation/evidence CI are verified. The delivered
+skeleton is the prerequisite, not evidence
 that any research behavior below is implemented. Follow the
 [design](design.md), [research delta](specs/news-research/spec.md) and
 [A2A delta](specs/a2a-serving/spec.md). Web/toolbox and persistent memory/Work IQ
@@ -30,7 +30,9 @@ exact-source deployment checks, fresh inventory and a cumulative envelope
 preceded the passing six-case signed-in run. Prior consumption and unobserved
 usage remain explicit. See the
 [measured acceptance](../../../docs/agent.md#state-constrained-actual-acceptance).
-Only publication gates remain unchecked.
+Separate implementation and measured evidence/status publication passed
+exact-SHA CI; the [delivery receipt](../../../docs/agent.md#verified-research-delivery)
+records completion. Review remains required before synchronization/archival.
 The approved optional terminal period applies only to individual metadata
 comparison claims; complete-summary equality and all other independent
 evidence/citation checks remain unchanged.
@@ -65,7 +67,7 @@ evidence/citation checks remain unchanged.
 ## 5. Persistent verified delivery
 
 - [x] 5.1 Only after complete local and actual Azure acceptance, commit/push the verified implementation with the required contributor trailer and verify primary CI for that exact SHA. Exclude unrelated customization changes and private environment/evidence. Retain runtime source/image/configuration provenance separately from Git/documentation heads and preserve unsuccessful attempts honestly.
-- [ ] 5.2 Publish a separate measured evidence/status receipt covering local/CI, actual user-preserving research, semantic/citation review, telemetry, denials, cancellation, cost and preservation. Update the runbook and owning phase/capability/ADR/checklist status, validate links/commands/identifiers/specs and require its exact-head CI before checking completion. Mark only Step 2.2 delivered; frozen phase-wide evaluations, deferred web/toolbox, memory/Work IQ and UI remain pending.
+- [x] 5.2 Publish a separate measured evidence/status receipt covering local/CI, actual user-preserving research, semantic/citation review, telemetry, denials, cancellation, cost and preservation. Update the runbook and owning phase/capability/ADR/checklist status, validate links/commands/identifiers/specs and require its exact-head CI before checking completion. Mark only Step 2.2 delivered; frozen phase-wide evaluations, deferred web/toolbox, memory/Work IQ and UI remain pending.
 
 ## Workflow follow-up
 

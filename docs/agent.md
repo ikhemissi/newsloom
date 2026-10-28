@@ -22,17 +22,19 @@ Implementation publication and the separate evidence/status receipt passed
 their own exact-SHA CI; see the
 [publication receipt](#verified-implementation-publication) and
 [final delivery receipt](#verified-evidencestatus-delivery).
-All 15 tasks are verified; only Step 2.1 is accepted. Its OpenSpec change is
+At that delivery, all 15 tasks were verified and only Step 2.1 was accepted.
+Its OpenSpec change is
 archived with the delivered A2A/delegation contracts synchronized to main specs.
-Research and the browser UI belong to later slices.
+Research is delivered separately below; the browser UI remains a later slice.
 
 Step 2.2 local implementation, the research-enabled owning deployment, actual
 signed-in research, semantic/citation review, cancellation, private telemetry and
 preservation are verified under the
 [research checklist](../openspec/changes/agent-research/tasks.md).
 See the [actual receipt](#state-constrained-actual-acceptance).
-Implementation publication passed exact-SHA CI; separate evidence/status CI remains pending;
-a ready deployment alone is not completed research delivery.
+Implementation and separate evidence/status publication passed exact-SHA CI;
+[Step 2.2 is delivered](#verified-research-delivery). A ready deployment alone
+was not treated as completed research delivery.
 
 This runbook owns commands and measured implementation facts, not another
 requirements copy. See the
@@ -628,8 +630,8 @@ Paid acceptance paused for a planning-design decision. The user chose
 state-constrained planning rather than further prompt-only tuning; the approved
 [design](../openspec/changes/agent-research/design.md#2-keep-the-model-selected-loop-application-owned-and-finite)
 and task 2.6 track that follow-up. The failed candidate above is not relabeled.
-Tasks 2.5, 2.6, 4.1 and 4.2 remain unchecked; implementation publication, delivery
-and archival remain blocked.
+Tasks 2.5, 2.6, 4.1 and 4.2 remained unchecked on that failed candidate. The
+follow-up and verified delivery below do not alter its failed acceptance status.
 
 ### State-constrained planning follow-up
 
@@ -747,8 +749,8 @@ receipt remains retained without guessing its cause. Final source/image,
 readiness, public guards, all resources, other workloads, grants/consents,
 models/capacities and schedules matched the reviewed boundaries. Actual
 bound-identity denials above remain verified. The owned database and callback
-ports are closed. Runtime acceptance and implementation publication are complete;
-separate evidence/status CI and archival remain pending.
+ports are closed. Runtime acceptance and implementation publication are complete; the separate
+evidence/status publication is recorded below. Archival requires review.
 
 ### Verified research implementation publication
 
@@ -761,9 +763,23 @@ No runtime source changed after actual acceptance.
 
 Unrelated OpenSpec customization changes and all private environment/evidence
 were excluded. Tasks 2.5, 2.6, 4.1, 4.2 and 5.1 are verified. The separate
-measured evidence/status receipt still requires its own exact-head CI before
-Step 2.2 delivery is checked. Review remains required before synchronization or
-archival; Step 2.3's frozen phase-wide quality evaluations remain separate.
+measured evidence/status receipt and its CI are recorded below.
+
+### Verified research delivery
+
+The separate measured evidence/status publication is
+[`4d017e1f742f661fdd2deafc2ddf75052b1fcb42`](https://github.com/ikhemissi/newsloom/commit/4d017e1f742f661fdd2deafc2ddf75052b1fcb42),
+with passing primary
+[exact-head CI](https://github.com/ikhemissi/newsloom/actions/runs/40655231221).
+Only after that result was task 5.2 checked. All **17 research tasks** are
+verified; **Step 2.2 is delivered**. Runtime source/image/plan provenance remains
+the independently verified binding above, not the later documentation heads.
+
+The active change remains available for review before synchronization or
+archival. Step 2.3's frozen phase-wide quality evaluations, DeepEval/Foundry
+integration, cost-governance refinement, deferred web/toolbox, persistent
+memory/Work IQ and the browser UI remain pending. Passing focused acceptance
+does not replace that evaluation baseline or authorize those additions.
 
 ## Verified local package and protocol set
 
