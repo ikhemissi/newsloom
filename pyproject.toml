@@ -29,6 +29,7 @@ required-version = ">=0.13.5"
 
 [tool.uv.workspace]
 members = ["packages/*", "services/*"]
+exclude = ["tools/agent-evaluation"]
 
 [tool.uv.sources]
 newsloom-agent = { workspace = true }

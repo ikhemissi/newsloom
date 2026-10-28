@@ -61,6 +61,20 @@ output "MODEL_ACCOUNT_ID" {
   value = azurerm_cognitive_account.models.id
 }
 
+output "MODEL_PROJECT_MANAGEMENT_ENABLED" {
+  description = "Lasting parent prerequisite; never disable it to retire evaluation assets."
+  value       = azurerm_cognitive_account.models.project_management_enabled
+}
+
+output "MODEL_ACCOUNT_IDENTITY_PRINCIPAL_ID" {
+  description = "Required account identity; no evaluation or production roles are assigned to it."
+  value       = azurerm_cognitive_account.models.identity[0].principal_id
+}
+
+output "MODEL_ACCOUNT_IDENTITY_TENANT_ID" {
+  value = azurerm_cognitive_account.models.identity[0].tenant_id
+}
+
 output "APPLICATIONINSIGHTS_CONNECTION_STRING" {
   value     = azurerm_application_insights.application.connection_string
   sensitive = true

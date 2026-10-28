@@ -99,6 +99,22 @@ run "secretless_platform_configuration" {
     ])
     error_message = "Pinned model versions must not silently auto-upgrade."
   }
+
+  assert {
+    condition = (
+      azurerm_cognitive_account.models.project_management_enabled &&
+      azurerm_cognitive_account.models.identity[0].type == "SystemAssigned" &&
+      azurerm_cognitive_account.models.name == "ai-newsloom-test-${substr(sha256("${var.subscription_id}/test"), 0, 8)}" &&
+      azurerm_cognitive_account.models.custom_subdomain_name == azurerm_cognitive_account.models.name &&
+      length(azurerm_cognitive_deployment.model) == 3 &&
+      length(azurerm_role_assignment.inference) == 3 &&
+      length(azurerm_role_assignment.registry_pull) == 4 &&
+      azurerm_cognitive_deployment.model["enrichment"].model[0].name == var.models.enrichment.name &&
+      azurerm_cognitive_deployment.model["enrichment"].model[0].version == var.models.enrichment.version &&
+      azurerm_cognitive_deployment.model["enrichment"].sku[0].capacity == var.models.enrichment.capacity
+    )
+    error_message = "Enable only lasting account prerequisites; preserve the account name, all models and workload grants."
+  }
 }
 
 run "reject_missing_model_contracts" {

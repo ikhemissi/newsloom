@@ -117,6 +117,7 @@ def main() -> None:
                 "prepare-mcp-identity",
                 "prepare-agent-identity",
                 "prepare-agent-layer",
+                "prepare-agent-evaluation-layer",
                 "build-agent",
                 "verify-agent",
                 "evaluate-mcp",

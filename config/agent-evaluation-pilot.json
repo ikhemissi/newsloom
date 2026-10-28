@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "question": "When does the invented Loomhaven Archive open on weekdays?",
+  "evidence": "This is authored synthetic evidence, not a real news item. The invented Loomhaven Archive opens at 09:00 and closes at 17:00 Monday through Friday. It is closed on Saturday and Sunday.",
+  "cases": [
+    {
+      "case_id": "p01",
+      "diagnostic_label": "supported",
+      "answer": "The Loomhaven Archive opens at 09:00 Monday through Friday."
+    },
+    {
+      "case_id": "p02",
+      "diagnostic_label": "unsupported",
+      "answer": "The Loomhaven Archive opens at 06:00 every day, including Saturday and Sunday."
+    }
+  ]
+}

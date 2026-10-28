@@ -5,6 +5,16 @@ metadata:
 infra:
   provider: terraform
   layers:
+    - name: agent-evaluation
+      path: infra/agent-evaluation
+      dependsOn:
+        - application
+      hooks:
+        preprovision:
+          shell: sh
+          run: uv run --locked newsloom-platform prepare-agent-evaluation-layer
+          interactive: false
+          continueOnError: false
     - name: agent-identity
       path: infra/agent-identity
       dependsOn:

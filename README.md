@@ -2,9 +2,10 @@
 
 Curated AI news for MCP clients, research agents, and people.
 
-**Status: Phase 1 complete; Phase 2 Step 2.1 complete and verified.**
-- Available: Python workspace, 41-feed catalogue, local/CI checks, azd-managed Azure infrastructure, managed-identity migrations, RSS/Atom ingestion with real Decision-model screening, and durable queue/quarantine storage. Enrichment produces validated summaries, one of 11 categories, tags, and 1536-dimensional embeddings in PostgreSQL. The deployed MCP service provides four read-only browsing/search tools with verified Entra browser sign-in. The A2A recent-news demonstrator has verified secretless user delegation and Foundry streaming.
-- The [phase acceptance matrix](docs/phase1-acceptance.md#verified-phase-acceptance-matrix) links real federated integration, exact cleanup, failure/cancellation drills, separate quality/native-client studies and passing implementation/status CI. Phase 1 and [Phase 2 Step 2.1](docs/prd-2.md) are archived with delivered contracts in the [main specs](openspec/specs/). Step 2.1 verifies signed-in user-preserving MCP access, real Foundry streaming, cancellation, private telemetry and workload denials. The [agent runbook](docs/agent.md) records exact runtime provenance, preserved workloads/data and passing implementation/status CI. Full research, frozen phase-wide evaluations and the browser UI remain future work.
+**Status: Phase 1 complete; Phase 2 Steps 2.1-2.2 complete and verified; Step 2.3 evaluation foundation in progress.**
+- Available: Python workspace, 41-feed catalogue, local/CI checks, azd-managed Azure infrastructure, managed-identity migrations, RSS/Atom ingestion with real Decision-model screening, and durable queue/quarantine storage. Enrichment produces validated summaries, one of 11 categories, tags, and 1536-dimensional embeddings in PostgreSQL. The deployed MCP service provides four read-only browsing/search tools with verified Entra browser sign-in. The authenticated A2A research agent deepens or compares stored news with cited, preference-aware answers, secretless user delegation and Foundry streaming.
+- The [phase acceptance matrix](docs/phase1-acceptance.md#verified-phase-acceptance-matrix) and [agent runbook](docs/agent.md) record measured acceptance, runtime provenance, preservation and passing implementation/status CI. Phase 1 and [Phase 2 Steps 2.1-2.2](docs/prd-2.md) are archived with delivered contracts in the [main specs](openspec/specs/). Frozen phase-wide evaluations, optional external web research, persistent preferences and the browser UI remain future work.
+- The [evaluation foundation](docs/agent-evaluation.md) has locally verified bounded DeepEval scoring, a Foundry publication/cleanup adapter and owning Terraform boundaries. Its pilot uses two authored, precomputed synthetic answers, not production news or deployed-agent quality measurements. Azure provisioning, exact catalog authorization, paid judging and actual Foundry report acceptance remain pending; the [active checklist](openspec/changes/agent-evaluation-foundation/tasks.md) owns progress.
 
 ## Architecture
 
@@ -17,7 +18,7 @@ flowchart LR
     Enrichment --> News[("News + pgvector")]
     News --> MCP["MCP server"]
     MCP --> Clients["MCP clients"]
-    MCP --> Agent["A2A agent - Phase 2"]
+    MCP --> Agent["A2A research agent"]
     Agent --> UI["Browser UI - Phase 3"]
 ```
 
@@ -34,6 +35,7 @@ Git and Bash are also required.
 
 ```bash
 uv sync --locked --all-packages
+uv sync --directory tools/agent-evaluation --locked
 npm ci --no-audit --no-fund
 uv run pre-commit install
 bash scripts/check.sh
@@ -42,6 +44,13 @@ bash scripts/check.sh
 Checks need no cloud credentials or Docker daemon; the first run downloads dependencies.
 Database integration tests also run in CI and can be enabled against an explicitly
 started local PostgreSQL 18/pgvector instance.
+
+Operator-only evaluation tooling has a separate Python 3.15 environment and lock
+because its DeepEval dependency conflicts with the application's Click version.
+Run its local checks with `bash scripts/check-agent-evaluation.sh`; see the
+[evaluation runbook](docs/agent-evaluation.md) for verified compatibility and the
+still-pending Azure/paid acceptance gates. Do not install its dependencies into
+the application environment.
 
 ## Deploy to Azure
 
@@ -72,12 +81,17 @@ state; existing direct-Terraform state must be adopted before the first azd run.
 The shared platform is provisioned and verified in the persistent development
 environment. See the [delivery plan](docs/prd-1.md#delivery-plan) and follow the
 [platform runbook](docs/azure-platform.md) for reviewed inputs and per-layer previews.
-Deploy incremental changes into the existing environment:
+Select the existing environment rather than recreating it:
 
 ```bash
 azd env select dev
-azd up
 ```
+
+Use only reviewed owning-layer preview/provision commands from the runbooks.
+The active evaluation foundation adds lasting settings to the retained model
+account and requires its own execution approval. Do not run an unqualified
+`azd up` or `azd provision` from this checkout to apply those unreviewed changes.
+See the [evaluation infrastructure boundary and rollback guidance](docs/agent-evaluation.md#owning-infrastructure-boundary).
 
 The foundation includes verified migration and identity/model/telemetry checks.
 The real ingestion job adds screened pending work, not summaries or an MCP HTTP
@@ -97,6 +111,7 @@ configuration, isolated retrieval evaluation and operator verification.
 | Task | Command |
 | --- | --- |
 | All local checks | `bash scripts/check.sh` |
+| Isolated evaluation checks, without Azure calls | `bash scripts/check-agent-evaluation.sh` |
 | Python tests | `uv run pytest` |
 | Validate feed configuration | `uv run newsloom-validate-feeds config/feeds.json` |
 | Start Azure ingestion immediately | `uv run --locked newsloom-platform execute-ingestion` |
@@ -105,6 +120,7 @@ configuration, isolated retrieval evaluation and operator verification.
 | Read actual enrichment/news database counts | `uv run --locked newsloom-platform read-enrichment` |
 | Verify deployed MCP workload access | `uv run --locked newsloom-platform verify-mcp` |
 | Run the isolated frozen retrieval study | `uv run --locked newsloom-platform evaluate-mcp` |
+| Prepare evaluation-layer inputs, metadata only | `uv run --locked newsloom-platform prepare-agent-evaluation-layer` |
 | List OpenSpec changes | `npm run spec:list` |
 
 ## Delivery workflow
@@ -129,6 +145,10 @@ Delivered product contracts cover
 [MCP serving](openspec/specs/mcp-serving/spec.md),
 [news search](openspec/specs/news-search/spec.md), and
 [phase acceptance](openspec/specs/phase1-acceptance/spec.md).
+The agent's delivered contracts cover
+[A2A serving](openspec/specs/a2a-serving/spec.md),
+[delegated MCP access](openspec/specs/delegated-mcp-access/spec.md), and
+[stored-news research](openspec/specs/news-research/spec.md).
 
 ## Documentation
 
@@ -142,4 +162,6 @@ Delivered product contracts cover
 | Feed ingestion and real screening | [Ingestion runbook](docs/ingestion.md) |
 | Structured news enrichment and embeddings | [Enrichment runbook](docs/enrichment.md) |
 | Authenticated MCP browsing/search | [MCP runbook](docs/mcp.md) |
+| A2A agent and stored-news research | [Agent runbook](docs/agent.md) |
+| Synthetic evaluation foundation and Azure gates | [Evaluation runbook](docs/agent-evaluation.md) |
 | AI contributor instructions | [AGENTS.md](AGENTS.md) |

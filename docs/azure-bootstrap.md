@@ -15,6 +15,7 @@ deployment entry point. The [project](../azure.yaml) has these native Terraform 
 | --- | --- | --- |
 | `bootstrap` | [State infrastructure](../infra/bootstrap/) | Local, under `.azure/<environment>/infra/bootstrap/terraform.tfstate` |
 | `application` | [Application infrastructure](../infra/) | Entra-authenticated Azure Blob backend; depends on `bootstrap` |
+| `agent-evaluation` | [Evaluation foundation](../infra/agent-evaluation/) | Separate Entra-authenticated `newsloom/<environment>-agent-evaluation.tfstate`; depends on `application` |
 | `migrations` | [Migration job](../infra/migrations/) | Separate Entra-authenticated `newsloom/<environment>-migrations.tfstate`; depends on `application` |
 | `ingestion` | [Ingestion job](../infra/ingestion/) | Separate Entra-authenticated `newsloom/<environment>-ingestion.tfstate`; depends on `migrations` |
 | `enrichment` | [Enrichment job](../infra/enrichment/) | Separate Entra-authenticated `newsloom/<environment>-enrichment.tfstate`; depends on `migrations` and `ingestion` |
@@ -25,6 +26,11 @@ Bootstrap state stays local to avoid a backend creating itself. Preserve the
 ignored azd environment and bootstrap state securely; never provision an existing
 account from empty state. The implementation's `prevent_destroy` guards cover
 the account, container, and resource group.
+
+The evaluation layer is disabled by default. Its lasting parent-account
+prerequisites and separately reviewed project/operator grants are described in
+the [evaluation runbook](agent-evaluation.md#owning-infrastructure-boundary);
+retiring the project must not reverse the parent settings or recreate the account.
 
 ## Prerequisites
 

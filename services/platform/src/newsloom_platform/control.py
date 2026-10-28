@@ -801,6 +801,10 @@ def control(command: str, correlation: str, *, force: bool = False, limit: int =
         from newsloom_platform.agent_identity import prepare
 
         prepare(env, correlation)
+    elif command == "prepare-agent-evaluation-layer":
+        from newsloom_platform.agent_evaluation import prepare
+
+        prepare(env, correlation)
     elif command in ("prepare-agent-layer", "build-agent", "verify-agent"):
         from newsloom_platform import agent_control
 

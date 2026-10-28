@@ -191,14 +191,19 @@ resource "azurerm_postgresql_flexible_server_active_directory_administrator" "mi
 }
 
 resource "azurerm_cognitive_account" "models" {
-  name                  = "ai-${local.prefix}-${local.suffix}"
-  resource_group_name   = azurerm_resource_group.application.name
-  location              = var.location
-  kind                  = "AIServices"
-  sku_name              = "S0"
-  custom_subdomain_name = "ai-${local.prefix}-${local.suffix}"
-  local_auth_enabled    = false
-  tags                  = local.tags
+  name                       = "ai-${local.prefix}-${local.suffix}"
+  resource_group_name        = azurerm_resource_group.application.name
+  location                   = var.location
+  kind                       = "AIServices"
+  sku_name                   = "S0"
+  custom_subdomain_name      = "ai-${local.prefix}-${local.suffix}"
+  local_auth_enabled         = false
+  project_management_enabled = true
+  tags                       = local.tags
+
+  identity {
+    type = "SystemAssigned"
+  }
 
   lifecycle {
     prevent_destroy = true
