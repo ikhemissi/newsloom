@@ -31,7 +31,7 @@ signed-in research, semantic/citation review, cancellation, private telemetry an
 preservation are verified under the
 [research checklist](../openspec/changes/agent-research/tasks.md).
 See the [actual receipt](#state-constrained-actual-acceptance).
-Implementation publication and separate evidence/status CI remain pending;
+Implementation publication passed exact-SHA CI; separate evidence/status CI remains pending;
 a ready deployment alone is not completed research delivery.
 
 This runbook owns commands and measured implementation facts, not another
@@ -747,8 +747,23 @@ receipt remains retained without guessing its cause. Final source/image,
 readiness, public guards, all resources, other workloads, grants/consents,
 models/capacities and schedules matched the reviewed boundaries. Actual
 bound-identity denials above remain verified. The owned database and callback
-ports are closed. Runtime acceptance is complete; implementation publication,
+ports are closed. Runtime acceptance and implementation publication are complete;
 separate evidence/status CI and archival remain pending.
+
+### Verified research implementation publication
+
+The verified implementation was committed and pushed as
+[`563aeebc6ca70a80f4516c760498323feaa9d169`](https://github.com/ikhemissi/newsloom/commit/563aeebc6ca70a80f4516c760498323feaa9d169).
+Its primary [exact-SHA CI](https://github.com/ikhemissi/newsloom/actions/runs/40654767524)
+passed. This Git publication does not replace the independently retained
+runtime source, immutable image and exact reviewed plan hashes above.
+No runtime source changed after actual acceptance.
+
+Unrelated OpenSpec customization changes and all private environment/evidence
+were excluded. Tasks 2.5, 2.6, 4.1, 4.2 and 5.1 are verified. The separate
+measured evidence/status receipt still requires its own exact-head CI before
+Step 2.2 delivery is checked. Review remains required before synchronization or
+archival; Step 2.3's frozen phase-wide quality evaluations remain separate.
 
 ## Verified local package and protocol set
 

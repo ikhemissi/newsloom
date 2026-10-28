@@ -7,6 +7,10 @@ See [the ADRs](adrs.md) for architecture.
 The [agent runbook](agent.md#actual-model-stage-azure-acceptance) records actual
 runtime evidence for P2-C01/P2-C02; [PRD-2](prd-2.md) owns delivery status.
 This demonstrator does not establish P2-C03-P2-C06 research or quality acceptance.
+The separate [research receipt](agent.md#state-constrained-actual-acceptance)
+records local and signed-in checks for P2-C03-P2-C05. Those focused cases do not
+establish P2-C06's frozen phase-wide quality baseline; [PRD-2](prd-2.md) owns
+release status.
 
 ## P2-C01: Discoverable, streaming A2A access
 

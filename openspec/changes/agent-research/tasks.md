@@ -64,7 +64,7 @@ evidence/citation checks remain unchanged.
 
 ## 5. Persistent verified delivery
 
-- [ ] 5.1 Only after complete local and actual Azure acceptance, commit/push the verified implementation with the required contributor trailer and verify primary CI for that exact SHA. Exclude unrelated customization changes and private environment/evidence. Retain runtime source/image/configuration provenance separately from Git/documentation heads and preserve unsuccessful attempts honestly.
+- [x] 5.1 Only after complete local and actual Azure acceptance, commit/push the verified implementation with the required contributor trailer and verify primary CI for that exact SHA. Exclude unrelated customization changes and private environment/evidence. Retain runtime source/image/configuration provenance separately from Git/documentation heads and preserve unsuccessful attempts honestly.
 - [ ] 5.2 Publish a separate measured evidence/status receipt covering local/CI, actual user-preserving research, semantic/citation review, telemetry, denials, cancellation, cost and preservation. Update the runbook and owning phase/capability/ADR/checklist status, validate links/commands/identifiers/specs and require its exact-head CI before checking completion. Mark only Step 2.2 delivered; frozen phase-wide evaluations, deferred web/toolbox, memory/Work IQ and UI remain pending.
 
 ## Workflow follow-up

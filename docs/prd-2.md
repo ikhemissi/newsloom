@@ -1,7 +1,8 @@
 # PRD-2: A2A research agent
 
 Status: Step 2.1 complete and verified, including local/Azure acceptance and
-exact-SHA implementation/status CI. Steps 2.2-2.3 remain pending. Prerequisite:
+exact-SHA implementation/status CI. Step 2.2 runtime and implementation CI are
+verified; its separate evidence/status CI remains open. Step 2.3 remains pending. Prerequisite:
 acceptance of [Phase 1](prd-1.md), including its
 final tests/evals slice.
 
@@ -33,9 +34,12 @@ the Phase 3 browser UI remain future work.
 Step 2.2 is being
 [implemented separately](../openspec/changes/agent-research/proposal.md): deepen or
 compare one or multiple stored MCP items and tailor the response to preferences
-provided in the current request. Local implementation and the source-bound
-agent-only deployment are verified; complete signed-in acceptance and publication
-remain open. The [runbook](agent.md#state-constrained-planning-follow-up) retains
+provided in the current request. Local implementation, the source-bound
+agent-only deployment and all six focused signed-in cases are verified, including
+semantic/citation checks, private telemetry, cancellation and preservation.
+Implementation [exact-SHA CI](agent.md#verified-research-implementation-publication)
+passed; the separate evidence/status receipt still needs its own CI before delivery
+is checked. The [runbook](agent.md#state-constrained-planning-follow-up) retains
 the failed planning attempts and the state-constrained follow-up.
 Progress precedes a validated final answer; external web enrichment and
 persistent personalization are explicitly deferred below.
