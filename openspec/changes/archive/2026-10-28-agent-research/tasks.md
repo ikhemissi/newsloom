@@ -6,7 +6,7 @@ skeleton is the prerequisite, not evidence
 that any research behavior below is implemented. Follow the
 [design](design.md), [research delta](specs/news-research/spec.md) and
 [A2A delta](specs/a2a-serving/spec.md). Web/toolbox and persistent memory/Work IQ
-remain in the [PRD TODOs](../../../docs/prd-2.md#deferred-research-todos).
+remain in the [PRD TODOs](../../../../docs/prd-2.md#deferred-research-todos).
 The user's 2026-10-27 standing authorization covers Step 2.2 implementation,
 agent-only deployment and bounded paid acceptance without further approval
 prompts. Preserve local-check, owning-preview, finite-budget and verification
@@ -16,8 +16,8 @@ resources or Step 2.3 evaluation execution.
 The first live answer was a correctly cited stored excerpt but failed an
 explicit complete-summary request combined with `detail=brief`. The user
 confirmed that explicit content requests override presentation hints.
-The [initial deployment receipt](../../../docs/agent.md#research-owning-deployment-readback)
-and [failed attempt](../../../docs/agent.md#first-signed-in-research-attempt-acceptance-remains-open)
+The [initial deployment receipt](../../../../docs/agent.md#research-owning-deployment-readback)
+and [failed attempt](../../../../docs/agent.md#first-signed-in-research-attempt-acceptance-remains-open)
 remain historical evidence; task 2.5 required fresh local and owning-deployment
 verification for the amended source before further live acceptance.
 
@@ -29,10 +29,11 @@ prompt-only retry; task 2.6 tracks the verified follow-up. Repeated local and
 exact-source deployment checks, fresh inventory and a cumulative envelope
 preceded the passing six-case signed-in run. Prior consumption and unobserved
 usage remain explicit. See the
-[measured acceptance](../../../docs/agent.md#state-constrained-actual-acceptance).
+[measured acceptance](../../../../docs/agent.md#state-constrained-actual-acceptance).
 Separate implementation and measured evidence/status publication passed
-exact-SHA CI; the [delivery receipt](../../../docs/agent.md#verified-research-delivery)
-records completion. Review remains required before synchronization/archival.
+exact-SHA CI; the [delivery receipt](../../../../docs/agent.md#verified-research-delivery)
+records completion. Review passed before synchronization/archival; see the
+[archival receipt](../../../../docs/agent.md#verified-research-archival).
 The approved optional terminal period applies only to individual metadata
 comparison claims; complete-summary equality and all other independent
 evidence/citation checks remain unchanged.

@@ -30,7 +30,7 @@ Research is delivered separately below; the browser UI remains a later slice.
 Step 2.2 local implementation, the research-enabled owning deployment, actual
 signed-in research, semantic/citation review, cancellation, private telemetry and
 preservation are verified under the
-[research checklist](../openspec/changes/agent-research/tasks.md).
+[research checklist](../openspec/changes/archive/2026-10-28-agent-research/tasks.md).
 See the [actual receipt](#state-constrained-actual-acceptance).
 Implementation and separate evidence/status publication passed exact-SHA CI;
 [Step 2.2 is delivered](#verified-research-delivery). A ready deployment alone
@@ -628,7 +628,7 @@ credentials were persisted. Callback and disposable database ports are closed.
 
 Paid acceptance paused for a planning-design decision. The user chose
 state-constrained planning rather than further prompt-only tuning; the approved
-[design](../openspec/changes/agent-research/design.md#2-keep-the-model-selected-loop-application-owned-and-finite)
+[design](../openspec/changes/archive/2026-10-28-agent-research/design.md#2-keep-the-model-selected-loop-application-owned-and-finite)
 and task 2.6 track that follow-up. The failed candidate above is not relabeled.
 Tasks 2.5, 2.6, 4.1 and 4.2 remained unchecked on that failed candidate. The
 follow-up and verified delivery below do not alter its failed acceptance status.
@@ -775,11 +775,26 @@ Only after that result was task 5.2 checked. All **17 research tasks** are
 verified; **Step 2.2 is delivered**. Runtime source/image/plan provenance remains
 the independently verified binding above, not the later documentation heads.
 
-The active change remains available for review before synchronization or
-archival. Step 2.3's frozen phase-wide quality evaluations, DeepEval/Foundry
+The completed change was reviewed and archived as recorded below.
+Step 2.3's frozen phase-wide quality evaluations, DeepEval/Foundry
 integration, cost-governance refinement, deferred web/toolbox, persistent
 memory/Work IQ and the browser UI remain pending. Passing focused acceptance
 does not replace that evaluation baseline or authorize those additions.
+
+### Verified research archival
+
+The 2026-10-28 prerequisite review verified all 17 tasks, the measured local/Azure
+receipts above and passing implementation, evidence/status and final-head
+[completion CI](https://github.com/ikhemissi/newsloom/actions/runs/40655780806).
+After the user selected synchronization, all ten research requirements were
+published to the [main research contract](../openspec/specs/news-research/spec.md).
+The A2A discovery requirement was updated while preserving its original purpose
+and six other requirements. Canonical delta/main comparisons and strict main-spec
+validation passed before moving the change to its
+[dated archive](../openspec/changes/archive/2026-10-28-agent-research/proposal.md).
+Historical failures, observed costs and source/image/plan receipts remain intact.
+Archival makes no runtime, resource, permission or model change and does not
+repeat paid acceptance. Step 2.3 remains a separate delivery.
 
 ## Verified local package and protocol set
 

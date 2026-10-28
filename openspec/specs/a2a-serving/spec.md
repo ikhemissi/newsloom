@@ -11,8 +11,9 @@ A2A streaming and independently verified, state-preserving delivery.
 The service SHALL publish a standard agent card identifying its supported
 protocol version, HTTPS interface, authentication requirements and implemented
 skills. Public discovery MAY contain static service metadata, but MUST NOT
-expose news, credentials or private task state. Unsupported research, push
-notifications and UI transports MUST NOT be advertised.
+expose news, credentials or private task state. Research MUST be advertised only
+when implemented and enabled. Unsupported operations, push notifications and UI
+transports MUST NOT be advertised.
 
 #### Scenario: A compatible client discovers the service
 - **WHEN** the client retrieves the standard agent card
@@ -20,9 +21,22 @@ notifications and UI transports MUST NOT be advertised.
 - **AND** advertised streaming and skills correspond to actual server behavior
 
 #### Scenario: The skeleton has not implemented full research
-- **WHEN** a caller inspects its skills or requests an unsupported operation
+- **WHEN** research is unavailable and a caller inspects its skills or requests
+  an unsupported operation
 - **THEN** discovery describes only the implemented demonstrator and invocation
   rejects unsupported work explicitly rather than pretending to perform research
+
+#### Scenario: Bounded research is enabled
+- **WHEN** the deployed service enables the implemented research operation
+- **THEN** discovery adds its request contract and progress-then-validated-answer
+  delivery mode alongside the unchanged recent-news skill
+- **AND** it does not claim external web search, persistent memory, Work IQ or
+  completed phase-wide quality evaluations
+
+#### Scenario: Research is disabled
+- **WHEN** the research feature is not enabled
+- **THEN** the existing recent-news card/operation remains usable
+- **AND** research requests are explicitly unsupported before model or tool work
 
 ### Requirement: Agent-specific delegated authorization
 Every invocation and task operation SHALL require a signature-verified,

@@ -40,8 +40,11 @@ semantic/citation checks, private telemetry, cancellation and preservation.
 Implementation [exact-SHA CI](agent.md#verified-research-implementation-publication)
 and the separate [evidence/status CI](agent.md#verified-research-delivery) passed
 before delivery was checked. All 17 tasks are verified; the
-[active change](../openspec/changes/agent-research/proposal.md) awaits review before
-synchronization/archival. The [runbook](agent.md#state-constrained-planning-follow-up) retains
+[change is reviewed and archived](../openspec/changes/archive/2026-10-28-agent-research/proposal.md),
+with [research](../openspec/specs/news-research/spec.md) and truthful A2A
+discovery synchronized as delivered contracts. The
+[archival receipt](agent.md#verified-research-archival) records the review.
+The [runbook](agent.md#state-constrained-planning-follow-up) retains
 the failed planning attempts and the state-constrained follow-up.
 Progress precedes a validated final answer; external web enrichment and
 persistent personalization are explicitly deferred below.

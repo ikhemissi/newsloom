@@ -2,9 +2,9 @@
 
 ## Why
 
-[Step 2.1 is delivered](../../../docs/agent.md#verified-skeleton-archival), but its
+[Step 2.1 is delivered](../../../../docs/agent.md#verified-skeleton-archival), but its
 single-item briefing cannot compare news or adapt an explanation to a reader's
-question. [PRD-2 Step 2.2](../../../docs/prd-2.md#delivery-plan) should turn one
+question. [PRD-2 Step 2.2](../../../../docs/prd-2.md#delivery-plan) should turn one
 or multiple MCP news items into a bounded, cited answer tailored to preferences
 supplied in the current request.
 
@@ -36,12 +36,12 @@ supplied in the current request.
 - Preserve the delivered identity, authorization, privacy, recent-news client
   behavior, workload permissions and runtime isolation.
 - Record web enrichment and persistent preferences/memory/Work IQ as
-  [future TODOs](../../../docs/prd-2.md#deferred-research-todos), not implicit
+  [future TODOs](../../../../docs/prd-2.md#deferred-research-todos), not implicit
   capabilities of this slice. The user chose to proceed without a toolbox when
   it was not ready in the retained environment.
 
 **Prerequisites:** the
-[verified skeleton archive](../archive/2026-10-27-agent-skeleton/tasks.md#verified-archival),
+[verified skeleton archive](../2026-10-27-agent-skeleton/tasks.md#verified-archival),
 archive commit `2c160e395bf2e0106a0d910c1118292da4f48cff` and
 [passing exact-SHA CI](https://github.com/ikhemissi/newsloom/actions/runs/40559574136).
 On 2026-10-27 the user authorized Step 2.2 implementation, agent-only deployment

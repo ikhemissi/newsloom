@@ -12,6 +12,7 @@
 | Delivered enrichment and MCP contracts | [News enrichment](../openspec/specs/news-enrichment/spec.md), [MCP serving](../openspec/specs/mcp-serving/spec.md), [news search](../openspec/specs/news-search/spec.md) |
 | Delivered Phase 1 acceptance contract | [Phase acceptance](../openspec/specs/phase1-acceptance/spec.md) |
 | Delivered agent transport and identity contracts | [A2A serving](../openspec/specs/a2a-serving/spec.md), [delegated MCP access](../openspec/specs/delegated-mcp-access/spec.md) |
+| Delivered bounded research contract | [News research](../openspec/specs/news-research/spec.md) |
 | Commands and operational procedures | This guide, the [Azure bootstrap runbook](azure-bootstrap.md), and the [platform runbook](azure-platform.md) |
 | Capacity warnings and real-world input lessons | [Platform notes](platform-notes.md) |
 | AI contributor working instructions | [AGENTS.md](../AGENTS.md) |

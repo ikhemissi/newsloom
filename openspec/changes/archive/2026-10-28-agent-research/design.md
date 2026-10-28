@@ -3,11 +3,11 @@
 ## Context
 
 See [the proposal](proposal.md#why) for motivation and
-[PRD-2](../../../docs/prd-2.md) for phase ownership.
-The [delivered A2A](../../specs/a2a-serving/spec.md) and
-[delegation](../../specs/delegated-mcp-access/spec.md) contracts remain the
+[PRD-2](../../../../docs/prd-2.md) for phase ownership.
+The [delivered A2A](../../../specs/a2a-serving/spec.md) and
+[delegation](../../../specs/delegated-mcp-access/spec.md) contracts remain the
 baseline. This active change defines the extension; the
-[runbook](../../../docs/agent.md#state-constrained-actual-acceptance) owns measured
+[runbook](../../../../docs/agent.md#state-constrained-actual-acceptance) owns measured
 implementation and Azure acceptance evidence. Publication remains a separate gate.
 
 Skeleton extension points before research:
@@ -36,7 +36,7 @@ in code rather than trusting prompts; expose evidence limits honestly.
 **Non-Goals:** persistent memory, a generic workflow engine, public web access,
 raw-article retrieval, new inference authority or a quality claim based only on
 valid JSON and URLs. Deferred product work belongs to the
-[PRD TODOs](../../../docs/prd-2.md#deferred-research-todos).
+[PRD TODOs](../../../../docs/prd-2.md#deferred-research-todos).
 
 ## Decisions
 
@@ -118,9 +118,9 @@ autonomous loop would add unbounded cost and obscure request ownership.
 Prompt-only tuning was insufficient in the retained live attempts: one plan
 chose synthesis with only metadata, and a later plan attempted an unknown
 detail ID. Those failures remain recorded in the
-[runbook](../../../docs/agent.md#current-candidate-state-aware-planning-decision-remains-open).
+[runbook](../../../../docs/agent.md#current-candidate-state-aware-planning-decision-remains-open).
 The user approved state-constrained planning; the
-[follow-up receipt](../../../docs/agent.md#state-constrained-actual-acceptance)
+[follow-up receipt](../../../../docs/agent.md#state-constrained-actual-acceptance)
 records its local and actual signed-in checks without relabeling prior failures.
 
 ### 3. Extend the delegated session without changing authority
