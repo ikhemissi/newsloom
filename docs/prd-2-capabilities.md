@@ -130,5 +130,16 @@ and correctly delegated as the agent changes.
 The feasibility gate in [P2-C02](#p2-c02-secretless-access-on-behalf-of-the-user)
 is verified in Azure; see the [live delegation receipt](agent.md#status-and-scope).
 Define frozen questions and evaluation pass criteria when implementing P2-C06.
+The user's preferred Step 2.3 direction is DeepEval combined with Microsoft
+Foundry evaluations, with run results visible in Foundry's evaluations experience.
+Offline and online quality evaluation, cost management and governance are
+primary project priorities. Refine SDK/Python and secretless compatibility,
+custom-result integration, content privacy, retention, evaluator calibration,
+sampling and spend limits in that slice; no integration or Foundry evaluation
+storage is implemented or verified yet. Define an iterative improvement loop:
+classify failures, change one agent component, compare candidates against a
+versioned baseline for quality and cost, approve only passing candidates, and
+use online signals to propose reviewed regression cases rather than
+automatically changing the agent or ingesting production content.
 UI-specific transport selection belongs to
 [P3-C06](prd-3-capabilities.md#p3-c06-supported-ui-integration-and-verified-azure-hosting).

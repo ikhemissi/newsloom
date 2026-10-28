@@ -26,11 +26,729 @@ All 15 tasks are verified; only Step 2.1 is accepted. Its OpenSpec change is
 archived with the delivered A2A/delegation contracts synchronized to main specs.
 Research and the browser UI belong to later slices.
 
+Step 2.2 local implementation, the research-enabled owning deployment, actual
+signed-in research, semantic/citation review, cancellation, private telemetry and
+preservation are verified under the
+[research checklist](../openspec/changes/agent-research/tasks.md).
+See the [actual receipt](#state-constrained-actual-acceptance).
+Implementation publication and separate evidence/status CI remain pending;
+a ready deployment alone is not completed research delivery.
+
 This runbook owns commands and measured implementation facts, not another
 requirements copy. See the
 [archived design](../openspec/changes/archive/2026-10-27-agent-skeleton/design.md),
 [A2A serving contract](../openspec/specs/a2a-serving/spec.md) and
 [delegation contract](../openspec/specs/delegated-mcp-access/spec.md).
+
+## Research request contracts
+
+The additive [research DTOs](../services/agent/src/newsloom_agent/research_models.py)
+are independent of the MCP server package. The research A2A request contains one
+JSON data part, for example:
+
+```json
+{
+  "operation": "research",
+  "question": "Compare the selected announcements for an engineering audience.",
+  "item_ids": ["<stored-item-uuid>"],
+  "filters": {
+    "tags": ["agents"],
+    "from": "2026-10-20T00:00:00Z",
+    "to": "2026-10-28T00:00:00Z"
+  },
+  "preferences": {
+    "language": "English",
+    "audience": "Engineers",
+    "detail": "detailed",
+    "focus": "Operational implications supported by the stored summaries"
+  }
+}
+```
+
+Replace `<stored-item-uuid>` with a real stored item's UUID kept in private
+request input; the placeholder is not itself a valid request value.
+Selection is optional; when supplied it must contain one to five distinct UUIDs.
+Questions and language/audience/focus preferences have respective UTF-8 byte
+ceilings of 8,192 and 64/256/1,024; blank or invalid UTF-8 strings fail.
+Dates require explicit timezone-aware timestamps, normalize to UTC and use an
+inclusive lower/exclusive upper interval. Tags are whitespace-normalized,
+case-folded and deduplicated, with the same vocabulary rules as MCP.
+Unknown fields, invalid intervals and unsupported detail values fail validation.
+Preferences are request-local presentation hints, not permission or memory.
+
+Tool plans have only the four fixed MCP operation names and locally owned
+argument/result shapes. Research recent/search results allow at most five items;
+the original one-item `RecentNews` DTO is unchanged. Detail adds author, date
+origin and publisher categories, not full article text. Explicit not-found is
+different from a malformed result or failed read.
+
+The final contract contains outcome, supported claims with evidence IDs,
+limitations, missing selected IDs and coverage, never model-selected citation
+URLs. Contract validity alone does not establish semantic support or safe
+delivery: evidence membership, exact stored URLs, selection coverage and rendered
+size still require controller validation before emission. No web, full-article,
+persistent-memory or phase-wide evaluation capability is implied.
+
+Local contract validation: **51 focused cases passed**, plus **54 existing
+delegation cases**; strict types and focused lint passed. All **13 OpenSpec
+items** passed strict validation. These are local results with authored fixtures,
+not model-quality scores or Azure research acceptance.
+
+### Research delegated session
+
+The [delegation adapter](../services/agent/src/newsloom_agent/delegation.py)
+shares only the original OBO validation and fixed-endpoint transport mechanics
+with recent-news. A research request exchanges once, checks the exact same user,
+agent client and `news.read` scope, then owns one initialized MCP SDK session.
+Its lifetime is bounded by the original caller deadline and exchanged-token
+expiry, including time between operations. Every exit closes the HTTP/session
+and OBO credential; no session, discovery set or token is reused by another user.
+
+Locally typed calls support all four existing tools. Detail IDs must be selected
+or discovered in this request. Selected mode refuses discovery operations;
+not-found stays explicit and another record cannot replace the requested ID.
+Identical repeated calls and a ninth operation fail before dispatch.
+Transport accounting enforces the unchanged 128 KiB per-response bound and a
+512 KiB aggregate, including initialization, without resetting between calls.
+Caller-filter enforcement and evidence consistency remain controller work, not
+an added permission on the agent.
+
+Local validation passed **162 cases** covering research contracts/delegation,
+original delegation and MCP authorization/HTTP, plus strict types across **14
+agent source files**. The multi-call tests exercise the official MCP SDK against
+the local HTTP MCP application, not Azure. Research remains unavailable on A2A
+until its controller and default-off serving/configuration wiring are complete.
+
+### Structured research connector
+
+The [research connector](../services/agent/src/newsloom_agent/research_generation.py)
+uses the same pinned `OpenAIChatCompletionClient`, fixed endpoint/deployment,
+managed-identity bearer and no-retry HTTP client as recent-news. It sends
+non-streaming chat-completions requests with `store=false`, no tools and strict
+application-owned JSON schemas. SDK automatic tool execution is not enabled.
+Local schema normalization makes closed object properties required, translates
+the tool union to `anyOf`, and removes schema defaults/discriminators; application
+DTO validation remains authoritative. No request or model output chooses a
+schema, endpoint, credential or executable function.
+
+Research admits at most three 512-token planning calls and one 2,048-token
+synthesis, reserving final capacity before planning. Exact serialized HTTP input
+is bounded to 64 KiB per call / 256 KiB aggregate, including instructions and
+schema; raw responses retain 128 KiB per call / 512 KiB aggregate. The aggregate
+output ceiling is 4,096 tokens. All calls use the delegated request deadline.
+Usage totals accumulate only observed provider values; an unfinished call
+invalidates complete-usage coverage rather than inventing zero consumption.
+Malformed, refused, incomplete, unmetered or out-of-budget results fail without
+repair generation or another provider.
+
+Local structured/recent-news connector validation passed **56 cases**, including
+actual request/response byte boundaries through the pinned transport and
+unchanged recent-news streaming. Strict types passed for the changed connector
+and test modules. This verifies local wire compatibility, not a live provider
+quality score or Azure research acceptance.
+
+### Research evidence controller and answer validation
+
+The [controller](../services/agent/src/newsloom_agent/research.py) bootstraps
+selected details before planning, or admits bounded discovery plans. Each request
+owns immutable filters, its call history, source discovery and at most ten unique
+metadata/detail records. It refuses dropped/broadened caller constraints before
+dispatch and checks returned records against both caller and planned filters.
+Selected records outside hard filters fail rather than broadening or silently
+discarding the constraints. Conflicting metadata/detail versions, foreign IDs,
+repeated operations and aggregate overrun are explicit failures, not truncation.
+
+Only current detail records can support final citations. Discovery metadata alone
+cannot become a cited full-detail answer. Healthy empty retrieval has an explicit
+no-match response without final synthesis; a model cannot claim absence without
+any news retrieval, or turn a failed read into model-recollection success.
+Missing selected IDs and retrieval coverage are application-checked and rendered
+explicitly. Three planning turns retain a separate final-call reservation.
+
+The answer renderer resolves IDs to exact stored HTTPS URLs, refuses credentials,
+literal/encoded controls and model-authored replacement links, and bounds the
+complete UTF-8 answer plus citations and fixed evidence limitations to 16 KiB.
+Progress contains only fixed phases and safe counts. No draft answer is yielded
+before validation. Authored claim/evidence cases check supported single/multi-item
+statements separately from the structural/provenance checks; neither establishes
+the future phase-wide semantic baseline.
+
+Local component verification passed **237 cases** across research, original
+delegation/generation and real-HTTP privacy canaries, with strict types across
+**18 source/test files** and focused lint. A regression that disabled deliberately
+forced framework instrumentation inside the shared transport was caught by the
+existing privacy canary and corrected; the exporter is still exercised with
+actual sensitive automatic spans. Research serving/deployment acceptance remains
+pending.
+
+### Research A2A delivery and client
+
+The enabled service accepts one `application/json` data part using the research
+contract above. Its card adds `research` and JSON input alongside `recent-news`.
+Disabled research is absent from discovery and rejected before delegation or
+inference. Unsupported fields, attachments, extra parts and malformed inputs
+remain failures, not an invitation to interpret arbitrary conversation history.
+
+Research streams fixed progress phases/counts first. The model's plans and final
+draft are buffered privately; only the validated rendered answer becomes artifact
+chunks. This is **not live draft-token streaming**. Completed task readback must
+match the collected artifacts exactly. Read/list/cancel/context ownership and
+the original recent-news operation retain their existing controls.
+
+With the existing ignored acceptance-client environment configured, supply one
+bounded request on standard input:
+
+```bash
+printf '%s' '{"operation":"research","question":"Explain the most recent stored news.","preferences":{"detail":"brief"}}' \
+  | uv run --locked newsloom-agent verify-research
+```
+
+The command performs the existing browser PKCE flow for `news.agent`, uses the
+official A2A client and reports only bounded acceptance counts. It does not print
+the question, preferences, answer or citations. It rejects input above 64 KiB
+before authentication. The CLI is an operator verifier, not a persistent chat UI.
+
+Local validation passed **197 cases** across research A2A/client/telemetry,
+runtime/operator, original A2A/client and real-HTTP privacy tests. The research
+cases include an actual loopback official client, actual delegated MCP SDK/local
+HTTP and pinned structured model transport, validated readback, invalid citation
+failure, caller isolation, default-off admission and bounded stdin. Strict types
+passed across **19 source/test files**; package-only startup passed. These remain
+local authored responses, not Azure research or semantic-quality acceptance.
+
+### Research configuration and usage observations
+
+`AGENT_RESEARCH_ENABLED` defaults to `false`; only exact `true`/`false` values are
+accepted. The owning app's separate `research_enabled` input injects the same
+setting. Enabling research does not add resources, identities, permissions,
+models or replica capacity. It requires the already enabled agent app.
+Public discovery/startup acquires no identity tokens in either mode.
+
+After the complete local gate and retained-environment inventory, the user's
+standing Step 2.2 authorization permits the following owning update. Review the
+exact preview before applying; do not provision another layer:
+
+```bash
+AZURE_DEV_USER_AGENT=microsoft_foundry_skill azd env set AGENT_RESEARCH_ENABLED true
+AZURE_DEV_USER_AGENT=microsoft_foundry_skill uv run --locked newsloom-platform build-agent
+AZURE_DEV_USER_AGENT=microsoft_foundry_skill azd provision agent --preview --no-prompt
+# Continue only for the reviewed immutable agent app/configuration change:
+AZURE_DEV_USER_AGENT=microsoft_foundry_skill azd provision agent --no-prompt
+AZURE_DEV_USER_AGENT=microsoft_foundry_skill uv run --locked newsloom-platform verify-agent
+```
+
+To disable only research while retaining recent-news, set the flag to `false`,
+review the same app-only preview and apply it without rebuilding or provisioning
+identity/shared layers:
+
+```bash
+AZURE_DEV_USER_AGENT=microsoft_foundry_skill azd env set AGENT_RESEARCH_ENABLED false
+AZURE_DEV_USER_AGENT=microsoft_foundry_skill azd provision agent --preview --no-prompt
+AZURE_DEV_USER_AGENT=microsoft_foundry_skill azd provision agent --no-prompt
+AZURE_DEV_USER_AGENT=microsoft_foundry_skill uv run --locked newsloom-platform verify-agent
+```
+
+Immutable source binding still applies. For full app removal or a prior matching
+image/source, follow [agent-only recovery](#failure-disable-and-compatible-rollback).
+These are documented recovery paths, not a claimed live rollback drill.
+
+Research telemetry uses operation `research`, bounded aggregate generation/tool
+counts, observed input/output token totals, `usage_observed_calls` and
+`usage_complete`. If cancellation interrupts the fourth call after three metered
+turns, the three known usages remain counted while complete coverage is false;
+unknown consumption is never recorded as a metered zero. Recent-news keeps its
+original single-call token limits. No question, preference, plan, news, URL,
+draft, answer or credential is added to diagnostic attributes.
+Mocked-provider validation passed **15 owning app cases**, including default-off
+and enabled research without widening the existing 0.25 CPU/0.5 GiB profile.
+
+### Research privacy and cancellation
+
+The local HTTP canaries exercise hostile stored text and preferences, invalid
+plans/citations, OBO/MCP/provider failures, expired delegation, overload and four
+disconnected callers. Both disabled and deliberately forced sensitive framework
+instrumentation are exercised through actual exporters; absence of spans alone
+is not treated as privacy evidence. Exported diagnostics retain only fixed
+categories and bounded counts, never request/evidence/model content or tokens.
+
+Cancellation is checked during exchange, MCP, planning, final synthesis,
+progress, validation and artifact emission. A controlled stalled HTTP writer
+fills the actual eight-event queue; explicit cancellation, disconnect and
+failure must still await cleanup and retain a non-completed terminal task.
+The final task snapshot reports cancellation/failure even when its duplicate
+status notification cannot fit in a full queue.
+
+These tests found and fixed two real lifecycle faults: MCP task groups wrapped
+normal suspended-generator closure in nested exception groups, and a terminal
+cancellation notification could block behind a full queue. Normal closure is
+now normalized after SDK teardown without hiding concurrent failures; terminal
+failure/cancellation cannot wait for space in a stalled output queue.
+Local validation passed **163 lifecycle/HTTP/delegation cases**, followed by
+**22 privacy/usage cases** including the additional stalled failure/disconnect
+checks. All request-owned sessions/transports close before cancellation returns.
+This is local transport evidence, not deployed cancellation acceptance.
+
+### Complete research local gate
+
+The complete PostgreSQL-enabled `bash scripts/check.sh` gate and
+`uv build --all-packages` passed on 2026-10-27:
+
+- **1,213 tests passed**, with only the intentional live-publisher skip.
+- **131 files** passed strict types; **222 files** passed formatting and lint.
+- All six packages produced source archives and wheels; isolated runtime
+  startup, feed configuration and identifier checks passed.
+- All **13 OpenSpec items**, ten Terraform layer validations and their
+  **71 mocked-provider cases** passed.
+- Earlier attempts caught literal UUID examples and test-file Terraform
+  formatting. Both were corrected without weakening either check.
+
+Four actual local HTTP research requests ran concurrently with ten evidence
+records, seven tool operations and four model calls each. Questions and
+preferences used their byte ceilings; the largest serialized model input was
+**61,496 bytes**, and completed requests consumed **510,482 aggregate raw model
+response bytes**. Three completed; one disconnected during final synthesis and
+remained cancelled with incomplete usage explicitly identified.
+The same measured run exercised full-queue cancellation/failure/disconnect.
+Peak local process RSS, including the test runner and local MCP/A2A applications,
+was **170.20 MiB**, below the required **400 MiB** threshold for the retained
+512 MiB profile. No capacity or replica change was made.
+
+The owned PostgreSQL 18/pgvector helper was stopped/removed and its loopback
+port independently verified closed. The stress test also probes its closed
+A2A port. These are local results, not signed-in Azure research acceptance.
+The owning cloud preparation is recorded below; deployment, signed-in research,
+semantic/citation review and deployed preservation have separate checklist gates.
+
+### Research owning inventory, immutable build and preview
+
+On 2026-10-27, read-only retained-environment inspection verified **19 resources**,
+the **five other workloads**, exact agent and existing workload grants/actions,
+directory registrations/ownership/scopes/consents/federation, and all **three
+model deployments**. Their images, identities, schedules and actual pipeline
+execution histories were retained privately. An independent MCP-identity SQL
+read verified **2,091 stored news records** and retained metadata/ID/URL hashes;
+it performed no writes or model calls. Schedules remain active, so this is a
+time-correlated baseline, not a frozen-data assumption.
+
+France Central still exposes chat-capable `gpt-5.4-mini` version `2026-03-17`,
+`DataZoneStandard`, capacity **10**. Shared regional allocated/limit values were
+**110/1,000**; the unchanged deployment permits **10 requests and 10,000 tokens
+per minute**. Available regional quota does not increase that deployed rate.
+
+The official [Azure retail API](https://prices.azure.com/api/retail/prices)
+returned these current USD meters:
+
+| Retained model/SKU meter | Price |
+| --- | --- |
+| Chat Data Zone input / cached input / output | $0.825 / $0.0825 / $4.95 per million tokens |
+| `text-embedding-3-large`, regional `Standard` query embedding | $0.000158 per thousand tokens |
+
+A proposed six-request live envelope reserves at most **24 chat calls**,
+**48 MCP operations**, **1,572,864 chat input tokens** and **24,576 output tokens**.
+Conservatively treating every tool operation as an embedding search, including
+the MCP transport's existing three-attempt maximum and the 8,192-byte query
+bound, reserves **144 embedding attempts / 1,179,648 input tokens**. At the
+uncached meters this is approximately **$1.61** of model usage, excluding
+build/compute and unrelated scheduled work. This is a conservative planning
+estimate, not an invoice or prepaid dollar cap; actual acceptance still needs
+an enforced case/time envelope, quota-aware pacing and observed usage.
+Unobserved cancelled or retried consumption must not be reported as zero.
+
+Under the user's standing Step 2.2 authorization, only `build-agent` ran.
+The immutable build input is
+`e0acc67e766c1df2e663c1a9319ebd4a56d0f3f2b05bcd06f643003f20a73704`;
+its image digest is
+`sha256:79972c1b724a9a893edb303d322aa05686a01f1bb7ff8c6f3058258206b0144d`.
+Native `azd provision agent --preview --no-prompt` succeeded with **zero
+additions, one in-place change and zero deletions**. Independent JSON-plan
+review verified that only the agent image, runtime source revision and
+`AGENT_RESEARCH_ENABLED=true` change; every other known resource setting is
+unchanged. The exact binary plan/configuration and prior compatible deployment
+were retained privately. Its SHA-256 is
+`d4b5b867cb480b432a99f62ae70ca69af73a0a91f06563b409294e112263e9be`.
+No project, toolbox, model, capacity or grant was added. This preview is not an
+apply, ready-revision receipt or signed-in research result.
+
+### Research owning deployment readback
+
+The reviewed native `azd provision agent --no-prompt` completed on 2026-10-27:
+**zero added, one changed, zero destroyed**. Independent `verify-agent` and ARM
+readback verified the latest revision is actually ready, with the reviewed
+immutable image/source, exact trusted configuration, sole managed identity,
+unchanged probes, ingress, scale and **0.25 CPU / 0.5 GiB** profile.
+
+The public card truthfully advertises both implemented skills and research's
+validated delivery mode; liveness passed. Missing and deliberately invalid
+bearers both returned **401** with authentication challenges, without tool or
+model work. Fresh inventory independently matched all **19 resources**, the
+**five other workloads'** images/identities/configuration/schedules, all **three
+models** and the model account, every workload grant/custom action, and directory
+registrations/consents/federation against the pre-update snapshots.
+No project, toolbox, capacity, grant or other workload changed.
+The disposable local database helper was stopped/removed and its port verified
+closed.
+
+This verifies the owning deployment only: **no signed-in research request or
+paid inference was executed by these readbacks**. Actual multi-step user
+delegation, semantic/citation review, cancellation, private telemetry and final
+data/history preservation remain separate unchecked acceptance gates.
+
+### First signed-in research attempt: acceptance remains open
+
+On 2026-10-27, the bounded six-case client completed browser PKCE sign-in and
+executed **one** selected-item request against the research-enabled revision.
+The A2A stream completed with validated artifact/readback parity and preserved
+the originating user. The independently recovered terminal receipt reports
+**one tool operation, two model calls, 2,529 input tokens and 106 output tokens**,
+with usage observed for both calls.
+
+The independent acceptance checker rejected the answer because the authored
+question requested the entire exact summary, while the request also specified
+`detail=brief`. Read-only caller-owned task readback and independent MCP-identity
+SQL inspection, without another generation, established that its **151-character
+claim is a verbatim contiguous excerpt** of the **405-character stored summary**,
+and its citation is the **exact stored URL**. Thus the failure establishes
+shortening of an explicit full-summary request, not an unsupported factual claim
+or fabricated citation. No production question, summary, answer, URL or token
+was persisted by this inspection.
+
+The first failure receipt retained incomplete usage conservatively because
+verification stopped before its accounting update. The separate terminal
+readback recovered the actual observed totals above; the checker now accounts
+for a completed invocation before reviewing its answer. The uncached chat-meter
+estimate is **$0.002611125**, not an invoice; the single detail lookup does not
+perform query embedding.
+
+The other five live cases were **not executed**, and neither live acceptance
+task is checked. The user subsequently confirmed that explicit content and
+quotation requirements override presentation hints such as brevity.
+The trusted planning/synthesis instructions now express that priority without
+changing evidence availability, filters, permissions or budgets. Three focused
+wire regressions cover the complete-summary/brief conflict, ordinary brevity and
+unavailable full articles. Authored responses prove instruction placement and
+typed delivery, not actual model obedience. The subsequent exact-source
+deployment and bounded rerun are recorded below. The failed full-summary
+instruction is not relabeled as passing. Publication and archival remain blocked.
+
+### Content-priority follow-up: local and owning gates
+
+The confirmed priority rule is implemented in the trusted instructions used by
+both structured planning and synthesis. Its three wire tests first failed on
+the missing rule, then passed without changing caller controls or generation
+limits. **123 focused cases** passed. The amended source passed the complete
+PostgreSQL-enabled `bash scripts/check.sh` and all six package builds:
+**1,216 tests passed / one intentional live-publisher skip**, **131 strictly
+typed files**, **222 formatted files**, **13 strict OpenSpec items**, ten
+Terraform validations and **71 mocked-provider cases**. Repeating the four
+near-limit concurrency/full-queue cases measured **170.34 MiB** peak RSS.
+The owned database helper was stopped/removed and its port verified closed.
+
+Fresh retained-state inventory verified the same **19 resources**, **five other
+workloads**, directory/grant boundaries and **three model deployments**; an
+independent read-only baseline counted **2,094 news records**. Current regional
+model meters and the unchanged **10 requests / 10,000 chat tokens per minute**
+deployment limit were rechecked. This does not assume scheduled data froze.
+
+Only the agent was rebuilt. The amended source is
+`b94d9a9a207303ffdd682ef62e94932988bf02c5df18dc348eeb83c23f572491`;
+the immutable image digest is
+`sha256:6abfa97a7612c4c3bd02bb6ca14e9c9156d7afa3255d1031c9c75be9f3da776e`.
+The independently reviewed native preview changed **only image and runtime
+source revision**, with **zero additions, one in-place change and zero
+deletions**. Its privately retained binary plan has SHA-256
+`34fd6d718a9a4ee3bb77e09d2b04ed9bbea869c9f44f43b6f5cccca9db3a43db`.
+The agent-only native apply succeeded. Initial readiness verification
+correctly rejected a latest revision that was not ready yet; image/source,
+configuration and profile already matched. After the observed activation delay,
+the unchanged full readiness predicate passed, followed by public card/liveness/
+authorization guards and independent workload/resource/model/grant/consent/
+schedule preservation. No capacity, grant, toolbox, project or other workload
+changed.
+
+The next finite live run permits at most **six new requests**. Including the
+first attempt's recovered actual usage, the cumulative envelope is **seven
+requests, 26 chat calls, 49 tool operations, 1,575,393 chat input tokens and
+24,682 chat output tokens**. Query embedding retains the conservative **144
+attempts / 1,179,648 tokens** reservation. The current uncached model-meter
+estimate remains approximately **$1.61**, not a bill or prepaid cap, and excludes
+build/compute/unrelated scheduled work. The runner limits wall time to
+**30 minutes**, spaces requests by at least **70 seconds**, and avoids scheduled
+pipeline startup/active enrichment before admitting another request. Cancelled
+consumption remains unknown when usage is not observed. The exact complete-
+summary conflict must pass; no shortened excerpt is accepted in its place.
+Final acceptance remains unchecked.
+
+### Content-priority live rerun: comparison check remains blocked
+
+The amended revision's signed-in rerun began at **21:56 UTC on 2026-10-27**.
+Its selected single-item case passed the unchanged independent **entire stored
+summary** comparison despite `detail=brief`, with the exact stored citation,
+same-user delegation and validated artifact/completed-readback parity. It used
+**two model calls, one tool operation, 2,563 input tokens and 142 output tokens**.
+This is actual model evidence for the priority fix, not an authored fixture.
+
+The second request completed with two selected-item reads and validated
+artifact/readback parity, but its independent comparison checker failed the
+literal metadata template. Zero-new-inference caller-owned readback and
+memory-only independent SQL diagnostics found the expected source/category
+values in both individual claims and exact corresponding stored citations.
+Both metadata lines lack the requested final period and are one character
+shorter than their expected literal templates. The two-record category
+comparison matches its expected literal statement. This does not establish
+fabricated facts or citations; the strict format failure is retained, not
+silently converted into a pass. Execution paused for an explicit formatting
+decision before changing the checker or executing another paid run.
+
+Only **two** of the six new cases executed. Their observed completed usage was
+**four model calls, three tool operations, 6,204 input tokens and 333 output
+tokens**. Including the first failed attempt, the recovered completed totals
+are **six model calls, four tool operations, 8,733 input tokens and 439 output
+tokens**, approximately **$0.009377775** at the uncached chat meters, excluding
+compute/build and unrelated work. These selected-item reads perform no query
+embedding. Discovery/search, missing-item, absent-full-article and cancellation
+were not executed in this rerun. No automatic retry followed the failure.
+
+Actual probes under the amended agent workload identity independently verified
+nondelegated MCP denial (**403**), embedding/screening/Responses denial
+(**401**), management read/list-keys denial (**403**) and own/MCP/admin database
+role denial (**28P01/28000**, zero SQL queries sent). No grants or workload
+configuration changed. Current-revision research telemetry/cancellation and
+final data/history preservation remain unverified. Callback and disposable
+database ports were verified closed. Tasks 2.5, 4.1 and 4.2 remain unchecked;
+publication and archival remain blocked.
+
+The user subsequently confirmed that **only the final period on an individual
+metadata claim is optional**. The independent checker accepts the exact
+source/category template with or without that one period; all values, citations,
+record coverage, comparison wording and complete-summary equality remain
+strict. **13 checker regressions** pass, including rejection of invented values,
+wrong citations, altered comparison claims, other formatting changes and shortened
+summaries. The prior failed check remains retained. No runtime source, immutable
+image, deployment, authority or budget limit changed.
+
+A continuation permits **five new requests**, retrying comparison and executing
+discovery/search, missing-item, absent-full-article and cancellation. The already
+passed complete-summary/brief case is not repeated. Including all three prior
+requests and recovered usage, the cumulative envelope is **eight requests,
+26 chat calls, 44 tool operations, 1,319,453 chat input tokens and 20,919 chat
+output tokens**, plus **120 embedding attempts / 983,040 embedding tokens**.
+Its conservative current model-meter envelope is **$1.35**, excluding compute/
+build and unrelated work; the same 30-minute wall limit and shared-pipeline
+pacing apply. These are execution bounds, not actual consumption or a bill.
+
+### Discovery prerequisite follow-up
+
+The continuation's comparison passed with **three independently supported
+claims, two exact citations**, same-user multi-call delegation and completed
+readback parity. Constrained search then failed explicitly with
+`research_missing_detail`: search returned metadata, but the next model plan
+chose synthesis before requesting detail. The controller refused that plan
+rather than answering from metadata or model recollection. Authenticated
+aggregate telemetry recovered **two model calls, one tool operation, 2,435 input
+tokens and 129 output tokens**, with both usages observed. No retry or successful
+answer is inferred from this failure; the remaining three cases did not execute.
+
+Two wire regressions first failed on the missing trusted discovery prerequisite.
+Trusted instructions now distinguish search/recent metadata from detail evidence
+and require a relevant discovered `get_news_item` plan before synthesis when
+detail evidence is empty, within unchanged budgets. These authored wire tests
+prove instruction delivery, not actual model compliance. **90 focused cases**
+passed, followed by the complete PostgreSQL-enabled primary gate and all six
+package builds: **1,218 tests / one intentional skip**, **131 typed files**,
+**222 formatted files**, **13 strict OpenSpec items**, ten Terraform validations
+and **71 mocked-provider cases**. Four near-limit/full-queue cases measured
+**170.59 MiB** peak RSS. The owned database was stopped/removed and its port and
+the callback port were verified closed.
+
+Fresh retained-state inventory passed before the agent-only immutable build.
+The new source is
+`b28cd3c4dbf63c33cdcf4e8be8d06847bc36df556896170a89113343e294a362`;
+its image is
+`sha256:0db092840269971a790948b1a483a50de5c6d97c505953b044f395f925b8001f`.
+Independent review of native plan
+`2d712d888e63797df6d50f1c6338c133fb7325bd27b767970c0851e20c1de17a`
+verified **zero additions, one in-place change, zero deletions**, changing only
+the image and runtime source revision. Native apply succeeded. An initial
+readiness mismatch remains retained; the unchanged full readiness/configuration/
+identity/image and preservation checks subsequently passed at **22:30:50 UTC**.
+The 19 resources, five other workloads, three models, grants and schedules remain
+unchanged.
+
+Preliminary Entra-authenticated telemetry inspection retained a checker failure:
+it initially treated the SDK's `_APPRESOURCEPREVIEW_` resource marker as an
+application metric. Follow-up queries separately verified its exact two-key
+shape, fixed service, bound Application Insights application ID and zero metric
+value; application-metric allowlists were not broadened. Research span names and
+dimension keys, all eight application metric shapes and JSON console keys passed.
+Boolean usage fields are checked as booleans, not case-sensitive strings.
+Cancellation and current-candidate research telemetry remain pending.
+
+A fresh full six-case run on the new candidate includes all earlier **five**
+requests and recovered observed usage in its cumulative envelope: **11 requests,
+34 chat calls, 55 tool operations, 1,587,673 chat input tokens and 25,335 chat
+output tokens**. Including three conservatively reserved embedding attempts for
+the prior successful search, the total embedding reservation is **147 attempts /
+1,204,224 input tokens**. The conservative model-meter envelope is **$1.63**,
+excluding build/compute/unrelated pipelines, with the same finite wall limit
+and quota-aware pacing. All previous failed attempts remain failed, and live
+acceptance/publication remain unchecked.
+
+### Current candidate: state-aware planning decision remains open
+
+The new full run again passed the exact complete-summary/brief conflict and
+the two-item comparison, with independently supported claims/citations and
+completed readback parity. Discovery then failed explicitly with
+`research_unknown_item`. The controller executed one permitted read from the
+first model plan, then encountered a detail argument whose ID was not known to
+the request.
+The controller rejected that argument before another MCP operation or a final
+answer. Authenticated telemetry recovered **one model call, one tool operation,
+1,108 input tokens and 147 output tokens**, with usage observed. This is a
+different planning failure from the earlier premature-synthesis failure;
+the trusted prerequisite text alone has not established reliable discovery.
+
+The run stopped after **three** of six cases. Missing-item, absent-full-article
+and cancellation cases were not executed. Across all **eight actual requests**,
+recovered observed chat totals are **15 model calls, 11 tool operations, 22,293
+input tokens and 1,239 output tokens**, approximately **$0.024524775** at uncached
+chat meters. This excludes embedding, compute/build and unrelated work; embedding
+transport attempts/consumption were not independently observed and are not zero.
+No automatic paid retry followed the failure.
+
+Current-candidate workload denials passed under the actual bound identity.
+Entra-authenticated telemetry found **two successful and one failed research
+execution**, the expected private trace/metric shapes and a JSON console record
+with no unexpected fields. No cancellation was executed or inferred. Independent
+MCP-identity SQL before/after found **2,097 records**, identical whole-news
+metadata fingerprints and identical latest-ID/URL hashes. The three follow-up
+runs began with the same selected-evidence fingerprint; no source content or
+credentials were persisted. Callback and disposable database ports are closed.
+
+Paid acceptance paused for a planning-design decision. The user chose
+state-constrained planning rather than further prompt-only tuning; the approved
+[design](../openspec/changes/agent-research/design.md#2-keep-the-model-selected-loop-application-owned-and-finite)
+and task 2.6 track that follow-up. The failed candidate above is not relabeled.
+Tasks 2.5, 2.6, 4.1 and 4.2 remain unchecked; implementation publication, delivery
+and archival remain blocked.
+
+### State-constrained planning follow-up
+
+The local controller now snapshots request-owned evidence, completed calls and
+remaining tool allowance before each planning turn. A frozen typed scope drives
+the closed model schema and independent whole-plan validation. Detail choices
+contain only eligible IDs known at turn start; unavailable tools and synthesis
+states are omitted. Independent batches remain sequential, but discovery and
+dependent detail reads require separate turns. Selected-item mode remains
+application-bootstrapped, with no discovery substitution.
+
+Synthesis is admitted with detail evidence, or stopping after healthy empty news
+retrieval for controller-generated no-match without final generation. A source
+listing alone cannot authorize absence. Every returned plan is checked against
+its frozen scope and all existing call guards before any of its calls executes;
+the original per-call checks remain active during dispatch. Invalid plans fail
+explicitly without partial dispatch, ID substitution, repair, retries or widened
+budgets. Schemas containing request-local IDs remain excluded from diagnostics.
+
+New regressions first reproduced unrestricted detail/synthesis schemas,
+dependent-ID admission and invalid-later-call partial dispatch. The complete
+PostgreSQL-enabled primary gate passed **1,234 tests / one intentional skip**,
+131 typed files, 222 formatted files, 13 strict OpenSpec items, ten Terraform
+validations and **81 mocked-provider cases**, followed by all six package
+builds. Four near-limit concurrent requests plus three full-eight-event-queue
+cleanup cases passed at **170.43 MiB peak RSS**, below 400 MiB on the unchanged
+profile. The owned disposable PostgreSQL instance was removed and its port
+verified closed. Pylance found no syntax errors and all 14 generator plan call
+sites were compatible. The 13 independent semantic-checker regressions passed
+without relaxing full-summary or citation checks.
+
+Local scripted responses establish wire shape and enforcement, not actual model
+obedience or semantic quality.
+
+Fresh inventory and current regional retail/quota checks passed before the
+agent-only build. The follow-up's source is
+`e338ee7ca7a08a55a586687e833dfcccaa82cd75ce5cba963ffb485dbd639651`;
+the immutable image is
+`sha256:a42d1d596a609075528e1752376715614ab90a9c035f54f30c1816bccde29e7c`.
+The independently reviewed binary plan hash is
+`3fb65395b982403e082ebb804865e7a531f87d95b4bf4447c7c0a17f232268ed`:
+**zero additions, one in-place agent change, zero deletions**, changing only
+the image and runtime source revision. Native owning apply succeeded.
+Initial readback retained a latest-not-ready failure; unchanged full predicates
+passed after activation at **2026-10-28 07:35:53 UTC**. The ready candidate,
+public card/authorization guards, all 19 resources, five other workloads, three
+models, grants, consent, identity and schedules passed independent preservation.
+
+Actual bound-identity denials passed again: nondelegated MCP and management
+read/listKeys were denied with 403; embeddings, screening and Responses with
+401. Own, MCP-role and administrator database attempts were denied before any
+SQL query. Independent MCP-identity SQL before live acceptance found **2,101
+records**; the overnight increase is not treated as an agent write or a frozen
+data-count failure. Counts and fingerprints only were retained.
+
+A fresh six-request live envelope retains all eight prior requests and their
+15 observed model calls, 11 tool operations, 22,293 input and 1,239 output tokens.
+It reserves 24 additional model calls, 48 MCP operations and 144 possible
+embedding transport attempts, plus six prior embedding attempts reserved but
+not observed. The cumulative uncached-meter estimate is **$1.64**, not an
+invoice or prepaid cap, and excludes compute/build and unrelated scheduled work.
+Actual signed-in acceptance for this follow-up is recorded below.
+
+### State-constrained actual acceptance
+
+The first sign-in attempt timed out before any research request or model work.
+After the user chose to reopen authentication, PKCE completed and the unchanged
+six-case envelope passed against the verified source/image. The authentication
+failure remains retained; no failed paid case was retried or waived.
+
+| Actual case | Model calls | MCP operations | Independent outcome |
+| --- | --- | --- | --- |
+| Complete stored summary with brief preference | 2 | 1 | Entire summary and exact stored citation matched |
+| Two selected items compared by metadata | 2 | 2 | Three supported claims, two exact corresponding citations |
+| Constrained semantic search, then detail and synthesis | 4 | 2 | Entire discovered summary and exact stored citation matched |
+| Missing selected item | 0 | 1 | Honest no-match; no claims, citations or generation |
+| Unavailable full article | 2 | 1 | Exact honest limitation; no invented claim or citation |
+| Cancellation during planning | 1 admitted, usage unobserved | 1 | Cancelled readback, no artifact or completed state |
+
+All five completed requests preserved the originating user, emitted safe
+progress before validated artifacts and matched completed readback exactly.
+Discovery used separate search/detail turns and legal final synthesis with the
+actual pinned strict-schema connector. This verifies the focused case, not
+reliable behavior on all questions or a phase-wide quality score. Cancellation
+acknowledgment/awaited cleanup took **0.123 seconds**; its consumption remains
+unknown, not zero.
+
+The five completed requests observed **10 model calls, seven MCP operations,
+12,593 input tokens and 638 output tokens**, approximately **$0.01354732** at
+uncached chat meters. Across all 14 research requests, 25 metered model calls
+account for **34,886 input / 1,877 output tokens**, approximately **$0.03807210**.
+One additional planning call was admitted for cancellation with no usage
+observed. These estimates exclude query embeddings, cancellation consumption,
+compute/build and unrelated scheduled work; they are not invoices.
+
+Entra-authenticated telemetry independently found **five successful research
+executions, one cancellation and zero research failures** on this candidate.
+Every trace name/dimension, all eight application metric shapes, the separately
+validated SDK resource marker and four JSON console records passed the unchanged
+privacy allowlists. No question, preference, plan/schema IDs, article text, URL,
+answer or credential values were returned by the verification queries.
+The zero-generation no-match record does not establish metered usage; the
+separate cancellation record explicitly retains incomplete coverage.
+
+Independent MCP-identity SQL before/after found **2,101 records** with identical
+whole-news metadata and latest-ID/URL fingerprints. The selected-record
+fingerprint also matched after all six cases. Time-correlated execution history
+showed successful ingestion/enrichment at the preserved **07:30 and 08:00 UTC**
+schedule boundaries, with no new migration or phase-acceptance execution.
+No data was restored, deleted or modified by acceptance.
+
+One final ARM read command failed; an isolated read then succeeded, followed by
+the unchanged complete verifier at **2026-10-28 08:06:24 UTC**. The failed read
+receipt remains retained without guessing its cause. Final source/image,
+readiness, public guards, all resources, other workloads, grants/consents,
+models/capacities and schedules matched the reviewed boundaries. Actual
+bound-identity denials above remain verified. The owned database and callback
+ports are closed. Runtime acceptance is complete; implementation publication,
+separate evidence/status CI and archival remain pending.
 
 ## Verified local package and protocol set
 
@@ -641,6 +1359,7 @@ privately before an update.
 For an approved emergency disable, remove **only the owning app**:
 
 ```bash
+azd env set AGENT_RESEARCH_ENABLED false
 azd env set AGENT_ENABLED false
 azd provision agent --preview
 # Proceed only if this removes the agent app and nothing else:

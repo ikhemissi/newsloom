@@ -2,6 +2,14 @@ variable "enabled" {
   type    = bool
   default = false
 }
+variable "research_enabled" {
+  type    = bool
+  default = false
+  validation {
+    condition     = !var.research_enabled || var.enabled
+    error_message = "Research requires the explicitly enabled owning agent app."
+  }
+}
 variable "subscription_id" {
   type = string
 }

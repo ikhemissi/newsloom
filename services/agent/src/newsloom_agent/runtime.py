@@ -15,6 +15,8 @@ from newsloom_agent.app import create_app
 from newsloom_agent.auth import AgentVerifier
 from newsloom_agent.delegation import DelegatedMcp, DelegationConfig
 from newsloom_agent.generation import FoundryGenerator, GenerationConfig
+from newsloom_agent.research import ResearchController
+from newsloom_agent.research_generation import FoundryResearchGenerator
 from newsloom_agent.telemetry import Telemetry
 
 
@@ -25,6 +27,18 @@ class Config(DelegationConfig):
     generation: GenerationConfig
     telemetry_routing: str = Field(min_length=1, repr=False)
     allowed_origins: tuple[str, ...] = ()
+    research_enabled: bool = False
+
+    @field_validator("research_enabled", mode="before")
+    @classmethod
+    def explicit_research_setting(cls, value: object) -> bool:
+        if type(value) is bool:
+            return value
+        if value == "true":
+            return True
+        if value == "false":
+            return False
+        raise ValueError("invalid_agent_research_enabled_setting")
 
     @field_validator("resource_url")
     @classmethod
@@ -81,6 +95,7 @@ class Config(DelegationConfig):
                     "deployment": env["AGENT_CHAT_DEPLOYMENT"],
                 },
                 "telemetry_routing": env["APPLICATIONINSIGHTS_CONNECTION_STRING"],
+                "research_enabled": env.get("AGENT_RESEARCH_ENABLED", "false"),
                 "allowed_origins": tuple(
                     filter(None, env.get("AGENT_ALLOWED_ORIGINS", "").split(","))
                 ),
@@ -96,13 +111,21 @@ async def application(config: Config) -> AsyncIterator[ASGIApp]:
     ):
         telemetry = Telemetry(config.telemetry_routing, str(config.identity_client_id))
         try:
+            reader = DelegatedMcp(config, credential, client)
             yield create_app(
-                DelegatedMcp(config, credential, client),
+                reader,
                 AgentVerifier(client, config.tenant, config.agent_client_id),
                 public_url=config.resource_url,
                 allowed_origins=config.allowed_origins,
                 generator=FoundryGenerator(config.generation, credential),
                 observer=telemetry,
+                research=(
+                    ResearchController(
+                        reader, FoundryResearchGenerator(config.generation, credential)
+                    )
+                    if config.research_enabled
+                    else None
+                ),
             )
         finally:
             await asyncio.to_thread(telemetry.close)

@@ -32,6 +32,7 @@ def test_runtime_uses_only_explicit_trusted_configuration(
     assert str(config.identity_client_id) == runtime_environment["AZURE_CLIENT_ID"]
     assert str(config.agent_client_id) == runtime_environment["AGENT_API_CLIENT_ID"]
     assert config.allowed_origins == ()
+    assert not config.research_enabled
     assert config.scope == f"api://{runtime_environment['MCP_API_CLIENT_ID']}/.default"
     assert config.generation.deployment == "existing-chat"
     assert "PRIVATE_ROUTING_CANARY" not in repr(config)
@@ -55,6 +56,11 @@ def test_runtime_uses_only_explicit_trusted_configuration(
         ("MODEL_ENDPOINT", "https://untrusted.invalid"),
         ("AGENT_CHAT_DEPLOYMENT", "https://untrusted.invalid"),
         ("APPLICATIONINSIGHTS_CONNECTION_STRING", ""),
+        ("AGENT_RESEARCH_ENABLED", ""),
+        ("AGENT_RESEARCH_ENABLED", "TRUE"),
+        ("AGENT_RESEARCH_ENABLED", "1"),
+        ("AGENT_RESEARCH_ENABLED", "yes"),
+        ("AGENT_RESEARCH_ENABLED", "false "),
     ],
 )
 def test_invalid_runtime_configuration_never_creates_a_credential(
@@ -64,9 +70,11 @@ def test_invalid_runtime_configuration_never_creates_a_credential(
         Config.from_environment({**runtime_environment, field: value})
 
 
+@pytest.mark.parametrize("research", [False, True])
 async def test_runtime_closes_own_mi_and_public_discovery_does_not_acquire_tokens(
-    runtime_environment: dict[str, str], monkeypatch: pytest.MonkeyPatch
+    runtime_environment: dict[str, str], monkeypatch: pytest.MonkeyPatch, research: bool
 ) -> None:
+    runtime_environment["AGENT_RESEARCH_ENABLED"] = str(research).lower()
     workload = Workload()
     selected: list[str] = []
 
@@ -104,6 +112,9 @@ async def test_runtime_closes_own_mi_and_public_discovery_does_not_acquire_token
         assert (await http.get("/health/live")).status_code == 200
         card = await http.get("/.well-known/agent-card.json")
         assert card.status_code == 200 and card.json()["capabilities"]["streaming"]
+        assert [skill["id"] for skill in card.json()["skills"]] == (
+            ["recent-news", "research"] if research else ["recent-news"]
+        )
         assert (await http.post("/a2a", json={})).status_code == 401
         assert workload.scopes == []
         assert selected == [runtime_environment["AZURE_CLIENT_ID"]]

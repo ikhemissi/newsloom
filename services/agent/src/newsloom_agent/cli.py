@@ -2,6 +2,7 @@
 
 import argparse
 import asyncio
+import sys
 from importlib import import_module
 from typing import Never
 
@@ -45,11 +46,30 @@ def main() -> None:
     try:
         parser = Parser(description=__doc__)
         parser.add_argument(
-            "command", choices=["check-runtime", "serve", "verify-delegation", "verify-streaming"]
+            "command",
+            choices=[
+                "check-runtime",
+                "serve",
+                "verify-delegation",
+                "verify-streaming",
+                "verify-research",
+            ],
         )
         args = parser.parse_args()
         if args.command == "serve":
             asyncio.run(serve())
+            return
+        if args.command == "verify-research":
+            from newsloom_agent.app import MAX_BODY_BYTES
+            from newsloom_agent.client import verify_research
+            from newsloom_agent.research_models import ResearchRequest
+
+            body = sys.stdin.buffer.read(MAX_BODY_BYTES + 1)
+            if len(body) > MAX_BODY_BYTES:
+                raise AgentFailure("research_request_limit")
+            request = ResearchRequest.model_validate_json(body)
+            counts = asyncio.run(verify_research(request))
+            event("agent_research_acceptance", "", outcome="success", counts=counts)
             return
         if args.command in ("verify-delegation", "verify-streaming"):
             from newsloom_agent.client import verify_delegation

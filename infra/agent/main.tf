@@ -12,6 +12,7 @@ locals {
     AGENT_RESOURCE_URL     = local.resource_url
     AGENT_ALLOWED_ORIGINS  = join(",", sort(tolist(var.allowed_origins)))
     AGENT_RUNTIME_REVISION = var.image_revision
+    AGENT_RESEARCH_ENABLED = tostring(var.research_enabled)
     MCP_API_CLIENT_ID      = var.mcp_api_client_id
     MCP_RESOURCE_URL       = var.mcp_resource_url
     MODEL_ENDPOINT         = var.model_endpoint

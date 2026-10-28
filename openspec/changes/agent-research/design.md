@@ -6,11 +6,13 @@ See [the proposal](proposal.md#why) for motivation and
 [PRD-2](../../../docs/prd-2.md) for phase ownership.
 The [delivered A2A](../../specs/a2a-serving/spec.md) and
 [delegation](../../specs/delegated-mcp-access/spec.md) contracts remain the
-baseline. This design is proposed, not implemented or Azure-verified.
+baseline. This active change defines the extension; the
+[runbook](../../../docs/agent.md#state-constrained-actual-acceptance) owns measured
+implementation and Azure acceptance evidence. Publication remains a separate gate.
 
-Observed extension points:
+Skeleton extension points before research:
 
-- The agent currently accepts the literal `recent-news`, reads exactly one item
+- The skeleton accepts the literal `recent-news`, reads exactly one item
   through `DelegatedMcp.recent`, and uses `RecentNews(max_length=1)`.
   `RecentAgent`, the card and the PKCE client all enforce that fixed shape.
 - `FoundryGenerator` uses the pinned official chat-completions connector with
@@ -55,6 +57,14 @@ missing selected items. If no selection is provided, allow constrained discovery
 recent browsing and search. Filters remain authoritative in both modes.
 Preferences affect presentation only; language/audience/focus strings have finite
 lengths, and detail is an explicit brief/detailed choice.
+Explicit content and quotation requirements in the question take precedence
+over these presentation preferences. In particular, `detail=brief` must not
+silently excerpt or paraphrase an explicitly requested complete stored summary.
+This priority never changes caller filters, evidence availability, permissions
+or budgets: unavailable full articles remain unavailable, and a request that
+cannot fit the existing limits must fail explicitly rather than silently omit
+required content. The user confirmed this priority after the first live
+full-summary/brief conflict; its failed acceptance receipt remains retained.
 Do not derive persistent preferences from prior tasks or treat context IDs as
 conversation memory. A new request retrieves its own evidence again.
 
@@ -73,6 +83,27 @@ executable code, endpoint configuration or a free-form reasoning transcript.
 Disable provider/SDK retries and automatic tool invocation. Validate the pinned
 connector's structured-response wire shape with local transports first.
 
+For each planning turn, derive a frozen typed scope from validated request and
+evidence state plus remaining budgets, never from instructions in questions,
+preferences or retrieved strings. Build the closed planning schema from that
+application-owned scope. Detail-ID choices must be known before the turn starts;
+omit detail lookup when no legal known IDs exist. Preserve independent call
+batches, but require a later planning turn for detail calls that depend on newly
+discovered IDs. A placeholder or predicted ID cannot stand in for a tool result.
+
+Permit synthesis when detail evidence is available, or permit stopping after a
+healthy empty retrieval so the controller returns no-match without final
+generation. Metadata or a source listing alone cannot justify synthesis.
+Budget exhaustion must still fail explicitly when required detail is missing;
+state-constrained planning neither expands the profile nor manufactures evidence.
+
+Validate the complete returned plan against the same frozen scope before
+dispatching any call from it. Retain every existing per-call authorization,
+selection, filter, duplicate and budget guard independently of provider schema
+enforcement. Invalid or provider-nonconforming plans fail explicitly, without ID
+substitution, repair generation, retries or widened budgets. Request-local
+schemas and known IDs remain excluded from diagnostics.
+
 The dispatcher owns the tool allowlist and copies immutable caller constraints
 into reads. Refuse attempted constraint relaxation rather than silently relaxing,
 clamping or retrying. Model-selected detail IDs must be selected by the caller
@@ -84,6 +115,13 @@ authority.
 **Alternative:** a deterministic retrieval pipeline would give less control over
 which discovery/search/detail steps help a particular question. A general
 autonomous loop would add unbounded cost and obscure request ownership.
+Prompt-only tuning was insufficient in the retained live attempts: one plan
+chose synthesis with only metadata, and a later plan attempted an unknown
+detail ID. Those failures remain recorded in the
+[runbook](../../../docs/agent.md#current-candidate-state-aware-planning-decision-remains-open).
+The user approved state-constrained planning; the
+[follow-up receipt](../../../docs/agent.md#state-constrained-actual-acceptance)
+records its local and actual signed-in checks without relabeling prior failures.
 
 ### 3. Extend the delegated session without changing authority
 
@@ -134,7 +172,7 @@ No evidence after a healthy retrieval produces explicit absence without a
 final model call. Invalid plans or incomplete outputs fail without self-repair.
 Unknown cancelled usage remains unknown, never recorded as zero.
 
-Before cloud approval, measure peak RSS with four simultaneous near-limit
+Before cloud execution, measure peak RSS with four simultaneous near-limit
 requests; require it below 400 MiB on the existing 512 MiB replica and verify
 cancellation/backpressure. Stop for review rather than resizing or weakening
 limits if the profile cannot pass. Price both chat turns and possible MCP-side
@@ -197,7 +235,7 @@ validated delivery. A separate durable task service is unnecessary here.
   around the request and actual time-correlated pipeline history, not an
   overnight frozen-count assumption.
 - **More turns add latency/cost and memory:** enforce the profile; verify local
-  concurrency and current chat/embedding quota before approving any live run.
+  concurrency and current chat/embedding quota before executing any live run.
 
 ## Migration Plan
 
@@ -209,10 +247,12 @@ validated delivery. A separate durable task service is unnecessary here.
    citation/constraint cases, the complete primary gate and all workspace builds.
 3. Inventory the unchanged environment, actual grants/model availability/quotas,
    resource/workload/schedule/data baselines and metered request envelope.
-   Obtain separate approval for one immutable build and native agent-only preview,
-   then separate approval for its exact apply. No shared or MCP image update.
-4. After readiness/image/configuration readback, separately approve a small live
-   signed-in acceptance envelope covering selected single/multi-item research,
+   Under the user's 2026-10-27 standing Step 2.2 authorization, execute one
+   immutable build and native agent-only preview, review the exact change set,
+   then apply only that owning change. No shared or MCP image update and no
+   additional approval prompt is required within this scope.
+4. After readiness/image/configuration readback, define and enforce a small live
+   signed-in acceptance envelope under the same authorization, covering selected single/multi-item research,
    constrained discovery/search, no-match/detail limits and cancellation.
    Check user preservation, citations against independent stored metadata,
    telemetry and actual workload denials. Retain all failed attempts honestly.

@@ -37,6 +37,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from newsloom_agent.auth import AgentAuthentication, AgentVerifier, request_authorization
 from newsloom_agent.generation import NewsGenerator
 from newsloom_agent.models import AgentFailure
+from newsloom_agent.research import ResearchController
 from newsloom_agent.serving import AgentHandler, PrivateContextBuilder, RecentReader, TaskRegistry
 from newsloom_agent.telemetry import AgentObserver
 
@@ -47,11 +48,16 @@ PUBLIC_PATHS = {"/.well-known/agent-card.json", "/health/live"}
 
 
 def agent_card(
-    public_url: str, tenant: UUID, audience: UUID, *, streaming: bool = False
+    public_url: str,
+    tenant: UUID,
+    audience: UUID,
+    *,
+    streaming: bool = False,
+    research: bool = False,
 ) -> AgentCard:
     scope = f"api://{audience}/news.agent"
     authority = f"https://login.microsoftonline.com/{tenant}/oauth2/v2.0"
-    return AgentCard(
+    card = AgentCard(
         name="Newsloom recent-news access",
         description=(
             "One delegated stored-news read and one bounded streamed briefing. No full research."
@@ -99,6 +105,32 @@ def agent_card(
             )
         ],
     )
+    if research:
+        card.name = "Newsloom stored-news research"
+        card.description = (
+            "Bounded, delegated research over stored MCP summaries and metadata. "
+            "Progress precedes a validated final answer and exact stored citations. "
+            "No web search, full-article access, persistent memory or Work IQ."
+        )
+        card.default_input_modes.append("application/json")
+        card.skills.add().CopyFrom(
+            AgentSkill(
+                id="research",
+                name="Research stored news",
+                description=(
+                    "Send one JSON data part: operation=research, question, optional item_ids "
+                    "(1-5 stored UUIDs), filters (source/category/tags/from/to), and preferences "
+                    "(language/audience/detail/focus). Preferences apply only to this request. "
+                    "Streams safe progress, then validated answer chunks, not live drafts. "
+                    "Structural citation checks are not a completed phase-wide quality evaluation."
+                ),
+                tags=["stored-news", "research", "validated-citations", "delegated-access"],
+                examples=[
+                    '{"operation":"research","question":"Compare recent stored announcements."}'
+                ],
+            )
+        )
+    return card
 
 
 class Ingress:
@@ -313,6 +345,7 @@ def create_app(
     allowed_origins: tuple[str, ...] = (),
     generator: NewsGenerator | None = None,
     observer: AgentObserver | None = None,
+    research: ResearchController | None = None,
 ) -> ASGIApp:
     disable_instrumentation()
     url = URL(public_url)
@@ -333,7 +366,11 @@ def create_app(
         raise AgentFailure("invalid_public_url")
     registry = registry if registry is not None else TaskRegistry()
     card = agent_card(
-        public_url, verifier.tenant, UUID(verifier.audience), streaming=generator is not None
+        public_url,
+        verifier.tenant,
+        UUID(verifier.audience),
+        streaming=generator is not None or research is not None,
+        research=research is not None,
     )
 
     async def live(request: Request) -> JSONResponse:
@@ -352,7 +389,7 @@ def create_app(
             Route("/health/live", live, methods=["GET"]),
             *create_agent_card_routes(card),
             *create_jsonrpc_routes(
-                AgentHandler(reader, registry, generator, observer),
+                AgentHandler(reader, registry, generator, observer, research),
                 "/a2a",
                 context_builder=PrivateContextBuilder(),
                 enable_v0_3_compat=False,

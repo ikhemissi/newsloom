@@ -19,6 +19,7 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter, Spa
 
 from newsloom_agent.generation import GenerationStats
 from newsloom_agent.models import AgentFailure
+from newsloom_agent.research_generation import ResearchStats
 
 OUTCOMES = {"success", "failure", "cancelled", "unauthorized", "forbidden", "overloaded", "other"}
 SURFACES = {"a2a", "metadata", "health", "other"}
@@ -38,6 +39,7 @@ CATEGORIES = {
     "mcp_denied",
     "mcp_unavailable",
     "mcp_response_limit",
+    "mcp_aggregate_response_limit",
     "mcp_response_invalid",
     "model_denied",
     "model_throttled",
@@ -58,6 +60,32 @@ CATEGORIES = {
     "model_token_limit",
     "unsupported_model_content",
     "agent_execution_failed",
+    "research_tool_invalid",
+    "research_result_invalid",
+    "research_tool_limit",
+    "research_repeated_tool",
+    "research_selection_boundary",
+    "research_unknown_item",
+    "research_filter_relaxation",
+    "research_filter_violation",
+    "research_inconsistent_evidence",
+    "research_evidence_limit",
+    "research_citation_url_invalid",
+    "research_model_url_refused",
+    "research_answer_invalid",
+    "research_coverage_invalid",
+    "research_citation_unknown",
+    "research_answer_limit",
+    "research_no_retrieval",
+    "research_missing_detail",
+    "research_model_call_limit",
+    "research_planning_limit",
+    "research_token_reservation",
+    "research_model_input_limit",
+    "research_model_response_limit",
+    "research_schema_invalid",
+    "research_model_input_invalid",
+    "research_model_structure_invalid",
     "other",
 }
 
@@ -80,7 +108,7 @@ class PrivateSpanExporter(SpanExporter):
             original = span.attributes or {}
             attributes: dict[str, str | int | float | bool] = {}
             for key, allowed in (
-                ("operation", {"recent-news"}),
+                ("operation", {"recent-news", "research"}),
                 ("outcome", OUTCOMES),
                 ("category", CATEGORIES),
             ):
@@ -90,14 +118,23 @@ class PrivateSpanExporter(SpanExporter):
             elapsed = original.get("elapsed_seconds")
             if isinstance(elapsed, float) and math.isfinite(elapsed) and 0 <= elapsed <= 300:
                 attributes["elapsed_seconds"] = elapsed
+            research = original.get("operation") == "research"
             for key, maximum in (
-                ("generation_calls", 1),
-                ("input_tokens", 65536),
-                ("output_tokens", 512),
+                ("generation_calls", 4 if research else 1),
+                ("input_tokens", 262144 if research else 65536),
+                ("output_tokens", 4096 if research else 512),
             ):
                 value = original.get(key)
                 if type(value) is int and 0 <= value <= maximum:
                     attributes[key] = value
+            if research:
+                for key, maximum in (("tool_calls", 8), ("usage_observed_calls", 4)):
+                    value = original.get(key)
+                    if type(value) is int and 0 <= value <= maximum:
+                        attributes[key] = value
+                complete = original.get("usage_complete")
+                if type(complete) is bool:
+                    attributes["usage_complete"] = complete
             safe.append(
                 private_span(
                     span,
@@ -160,17 +197,31 @@ class Telemetry:
         if outcome not in OUTCOMES or not math.isfinite(elapsed) or elapsed < 0:
             raise AgentFailure("invalid_telemetry_category")
         category = category if category in CATEGORIES else "other"
-        attributes = {"operation": "recent-news", "outcome": outcome, "category": category}
+        research = isinstance(stats, ResearchStats)
+        attributes = {
+            "operation": "research" if research else "recent-news",
+            "outcome": outcome,
+            "category": category,
+        }
         self.calls.add(1, attributes)
         self.duration.record(elapsed, attributes)
         self.model_calls.add(stats.calls, attributes)
-        self.usage_reads.add(int(stats.usage_observed), attributes)
+        observed_calls = (
+            stats.usage_calls if isinstance(stats, ResearchStats) else int(stats.usage_observed)
+        )
+        self.usage_reads.add(observed_calls, attributes)
         span_attributes: dict[str, str | int | float | bool] = {
             **attributes,
             "elapsed_seconds": elapsed,
             "generation_calls": stats.calls,
         }
-        if stats.usage_observed:
+        if isinstance(stats, ResearchStats):
+            span_attributes.update(
+                tool_calls=stats.tool_calls,
+                usage_observed_calls=stats.usage_calls,
+                usage_complete=stats.usage_observed,
+            )
+        if observed_calls:
             self.input_tokens.add(stats.input_tokens, attributes)
             self.output_tokens.add(stats.output_tokens, attributes)
             span_attributes.update(

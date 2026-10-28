@@ -2,7 +2,8 @@
 
 import asyncio
 import time
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -88,6 +89,93 @@ class NewsGenerator(Protocol):
     ) -> AsyncIterator[str]: ...
 
 
+@asynccontextmanager
+async def model_client(
+    config: GenerationConfig,
+    credential: AsyncTokenCredential,
+    authorization: Authorization,
+    *,
+    transport: httpx2.AsyncBaseTransport | None = None,
+    consume_input: Callable[[int], None] | None = None,
+    consume_response: Callable[[int], None] | None = None,
+) -> AsyncIterator[OpenAIChatCompletionClient]:
+    remaining(authorization)
+    token = await credential.get_token(MODEL_SCOPE)
+    if (
+        not isinstance(token.token, str)
+        or not token.token
+        or token.expires_on < time.time() + remaining(authorization)
+    ):
+        raise AgentFailure("model_token_lifetime")
+    url = httpx2.URL(config.endpoint + "/openai/v1/chat/completions")
+
+    async def authorize(request: httpx2.Request) -> None:
+        remaining(authorization)
+        if (
+            request.url != url
+            or request.method != "POST"
+            or request.headers.get_list("authorization") != [f"Bearer {token.token}"]
+            or request.url.query
+        ):
+            raise AgentFailure("model_transport_boundary")
+        if consume_input is not None:
+            consume_input(len(request.content))
+
+    async def response_guard(response: httpx2.Response) -> None:
+        if response.is_redirect:
+            raise AgentFailure("model_redirect_refused")
+        if not isinstance(response.stream, httpx2.AsyncByteStream):
+            raise AgentFailure("invalid_model_transport")
+        response.stream = BoundedResponse(
+            response.stream, category="model_response_limit", consume=consume_response
+        )
+
+    async def bearer() -> str:
+        remaining(authorization)
+        return token.token
+
+    async with (
+        httpx2.AsyncClient(
+            transport=transport,
+            trust_env=False,
+            follow_redirects=False,
+            timeout=remaining(authorization),
+            event_hooks={"request": [authorize], "response": [response_guard]},
+        ) as http,
+        AsyncOpenAI(
+            api_key=bearer,
+            base_url=config.endpoint + "/openai/v1/",
+            organization="",
+            project="",
+            http_client=http,
+            max_retries=0,
+        ) as sdk,
+    ):
+        yield OpenAIChatCompletionClient(
+            async_client=sdk, model=config.deployment, instruction_role="developer"
+        )
+
+
+def model_failure(error: ChatClientException) -> AgentFailure:
+    inner = error.__cause__
+    for _ in range(4):
+        if isinstance(inner, AgentFailure):
+            return inner
+        if isinstance(inner, APIStatusError):
+            category = (
+                "model_throttled"
+                if inner.status_code == 429
+                else "model_denied"
+                if inner.status_code in (401, 403)
+                else "model_unavailable"
+            )
+            return AgentFailure(category)
+        if inner is None:
+            break
+        inner = inner.__cause__
+    return AgentFailure("model_unavailable")
+
+
 class FoundryGenerator:
     def __init__(
         self,
@@ -109,145 +197,86 @@ class FoundryGenerator:
             raise AgentFailure("model_input_limit")
         remaining(authorization)
         try:
-            async with asyncio.timeout_at(authorization.deadline):
-                token = await self.credential.get_token(MODEL_SCOPE)
-                if (
-                    not isinstance(token.token, str)
-                    or not token.token
-                    or token.expires_on < time.time() + remaining(authorization)
-                ):
-                    raise AgentFailure("model_token_lifetime")
-                url = httpx2.URL(self.config.endpoint + "/openai/v1/chat/completions")
-
-                async def authorize(request: httpx2.Request) -> None:
-                    remaining(authorization)
-                    if (
-                        request.url != url
-                        or request.method != "POST"
-                        or request.headers.get_list("authorization") != [f"Bearer {token.token}"]
-                        or request.url.query
-                    ):
-                        raise AgentFailure("model_transport_boundary")
-
-                async def response_guard(response: httpx2.Response) -> None:
-                    if response.is_redirect:
-                        raise AgentFailure("model_redirect_refused")
-                    if not isinstance(response.stream, httpx2.AsyncByteStream):
-                        raise AgentFailure("invalid_model_transport")
-                    response.stream = BoundedResponse(
-                        response.stream, category="model_response_limit"
-                    )
-
-                async def bearer() -> str:
-                    remaining(authorization)
-                    return token.token
-
-                async with (
-                    httpx2.AsyncClient(
-                        transport=self.transport,
-                        trust_env=False,
-                        follow_redirects=False,
-                        timeout=remaining(authorization),
-                        event_hooks={"request": [authorize], "response": [response_guard]},
-                    ) as http,
-                    AsyncOpenAI(
-                        api_key=bearer,
-                        base_url=self.config.endpoint + "/openai/v1/",
-                        organization="",
-                        project="",
-                        http_client=http,
-                        max_retries=0,
-                    ) as sdk,
-                ):
-                    client = OpenAIChatCompletionClient(
-                        async_client=sdk, model=self.config.deployment, instruction_role="developer"
-                    )
-                    stats.calls += 1
-                    size, updates, finished = 0, 0, False
-                    async with client.get_response(
-                        [
-                            Message(role="developer", contents=[Content.from_text(INSTRUCTIONS)]),
-                            Message(role="user", contents=[Content.from_text(data)]),
-                        ],
-                        stream=True,
-                        options={
-                            "max_tokens": MAX_GENERATED_TOKENS,
-                            "store": False,
-                            "tools": [],
-                            "tool_choice": "none",
-                        },
-                    ) as stream:
-                        async for update in stream:
-                            remaining(authorization)
-                            updates += 1
-                            if updates > MAX_MODEL_UPDATES:
-                                raise AgentFailure("model_update_limit")
-                            raw = update.raw_representation
-                            if (
-                                not isinstance(raw, ChatCompletionChunk)
-                                or len(raw.choices) > 1
-                                or any(choice.index != 0 for choice in raw.choices)
-                            ):
-                                raise AgentFailure("invalid_model_stream")
-                            was_finished = finished
-                            if update.finish_reason is not None:
-                                if finished or update.finish_reason != "stop":
-                                    raise AgentFailure("model_incomplete")
-                                finished = True
-                            for content in update.contents:
-                                if content.type == "usage":
-                                    usage = content.usage_details
-                                    if stats.usage_observed or usage is None:
-                                        raise AgentFailure("invalid_model_usage")
-                                    input_tokens = usage.get("input_token_count")
-                                    output_tokens = usage.get("output_token_count")
-                                    if not isinstance(input_tokens, int) or not isinstance(
-                                        output_tokens, int
-                                    ):
-                                        raise AgentFailure("invalid_model_usage")
-                                    if (
-                                        not finished
-                                        or not 0 <= input_tokens <= 65536
-                                        or not 0 <= output_tokens <= MAX_GENERATED_TOKENS
-                                    ):
-                                        raise AgentFailure("model_token_limit")
-                                    stats.input_tokens = input_tokens
-                                    stats.output_tokens = output_tokens
-                                    stats.usage_observed = True
-                                elif content.type == "text":
-                                    if was_finished:
-                                        raise AgentFailure("invalid_model_stream")
-                                    if (
-                                        not content.text
-                                        or content.additional_properties.get("model_output_kind")
-                                        == "refusal"
-                                    ):
-                                        raise AgentFailure("model_refused")
-                                    size += len(content.text.encode())
-                                    if size > MAX_OUTPUT_BYTES:
-                                        raise AgentFailure("model_output_limit")
-                                    stats.chunks += 1
-                                    yield content.text
-                                else:
-                                    raise AgentFailure("unsupported_model_content")
-                    if not finished or not size or not stats.usage_observed:
-                        raise AgentFailure("model_stream_incomplete")
-                    remaining(authorization)
+            async with (
+                asyncio.timeout_at(authorization.deadline),
+                model_client(
+                    self.config, self.credential, authorization, transport=self.transport
+                ) as client,
+            ):
+                stats.calls += 1
+                size, updates, finished = 0, 0, False
+                async with client.get_response(
+                    [
+                        Message(role="developer", contents=[Content.from_text(INSTRUCTIONS)]),
+                        Message(role="user", contents=[Content.from_text(data)]),
+                    ],
+                    stream=True,
+                    options={
+                        "max_tokens": MAX_GENERATED_TOKENS,
+                        "store": False,
+                        "tools": [],
+                        "tool_choice": "none",
+                    },
+                ) as stream:
+                    async for update in stream:
+                        remaining(authorization)
+                        updates += 1
+                        if updates > MAX_MODEL_UPDATES:
+                            raise AgentFailure("model_update_limit")
+                        raw = update.raw_representation
+                        if (
+                            not isinstance(raw, ChatCompletionChunk)
+                            or len(raw.choices) > 1
+                            or any(choice.index != 0 for choice in raw.choices)
+                        ):
+                            raise AgentFailure("invalid_model_stream")
+                        was_finished = finished
+                        if update.finish_reason is not None:
+                            if finished or update.finish_reason != "stop":
+                                raise AgentFailure("model_incomplete")
+                            finished = True
+                        for content in update.contents:
+                            if content.type == "usage":
+                                usage = content.usage_details
+                                if stats.usage_observed or usage is None:
+                                    raise AgentFailure("invalid_model_usage")
+                                input_tokens = usage.get("input_token_count")
+                                output_tokens = usage.get("output_token_count")
+                                if not isinstance(input_tokens, int) or not isinstance(
+                                    output_tokens, int
+                                ):
+                                    raise AgentFailure("invalid_model_usage")
+                                if (
+                                    not finished
+                                    or not 0 <= input_tokens <= 65536
+                                    or not 0 <= output_tokens <= MAX_GENERATED_TOKENS
+                                ):
+                                    raise AgentFailure("model_token_limit")
+                                stats.input_tokens = input_tokens
+                                stats.output_tokens = output_tokens
+                                stats.usage_observed = True
+                            elif content.type == "text":
+                                if was_finished:
+                                    raise AgentFailure("invalid_model_stream")
+                                if (
+                                    not content.text
+                                    or content.additional_properties.get("model_output_kind")
+                                    == "refusal"
+                                ):
+                                    raise AgentFailure("model_refused")
+                                size += len(content.text.encode())
+                                if size > MAX_OUTPUT_BYTES:
+                                    raise AgentFailure("model_output_limit")
+                                stats.chunks += 1
+                                yield content.text
+                            else:
+                                raise AgentFailure("unsupported_model_content")
+                if not finished or not size or not stats.usage_observed:
+                    raise AgentFailure("model_stream_incomplete")
+                remaining(authorization)
         except TimeoutError:
             raise AgentFailure("request_timeout") from None
         except AzureError:
             raise AgentFailure("model_identity_unavailable") from None
         except ChatClientException as error:
-            inner = error.__cause__
-            if isinstance(inner, AgentFailure):
-                raise inner from None
-            if isinstance(inner, APIStatusError):
-                category = (
-                    "model_throttled"
-                    if inner.status_code == 429
-                    else "model_denied"
-                    if inner.status_code in (401, 403)
-                    else "model_unavailable"
-                )
-                raise AgentFailure(category) from None
-            raise AgentFailure("model_unavailable") from None
+            raise model_failure(error) from None

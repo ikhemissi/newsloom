@@ -1,9 +1,10 @@
-"""Secretless request-local OBO and exactly one fixed, read-only MCP operation."""
+"""Secretless request-local OBO and locally typed, read-only MCP operations."""
 
 import asyncio
 import time
-from collections.abc import AsyncIterator, Iterator
-from dataclasses import dataclass
+from collections.abc import AsyncIterator, Callable, Iterator
+from contextlib import asynccontextmanager
+from dataclasses import dataclass, field
 from uuid import UUID
 
 import httpx
@@ -25,10 +26,24 @@ from pydantic import BaseModel, ConfigDict, model_validator
 
 from newsloom_agent.auth import Authorization, UserClaims
 from newsloom_agent.models import AgentFailure, RecentNews
+from newsloom_agent.research_models import (
+    MAX_TOOL_CALLS,
+    DetailCall,
+    ItemResult,
+    NewsResults,
+    RecentCall,
+    SearchCall,
+    SearchResults,
+    SourcesCall,
+    SourcesResult,
+    ToolCall,
+)
 
 ASSERTION_SCOPE = "api://AzureADTokenExchange/.default"
 ASSERTION_MARGIN_SECONDS = 30
 MAX_RESPONSE_BYTES = 128 * 1024
+MAX_RESEARCH_RESPONSE_BYTES = 512 * 1024
+type ResearchToolResult = NewsResults | ItemResult | SearchResults | SourcesResult
 
 
 class DelegationConfig(BaseModel):
@@ -97,8 +112,14 @@ def leaf_errors(error: BaseException) -> Iterator[BaseException]:
 
 
 class BoundedResponse(AsyncByteStream):
-    def __init__(self, source: AsyncByteStream, *, category: str = "mcp_response_limit") -> None:
-        self.source, self.category = source, category
+    def __init__(
+        self,
+        source: AsyncByteStream,
+        *,
+        category: str = "mcp_response_limit",
+        consume: Callable[[int], None] | None = None,
+    ) -> None:
+        self.source, self.category, self.consume = source, category, consume
 
     async def __aiter__(self) -> AsyncIterator[bytes]:
         size = 0
@@ -106,6 +127,8 @@ class BoundedResponse(AsyncByteStream):
             size += len(chunk)
             if size > MAX_RESPONSE_BYTES:
                 raise AgentFailure(self.category)
+            if self.consume is not None:
+                self.consume(len(chunk))
             yield chunk
 
     async def aclose(self) -> None:
@@ -121,6 +144,84 @@ class RecentNewsSession(ClientSession):
         if name != "get_recent_news" or result.structured_content is None:
             raise AgentFailure("mcp_response_invalid")
         self.news = RecentNews.model_validate(result.structured_content)
+
+
+class ResearchMcpSession(ClientSession):
+    result: ResearchToolResult | None = None
+
+    async def validate_tool_result(self, name: str, result: CallToolResult) -> None:
+        if result.structured_content is None:
+            raise AgentFailure("mcp_response_invalid")
+        if name == "get_recent_news":
+            self.result = NewsResults.model_validate(result.structured_content)
+        elif name == "get_news_item":
+            self.result = ItemResult.model_validate(result.structured_content)
+        elif name == "search_news":
+            self.result = SearchResults.model_validate(result.structured_content)
+        elif name == "list_sources":
+            self.result = SourcesResult.model_validate(result.structured_content)
+        else:
+            raise AgentFailure("mcp_response_invalid")
+
+
+@dataclass
+class McpResponseBudget:
+    received: int = 0
+
+    def consume(self, size: int) -> None:
+        if size < 0 or self.received + size > MAX_RESEARCH_RESPONSE_BYTES:
+            raise AgentFailure("mcp_aggregate_response_limit")
+        self.received += size
+
+
+@dataclass(repr=False)
+class ResearchMcp:
+    session: ResearchMcpSession
+    authorization: Authorization
+    response_budget: McpResponseBudget
+    selected_ids: tuple[UUID, ...] | None
+    known_ids: set[UUID] = field(default_factory=set)
+    seen_calls: set[str] = field(default_factory=set)
+    calls: int = 0
+    closed: bool = False
+
+    async def call(self, call: ToolCall) -> ResearchToolResult:
+        remaining(self.authorization)
+        if self.closed:
+            raise AgentFailure("mcp_session_closed")
+        if not isinstance(call, RecentCall | DetailCall | SearchCall | SourcesCall):
+            raise AgentFailure("research_tool_invalid")
+        if self.selected_ids is not None and not isinstance(call, DetailCall):
+            raise AgentFailure("research_selection_boundary")
+        if isinstance(call, DetailCall) and call.arguments.id not in self.known_ids:
+            raise AgentFailure("research_unknown_item")
+        signature = call.model_dump_json(by_alias=True)
+        if signature in self.seen_calls:
+            raise AgentFailure("research_repeated_tool")
+        if self.calls >= MAX_TOOL_CALLS:
+            raise AgentFailure("research_tool_limit")
+        self.seen_calls.add(signature)
+        self.calls += 1
+        self.session.result = None
+        result = await self.session.call_tool(
+            call.tool,
+            call.arguments.model_dump(mode="json", by_alias=True, exclude_none=True),
+            read_timeout_seconds=remaining(self.authorization),
+        )
+        if not isinstance(result, CallToolResult) or result.is_error:
+            raise AgentFailure("mcp_tool_failure")
+        parsed = self.session.result
+        if parsed is None:
+            raise AgentFailure("mcp_response_invalid")
+        remaining(self.authorization)
+        if isinstance(call, DetailCall) and isinstance(parsed, ItemResult):
+            if parsed.item is not None and parsed.item.id != call.arguments.id:
+                raise AgentFailure("mcp_response_item_mismatch")
+        elif isinstance(parsed, NewsResults | SearchResults):
+            if len(parsed.items) > call.arguments.limit:
+                raise AgentFailure("mcp_response_item_limit")
+            self.known_ids.update(item.id for item in parsed.items)
+        return parsed
 
 
 class DelegatedMcp:
@@ -141,18 +242,8 @@ class DelegatedMcp:
         remaining(authorization)
         try:
             async with asyncio.timeout_at(authorization.deadline):
-                token = await self._exchange(authorization)
-                claims = await self._validate_token(token, authorization)
-                expires_at = min(
-                    claims.exp, token.expires_on, time.time() + remaining(authorization)
-                )
-                deadline = min(
-                    authorization.deadline,
-                    time.monotonic() + expires_at - time.time(),
-                )
-                delegated = Authorization(authorization.caller, deadline)
-                remaining(delegated)
-                async with asyncio.timeout_at(deadline):
+                token, delegated = await self._authorized(authorization)
+                async with asyncio.timeout_at(delegated.deadline):
                     news = await self._read(token.token, delegated)
                 event(
                     "agent_delegated_read",
@@ -161,6 +252,43 @@ class DelegatedMcp:
                     counts={"items": len(news.items), "user_preserved": 1},
                 )
                 return DelegatedRead(news, user_preserved=True)
+        except TimeoutError:
+            raise AgentFailure("request_timeout") from None
+
+    async def _authorized(self, authorization: Authorization) -> tuple[AccessToken, Authorization]:
+        token = await self._exchange(authorization)
+        claims = await self._validate_token(token, authorization)
+        expires_at = min(claims.exp, token.expires_on, time.time() + remaining(authorization))
+        deadline = min(
+            authorization.deadline,
+            time.monotonic() + expires_at - time.time(),
+        )
+        delegated = Authorization(authorization.caller, deadline)
+        remaining(delegated)
+        return token, delegated
+
+    @asynccontextmanager
+    async def research(
+        self, authorization: Authorization, selected_ids: tuple[UUID, ...] | None = None
+    ) -> AsyncIterator[ResearchMcp]:
+        if authorization.caller.tenant != self.config.tenant:
+            raise AgentFailure("invalid_authorization")
+        remaining(authorization)
+        try:
+            async with asyncio.timeout_at(authorization.deadline):
+                token, delegated = await self._authorized(authorization)
+                budget = McpResponseBudget()
+                async with (
+                    asyncio.timeout_at(delegated.deadline),
+                    self._connection(token.token, delegated, ResearchMcpSession, budget) as session,
+                ):
+                    connection = ResearchMcp(
+                        session, delegated, budget, selected_ids, set(selected_ids or ())
+                    )
+                    try:
+                        yield connection
+                    finally:
+                        connection.closed = True
         except TimeoutError:
             raise AgentFailure("request_timeout") from None
 
@@ -215,6 +343,27 @@ class DelegatedMcp:
         return claims
 
     async def _read(self, token: str, authorization: Authorization) -> RecentNews:
+        async with self._connection(token, authorization, RecentNewsSession) as session:
+            result = await session.call_tool(
+                "get_recent_news",
+                {"limit": 1},
+                read_timeout_seconds=remaining(authorization),
+            )
+            if not isinstance(result, CallToolResult) or result.is_error:
+                raise AgentFailure("mcp_tool_failure")
+            if session.news is None:
+                raise AgentFailure("mcp_response_invalid")
+            remaining(authorization)
+            return session.news
+
+    @asynccontextmanager
+    async def _connection[SessionType: ClientSession](
+        self,
+        token: str,
+        authorization: Authorization,
+        session_type: type[SessionType],
+        budget: McpResponseBudget | None = None,
+    ) -> AsyncIterator[SessionType]:
         async def guard(request: Request) -> None:
             remaining(authorization)
             if request.url != URL(self.config.mcp_url) or request.method not in (
@@ -236,10 +385,14 @@ class DelegatedMcp:
             if response.is_stream_consumed:
                 if len(response.content) > MAX_RESPONSE_BYTES:
                     raise AgentFailure("mcp_response_limit")
+                if budget is not None:
+                    budget.consume(len(response.content))
             else:
                 if not isinstance(response.stream, AsyncByteStream):
                     raise AgentFailure("mcp_response_invalid")
-                response.stream = BoundedResponse(response.stream)
+                response.stream = BoundedResponse(
+                    response.stream, consume=budget.consume if budget is not None else None
+                )
 
         try:
             async with (
@@ -257,22 +410,13 @@ class DelegatedMcp:
                     terminate_on_close=False,
                     max_sse_event_size=MAX_RESPONSE_BYTES,
                 ) as (read, write),
-                RecentNewsSession(
-                    read, write, read_timeout_seconds=remaining(authorization)
-                ) as session,
+                session_type(read, write, read_timeout_seconds=remaining(authorization)) as session,
             ):
                 await session.initialize()
-                result = await session.call_tool(
-                    "get_recent_news",
-                    {"limit": 1},
-                    read_timeout_seconds=remaining(authorization),
-                )
-                if not isinstance(result, CallToolResult) or result.is_error:
-                    raise AgentFailure("mcp_tool_failure")
-                if session.news is None:
-                    raise AgentFailure("mcp_response_invalid")
-                remaining(authorization)
-                return session.news
+                yield session
+        except* GeneratorExit:
+            # MCP task groups wrap normal async-generator closure in exception groups.
+            raise GeneratorExit from None
         except* McpHttpStatusError as errors:
             if any(
                 error.response.status_code in (401, 403)

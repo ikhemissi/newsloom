@@ -4,6 +4,7 @@ import asyncio
 import json
 import time
 from collections.abc import AsyncGenerator, Awaitable, Callable, Mapping
+from contextlib import aclosing
 from contextvars import Context
 from dataclasses import dataclass
 from typing import Literal, Never, Protocol, overload
@@ -47,13 +48,18 @@ from agent_framework import (
 )
 from agent_framework import Message as FrameworkMessage
 from agent_framework.a2a import A2AExecutor
+from google.protobuf.json_format import MessageToJson
 from newsloom_core.diagnostics import event
+from pydantic import ValidationError
 from starlette.requests import Request
 
 from newsloom_agent.auth import Authorization, current_authorization, request_authorization
 from newsloom_agent.delegation import DelegatedRead, remaining
 from newsloom_agent.generation import MAX_OUTPUT_BYTES, GenerationStats, NewsGenerator
 from newsloom_agent.models import AgentFailure
+from newsloom_agent.research import ResearchController, ResearchProgress, ResearchResult
+from newsloom_agent.research_generation import ResearchStats
+from newsloom_agent.research_models import ResearchReceipt, ResearchRequest
 from newsloom_agent.telemetry import AgentObserver
 
 MAX_TEXT_BYTES = 16 * 1024
@@ -216,12 +222,75 @@ class RecentAgent:
         return AgentSession(session_id=session_id, service_session_id=service_session_id)
 
 
+class ResearchAgent(RecentAgent):
+    id = "stored-news-research"
+    name: str | None = "Stored-news research"
+    description: str | None = "Progress followed by a validated, evidence-bounded answer."
+    stats: ResearchStats
+
+    def __init__(
+        self,
+        reader: RecentReader,
+        authorization: Authorization,
+        controller: ResearchController,
+        request: ResearchRequest,
+        progress: Callable[[ResearchProgress], Awaitable[None]],
+    ) -> None:
+        super().__init__(reader, authorization)
+        self.controller, self.request, self.progress = controller, request, progress
+        self.stats = ResearchStats()
+
+    async def response(self) -> AgentResponse[None]:
+        return AgentResponse[None].from_updates([update async for update in self.updates()])
+
+    async def updates(self) -> AsyncGenerator[AgentResponseUpdate]:
+        try:
+            async with aclosing(
+                self.controller.run(self.request, self.authorization, self.stats)
+            ) as updates:
+                async for update in updates:
+                    if isinstance(update, ResearchProgress):
+                        await self.progress(update)
+                        continue
+                    if not isinstance(update, ResearchResult):
+                        raise AgentFailure("research_result_invalid")
+                    message_id = str(uuid4())
+                    for offset in range(0, len(update.text), 1024):
+                        remaining(self.authorization)
+                        yield AgentResponseUpdate(
+                            role="assistant",
+                            message_id=message_id,
+                            contents=[Content.from_text(update.text[offset : offset + 1024])],
+                        )
+                    self.receipt = ResearchReceipt(
+                        outcome=update.answer.outcome,
+                        items=len(
+                            {
+                                item_id
+                                for claim in update.answer.claims
+                                for item_id in claim.evidence_ids
+                            }
+                        ),
+                        user_preserved=True,
+                        validated=True,
+                        tool_calls=self.stats.tool_calls,
+                        generation_calls=self.stats.calls,
+                        usage_observed_calls=self.stats.usage_calls,
+                        input_tokens=self.stats.input_tokens,
+                        output_tokens=self.stats.output_tokens,
+                    ).model_dump_json()
+        except AgentFailure as error:
+            self.failure_category = str(error)
+            raise
+
+
 @dataclass(repr=False)
 class TaskRecord:
     owner: tuple[UUID, UUID]
     task: Task
     expires_at: float
     deadline: float
+    research_request: ResearchRequest | None = None
     producer: asyncio.Task[object] | None = None
     cancel_requested: bool = False
     expiry: asyncio.TimerHandle | None = None
@@ -282,7 +351,13 @@ class TaskRegistry:
     def owner(authorization: Authorization) -> tuple[UUID, UUID]:
         return authorization.caller.tenant, authorization.caller.object_id
 
-    def admit(self, params: SendMessageRequest, authorization: Authorization) -> TaskRecord:
+    def admit(
+        self,
+        params: SendMessageRequest,
+        authorization: Authorization,
+        *,
+        research_enabled: bool = False,
+    ) -> TaskRecord:
         self.purge()
         remaining(authorization)
         message = params.message
@@ -302,18 +377,35 @@ class TaskRegistry:
             or not message.message_id
             or len(message.message_id) > 128
             or len(message.parts) != 1
-            or message.parts[0].WhichOneof("content") != "text"
             or message.parts[0].filename
-            or message.parts[0].media_type not in ("", "text/plain")
             or message.extensions
             or message.reference_task_ids
         ):
             raise InvalidParamsError(message="plain_text_message_required")
-        text = message.parts[0].text
-        if len(text.encode("utf-8")) > MAX_TEXT_BYTES:
-            raise InvalidParamsError(message="input_text_limit")
-        if text.strip() != "recent-news":
-            raise UnsupportedOperationError(message="only_recent_news_supported")
+        part = message.parts[0]
+        research_request = None
+        if part.WhichOneof("content") == "text":
+            if part.media_type not in ("", "text/plain"):
+                raise InvalidParamsError(message="plain_text_message_required")
+            text = part.text
+            if len(text.encode("utf-8")) > MAX_TEXT_BYTES:
+                raise InvalidParamsError(message="input_text_limit")
+            if text.strip() != "recent-news":
+                raise UnsupportedOperationError(message="only_recent_news_supported")
+        elif part.WhichOneof("content") == "data":
+            if not research_enabled:
+                raise UnsupportedOperationError(message="research_not_enabled")
+            if (
+                part.media_type not in ("", "application/json")
+                or part.data.WhichOneof("kind") != "struct_value"
+            ):
+                raise InvalidParamsError(message="research_data_required")
+            try:
+                research_request = ResearchRequest.model_validate_json(MessageToJson(part.data))
+            except ValidationError:
+                raise InvalidParamsError(message="research_request_invalid") from None
+        else:
+            raise InvalidParamsError(message="plain_text_message_required")
         if (
             params.configuration.return_immediately
             or params.configuration.HasField("task_push_notification_config")
@@ -340,6 +432,7 @@ class TaskRegistry:
             task,
             self.clock() + TASK_RETENTION_SECONDS,
             authorization.deadline,
+            research_request=research_request,
         )
         self.records[task_id] = record
         record.expiry = asyncio.get_running_loop().call_later(
@@ -357,6 +450,34 @@ class TaskEvents(EventQueue):
     ) -> None:
         self.record, self.agent = record, agent
         self.channel = channel
+
+    async def progress(self, update: ResearchProgress) -> None:
+        if update.phase not in {"retrieving", "planning", "synthesizing", "validating"}:
+            raise AgentFailure("research_progress_invalid")
+        await self.enqueue_event(
+            TaskStatusUpdateEvent(
+                task_id=self.record.task.id,
+                context_id=self.record.task.context_id,
+                status=TaskStatus(
+                    state=TaskState.TASK_STATE_WORKING,
+                    message=Message(
+                        message_id=str(uuid4()),
+                        role=Role.ROLE_AGENT,
+                        parts=[
+                            Part(
+                                text=json.dumps(
+                                    {
+                                        "phase": update.phase,
+                                        "tool_calls": update.tool_calls,
+                                        "evidence_items": update.evidence_items,
+                                    }
+                                )
+                            )
+                        ],
+                    ),
+                ),
+            )
+        )
 
     async def enqueue_event(self, update: Event) -> None:
         if not isinstance(update, TaskStatusUpdateEvent | TaskArtifactUpdateEvent):
@@ -422,6 +543,14 @@ class TaskEvents(EventQueue):
 
     async def publish(self, update: Event) -> None:
         if self.channel is not None:
+            if (
+                self.channel.full()
+                and isinstance(update, TaskStatusUpdateEvent)
+                and update.status.state
+                in (TaskState.TASK_STATE_CANCELED, TaskState.TASK_STATE_FAILED)
+            ):
+                # The final task snapshot still carries failure/cancellation to a stalled reader.
+                return
             async with asyncio.timeout_at(self.record.deadline):
                 await self.channel.put(update)
 
@@ -433,14 +562,18 @@ class AgentHandler(RequestHandler):
         registry: TaskRegistry,
         generator: NewsGenerator | None = None,
         observer: AgentObserver | None = None,
+        research: ResearchController | None = None,
     ) -> None:
         self.reader, self.registry = reader, registry
         self.generator = generator
         self.observer = observer
+        self.research = research
 
     async def on_message_send(self, params: SendMessageRequest, context: ServerCallContext) -> Task:
         authorization = current_authorization()
-        record = self.registry.admit(params, authorization)
+        record = self.registry.admit(
+            params, authorization, research_enabled=self.research is not None
+        )
         await self.execute(params, context, record, authorization)
         return self.snapshot(
             record,
@@ -460,13 +593,29 @@ class AgentHandler(RequestHandler):
         record.producer = asyncio.current_task()
         if record.producer is not None:
             authorization.producers.add(record.producer)
-        agent = RecentAgent(self.reader, authorization, self.generator)
+        events: TaskEvents
+
+        async def progress(update: ResearchProgress) -> None:
+            await events.progress(update)
+
+        agent: RecentAgent
+        if record.research_request is not None:
+            if self.research is None:
+                raise AgentFailure("research_not_enabled")
+            agent = ResearchAgent(
+                self.reader, authorization, self.research, record.research_request, progress
+            )
+        else:
+            agent = RecentAgent(self.reader, authorization, self.generator)
+        events = TaskEvents(record, agent, channel)
         execution = SendMessageRequest()
         execution.CopyFrom(params)
         execution.message.CopyFrom(record.task.history[0])
         started = time.monotonic()
         try:
-            await A2AExecutor(agent, stream=self.generator is not None).execute(
+            await A2AExecutor(
+                agent, stream=self.generator is not None or record.research_request is not None
+            ).execute(
                 RequestContext(
                     call_context=context,
                     request=execution,
@@ -474,7 +623,7 @@ class AgentHandler(RequestHandler):
                     context_id=record.task.context_id,
                     task=record.task,
                 ),
-                TaskEvents(record, agent, channel),
+                events,
             )
             producer = asyncio.current_task()
             if producer is not None and producer.cancelling() and not record.cancel_requested:
@@ -538,10 +687,15 @@ class AgentHandler(RequestHandler):
     async def on_message_send_stream(
         self, params: SendMessageRequest, context: ServerCallContext
     ) -> AsyncGenerator[Event]:
-        if self.generator is None:
+        if self.generator is None and self.research is None:
             raise UnsupportedOperationError(message="streaming_not_available")
         authorization = current_authorization()
-        record = self.registry.admit(params, authorization)
+        record = self.registry.admit(
+            params, authorization, research_enabled=self.research is not None
+        )
+        if record.research_request is None and self.generator is None:
+            self.registry.remove(record.task.id)
+            raise UnsupportedOperationError(message="streaming_not_available")
         channel: asyncio.Queue[Event] = asyncio.Queue(maxsize=MAX_STREAM_EVENTS)
         producer = asyncio.create_task(
             self.execute(params, context, record, authorization, channel)

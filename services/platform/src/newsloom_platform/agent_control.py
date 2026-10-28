@@ -17,6 +17,15 @@ def enabled(env: dict[str, str]) -> bool:
     return value == "true"
 
 
+def research_enabled(env: dict[str, str]) -> bool:
+    value = env.get("AGENT_RESEARCH_ENABLED", "false")
+    if value not in ("true", "false"):
+        raise PlatformFailure("invalid_agent_research_enabled_setting")
+    if value == "true" and not enabled(env):
+        raise PlatformFailure("research_requires_enabled_agent")
+    return value == "true"
+
+
 def image(env: dict[str, str]) -> tuple[str, str]:
     reference = env.get("AGENT_IMAGE", "")
     revision = env.get("AGENT_IMAGE_REVISION", "")
@@ -29,6 +38,9 @@ def image(env: dict[str, str]) -> tuple[str, str]:
 
 
 def prepare(env: dict[str, str], correlation: str) -> None:
+    research_enabled(env)
+    if "AGENT_RESEARCH_ENABLED" not in env:
+        control.set_environment("AGENT_RESEARCH_ENABLED", "false")
     if not enabled(env):
         control.set_environment("AGENT_ENABLED", "false")
         for key in ("AGENT_IMAGE", "AGENT_IMAGE_REVISION", "AGENT_IDENTITY_BASE64"):
@@ -48,6 +60,7 @@ def prepare(env: dict[str, str], correlation: str) -> None:
 def build(env: dict[str, str], correlation: str) -> None:
     if not enabled(env):
         raise PlatformFailure("agent_layer_not_enabled")
+    research_enabled(env)
     control.build(env, correlation, service="agent")
 
 
@@ -120,6 +133,7 @@ def verify(env: dict[str, str], correlation: str) -> None:
         "AGENT_RESOURCE_URL": env["AGENT_RESOURCE_URL"],
         "AGENT_ALLOWED_ORIGINS": "",
         "AGENT_RUNTIME_REVISION": revision,
+        "AGENT_RESEARCH_ENABLED": str(research_enabled(env)).lower(),
         "MCP_API_CLIENT_ID": identify(env["MCP_API_CLIENT_ID"]),
         "MCP_RESOURCE_URL": env["MCP_RESOURCE_URL"],
         "MODEL_ENDPOINT": env["MODEL_ENDPOINT"],

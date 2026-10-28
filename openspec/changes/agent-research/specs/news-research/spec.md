@@ -26,6 +26,19 @@ MUST remain unchanged. No persistent preferences or conversation memory is added
 - **THEN** the answer states that limitation without claiming full-article,
   web-search, Work IQ or memory access
 
+### Requirement: Explicit content precedes presentation
+Explicit content and quotation requirements in the question MUST take precedence
+over presentation preferences, without changing evidence availability or any
+authority or budget limit.
+
+#### Scenario: Explicit content conflicts with brevity
+- **WHEN** a caller explicitly requests the complete verbatim stored summary and
+  also supplies a brief presentation preference
+- **THEN** the answer preserves that explicit complete-quotation requirement
+  rather than silently returning an excerpt or paraphrase
+- **AND** unavailable evidence or an existing limit still produces an explicit
+  limitation or failure, never invented content or a widened budget
+
 ### Requirement: Bounded user-preserving research tools
 Research SHALL use only the existing four read-only MCP tools under the
 originating user's validated delegated identity. All tool and model calls MUST
@@ -45,6 +58,45 @@ web or application-only MCP authority.
 - **THEN** no further corresponding work is admitted
 - **AND** unfinished work fails explicitly rather than resetting budgets,
   retrying through another identity or reporting a partial failure as success
+
+### Requirement: State-constrained planning
+Each planning schema and independent whole-plan validation SHALL share frozen
+application-owned request, evidence and budget state. Detail IDs MUST be known
+before the turn; dependent reads MUST use later turns. Synthesis MUST require
+detail evidence, except stopping after healthy empty retrieval for
+controller-generated no-match. Invalid plans MUST fail before any dispatch.
+Existing guards and budgets MUST remain intact; substitution, repair and retries
+are forbidden.
+
+#### Scenario: Discovery reveals an item for inspection
+- **WHEN** a planning turn begins without known detail IDs and discovery returns
+  relevant metadata
+- **THEN** its schema omits detail lookup and the next turn may select the
+  returned IDs for inspection
+- **AND** synthesis becomes available only after detail evidence is retrieved
+
+#### Scenario: Metadata alone cannot justify synthesis
+- **WHEN** relevant metadata exists but no detail evidence is available
+- **THEN** the planning schema excludes synthesis and a returned synthesis plan
+  fails independent validation
+- **AND** exhausted budgets produce an explicit failure, not a metadata-only answer
+
+#### Scenario: Healthy retrieval finds no evidence
+- **WHEN** a healthy retrieval leaves no news evidence
+- **THEN** stopping is permitted and the controller reports no-match without
+  final generation
+- **AND** a source listing alone is not treated as an empty news retrieval
+
+#### Scenario: Independent calls share one planning turn
+- **WHEN** every call in a bounded batch is legal against the turn's starting
+  state and within its remaining budgets
+- **THEN** the complete plan is validated before its calls execute sequentially
+- **AND** one call cannot depend on an ID another call has yet to discover
+
+#### Scenario: A later call in the plan is invalid
+- **WHEN** an earlier call is valid but a later call violates the frozen scope
+- **THEN** the complete plan fails before any call from it is dispatched
+- **AND** no partial batch, substituted ID or unbudgeted repair is executed
 
 ### Requirement: Immutable caller selection and filters
 Caller-selected items and source/category/tag/date constraints SHALL remain

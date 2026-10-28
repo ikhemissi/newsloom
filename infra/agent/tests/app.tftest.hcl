@@ -63,6 +63,7 @@ run "one_owned_small_https_immutable_streaming_app" {
       local.environment.AZURE_CLIENT_ID == jsondecode(base64decode(var.identity_base64)).client_id &&
       local.environment.MCP_RESOURCE_URL == var.mcp_resource_url &&
       local.environment.AGENT_RUNTIME_REVISION == var.image_revision &&
+      local.environment.AGENT_RESEARCH_ENABLED == "false" &&
       local.environment.AGENT_ALLOWED_ORIGINS == "" &&
       !contains(keys(local.environment), "POSTGRES_HOST") &&
       local.environment.MODEL_ENDPOINT == var.model_endpoint &&
@@ -72,6 +73,30 @@ run "one_owned_small_https_immutable_streaming_app" {
     )
     error_message = "The agent must have only its trusted identity, fixed MCP/chat and authenticated telemetry configuration."
   }
+}
+run "research_changes_only_the_existing_app_setting" {
+  command = plan
+  variables {
+    research_enabled = true
+  }
+  assert {
+    condition = (
+      length(azurerm_container_app.agent) == 1 &&
+      local.environment.AGENT_RESEARCH_ENABLED == "true" &&
+      azurerm_container_app.agent[0].template[0].container[0].cpu == 0.25 &&
+      azurerm_container_app.agent[0].template[0].container[0].memory == "0.5Gi" &&
+      azurerm_container_app.agent[0].template[0].container[0].image == var.image
+    )
+    error_message = "Research must only configure the retained owning app, not widen its profile."
+  }
+}
+run "research_requires_enabled_agent" {
+  command = plan
+  variables {
+    enabled          = false
+    research_enabled = true
+  }
+  expect_failures = [var.research_enabled]
 }
 run "reject_mutable_image" {
   command = plan

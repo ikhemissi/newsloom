@@ -30,6 +30,7 @@ def deployment(monkeypatch: pytest.MonkeyPatch) -> Deployment:
     }
     env = {
         "AGENT_ENABLED": "true",
+        "AGENT_RESEARCH_ENABLED": "false",
         "AZURE_SUBSCRIPTION_ID": subscription,
         "AZURE_RESOURCE_GROUP": "rg-newsloom-test",
         "AZURE_ENV_NAME": "test",
@@ -58,6 +59,7 @@ def deployment(monkeypatch: pytest.MonkeyPatch) -> Deployment:
         "AGENT_RESOURCE_URL": env["AGENT_RESOURCE_URL"],
         "AGENT_ALLOWED_ORIGINS": "",
         "AGENT_RUNTIME_REVISION": env["AGENT_IMAGE_REVISION"],
+        "AGENT_RESEARCH_ENABLED": env["AGENT_RESEARCH_ENABLED"],
         "MCP_API_CLIENT_ID": mcp,
         "MCP_RESOURCE_URL": env["MCP_RESOURCE_URL"],
         "MODEL_ENDPOINT": env["MODEL_ENDPOINT"],
@@ -117,6 +119,7 @@ def test_default_disabled_app_preparer_never_builds_or_calls_azure(
     monkeypatch.setattr(control, "set_environment", lambda key, value: updates.update({key: value}))
     agent_control.prepare({}, "local")
     assert updates["AGENT_ENABLED"] == "false"
+    assert updates["AGENT_RESEARCH_ENABLED"] == "false"
     assert updates["AGENT_IMAGE"] == ""
     with pytest.raises(PlatformFailure, match="not_enabled"):
         agent_control.build({}, "local")
@@ -165,6 +168,37 @@ def test_readback_proves_exact_owned_image_identity_config_and_profile(
     assert deployment.env["AGENT_API_CLIENT_ID"] not in output
     assert deployment.env["AGENT_RESOURCE_URL"] not in output
     assert deployment.env["AGENT_IMAGE_REVISION"] in output
+
+
+@pytest.mark.parametrize("value", ["", "TRUE", "1", "yes", "false "])
+def test_invalid_research_setting_refuses_preparation_without_side_effects(
+    deployment: Deployment, monkeypatch: pytest.MonkeyPatch, value: str
+) -> None:
+    updates: list[object] = []
+    monkeypatch.setattr(control, "set_environment", lambda *args: updates.append(args))
+    with pytest.raises(PlatformFailure, match="invalid_agent_research_enabled_setting"):
+        agent_control.prepare({**deployment.env, "AGENT_RESEARCH_ENABLED": value}, "local")
+    assert not updates
+
+
+def test_research_requires_agent_and_readback_must_match_reviewed_setting(
+    deployment: Deployment,
+) -> None:
+    with pytest.raises(PlatformFailure, match="research_requires_enabled_agent"):
+        agent_control.prepare({"AGENT_RESEARCH_ENABLED": "true"}, "local")
+    deployment.env["AGENT_RESEARCH_ENABLED"] = "true"
+    with pytest.raises(PlatformFailure, match="readback_mismatch"):
+        agent_control.verify(deployment.env, "local")
+    properties = json_object(deployment.document["properties"])
+    containers = json_object(properties["template"])["containers"]
+    assert isinstance(containers, list)
+    environment = json_object(containers[0])["env"]
+    assert isinstance(environment, list)
+    for index, row in enumerate(environment):
+        entry = json_object(row)
+        if entry["name"] == "AGENT_RESEARCH_ENABLED":
+            environment[index] = {**entry, "value": "true"}
+    agent_control.verify(deployment.env, "local")
 
 
 @pytest.mark.parametrize("field", ["app", "identity", "environment", "registry", "all"])
@@ -315,6 +349,8 @@ def test_layer_preview_hook_has_no_build_and_has_separate_retained_state() -> No
     yaml = (root / "azure.yaml").read_text()
     assert "newsloom-platform prepare-agent-layer" in yaml
     assert "newsloom-platform build-agent" not in yaml
+    inputs = json.loads((root / "infra/agent/main.tfvars.json").read_text())
+    assert inputs["research_enabled"] == "${AGENT_RESEARCH_ENABLED}"
     assert (
         '"key": "newsloom/${AZURE_ENV_NAME}-agent.tfstate"'
         in (root / "infra/agent/provider.conf.json").read_text()

@@ -15,14 +15,17 @@ from uuid import UUID, uuid4
 
 import httpx
 from a2a.client import A2ACardResolver, ClientConfig, ClientFactory
-from a2a.types import GetTaskRequest, Message, Part, Role, SendMessageRequest, TaskState
+from a2a.types import AgentCard, GetTaskRequest, Message, Part, Role, SendMessageRequest, TaskState
 from a2a.utils.errors import A2AError
+from google.protobuf.json_format import Parse
+from google.protobuf.struct_pb2 import Value
 from pydantic import field_validator, model_validator
 
 from newsloom_agent.auth import AgentVerifier
 from newsloom_agent.delegation import DelegationConfig
 from newsloom_agent.generation import MAX_GENERATED_TOKENS, MAX_OUTPUT_BYTES
 from newsloom_agent.models import AgentFailure, RecentNews
+from newsloom_agent.research_models import MAX_ANSWER_BYTES, ResearchReceipt, ResearchRequest
 from newsloom_agent.runtime import Config
 
 CALLBACK = "http://127.0.0.1:8400/callback"
@@ -246,6 +249,38 @@ async def sign_in(
         raise AgentFailure("browser_token_response_invalid") from None
 
 
+def validate_card(
+    card: AgentCard, settings: ClientSettings, *, streaming: bool, research: bool = False
+) -> None:
+    skills = [skill.id for skill in card.skills]
+    has_research = skills == ["recent-news", "research"]
+    if (
+        len(card.supported_interfaces) != 1
+        or card.supported_interfaces[0].url != settings.resource_url
+        or card.supported_interfaces[0].protocol_binding != "JSONRPC"
+        or card.supported_interfaces[0].protocol_version != "1.0"
+        or card.capabilities.streaming != streaming
+        or card.capabilities.push_notifications
+        or (skills != ["recent-news"] and not has_research)
+        or (research and not has_research)
+        or list(card.default_input_modes)
+        != (["text/plain", "application/json"] if has_research else ["text/plain"])
+        or card.default_output_modes != ["text/plain"]
+        or set(card.security_schemes) != {"entra"}
+        or set(
+            card.security_schemes["entra"].oauth2_security_scheme.flows.authorization_code.scopes
+        )
+        != {settings.invoke_scope}
+        or not card.security_schemes[
+            "entra"
+        ].oauth2_security_scheme.flows.authorization_code.pkce_required
+        or len(card.security_requirements) != 1
+        or set(card.security_requirements[0].schemes) != {"entra"}
+        or list(card.security_requirements[0].schemes["entra"].list) != [settings.invoke_scope]
+    ):
+        raise AgentFailure("agent_card_contract_mismatch")
+
+
 async def invoke(
     settings: ClientSettings, token: str, http: httpx.AsyncClient, *, streaming: bool = False
 ) -> dict[str, int]:
@@ -254,31 +289,7 @@ async def invoke(
         if http.headers.get("authorization"):
             raise AgentFailure("client_public_transport_required")
         card = await A2ACardResolver(http, origin).get_agent_card()
-        if (
-            len(card.supported_interfaces) != 1
-            or card.supported_interfaces[0].url != settings.resource_url
-            or card.supported_interfaces[0].protocol_binding != "JSONRPC"
-            or card.supported_interfaces[0].protocol_version != "1.0"
-            or card.capabilities.streaming != streaming
-            or card.capabilities.push_notifications
-            or [skill.id for skill in card.skills] != ["recent-news"]
-            or card.default_input_modes != ["text/plain"]
-            or card.default_output_modes != ["text/plain"]
-            or set(card.security_schemes) != {"entra"}
-            or set(
-                card.security_schemes[
-                    "entra"
-                ].oauth2_security_scheme.flows.authorization_code.scopes
-            )
-            != {settings.invoke_scope}
-            or not card.security_schemes[
-                "entra"
-            ].oauth2_security_scheme.flows.authorization_code.pkce_required
-            or len(card.security_requirements) != 1
-            or set(card.security_requirements[0].schemes) != {"entra"}
-            or list(card.security_requirements[0].schemes["entra"].list) != [settings.invoke_scope]
-        ):
-            raise AgentFailure("agent_card_contract_mismatch")
+        validate_card(card, settings, streaming=streaming)
         params = {
             "jsonrpc": "2.0",
             "id": "acceptance",
@@ -429,3 +440,148 @@ async def verify_delegation(*, streaming: bool = False) -> dict[str, int]:
     async with httpx.AsyncClient(trust_env=False, follow_redirects=False, timeout=10) as http:
         token = await sign_in(settings, http)
         return await invoke(settings, token, http, streaming=streaming)
+
+
+@dataclass(frozen=True, repr=False)
+class ResearchInvocation:
+    text: str
+    counts: dict[str, int]
+
+
+async def invoke_research(
+    settings: ClientSettings,
+    token: str,
+    http: httpx.AsyncClient,
+    request: ResearchRequest,
+) -> ResearchInvocation:
+    try:
+        if http.headers.get("authorization"):
+            raise AgentFailure("client_public_transport_required")
+        card = await A2ACardResolver(
+            http, settings.resource_url.removesuffix("/a2a")
+        ).get_agent_card()
+        validate_card(card, settings, streaming=True, research=True)
+
+        async def guard(outgoing: httpx.Request) -> None:
+            if (
+                str(outgoing.url) != settings.resource_url
+                or outgoing.method != "POST"
+                or outgoing.headers.get_list("authorization") != [f"Bearer {token}"]
+            ):
+                raise AgentFailure("agent_client_transport_boundary")
+
+        async with (
+            asyncio.timeout(120),
+            httpx.AsyncClient(
+                trust_env=False,
+                follow_redirects=False,
+                timeout=120,
+                headers={"Authorization": f"Bearer {token}"},
+                event_hooks={"request": [guard]},
+            ) as authorized,
+        ):
+            client = ClientFactory(
+                ClientConfig(
+                    streaming=True,
+                    httpx_client=authorized,
+                    supported_protocol_bindings=["JSONRPC"],
+                )
+            ).create(card)
+            try:
+                chunks: list[str] = []
+                task_id = ""
+                progress_events = events = size = 0
+                async for response in client.send_message(
+                    SendMessageRequest(
+                        message=Message(
+                            message_id=str(uuid4()),
+                            role=Role.ROLE_USER,
+                            parts=[
+                                Part(
+                                    data=Parse(request.model_dump_json(by_alias=True), Value()),
+                                    media_type="application/json",
+                                )
+                            ],
+                        )
+                    )
+                ):
+                    events += 1
+                    if events > 64:
+                        raise AgentFailure("agent_research_event_limit")
+                    if response.HasField("task"):
+                        task_id = response.task.id
+                    if response.HasField("artifact_update"):
+                        artifact = response.artifact_update.artifact
+                        if (
+                            not progress_events
+                            or len(artifact.parts) != 1
+                            or artifact.parts[0].WhichOneof("content") != "text"
+                        ):
+                            raise AgentFailure("agent_research_artifact_invalid")
+                        text = artifact.parts[0].text
+                        size += len(text.encode())
+                        if size > MAX_ANSWER_BYTES:
+                            raise AgentFailure("agent_research_answer_limit")
+                        chunks.append(text)
+                    if response.HasField("status_update"):
+                        status = response.status_update.status
+                        if status.state == TaskState.TASK_STATE_WORKING and status.message.parts:
+                            if chunks or len(status.message.parts) != 1:
+                                raise AgentFailure("agent_research_progress_invalid")
+                            part = status.message.parts[0]
+                            if part.WhichOneof("content") != "text":
+                                raise AgentFailure("agent_research_progress_invalid")
+                            progress: object = json.loads(part.text)
+                            if (
+                                not isinstance(progress, dict)
+                                or set(progress) != {"phase", "tool_calls", "evidence_items"}
+                                or progress.get("phase")
+                                not in {"retrieving", "planning", "synthesizing", "validating"}
+                                or type(progress.get("tool_calls")) is not int
+                                or type(progress.get("evidence_items")) is not int
+                                or not 0 <= progress["tool_calls"] <= 8
+                                or not 0 <= progress["evidence_items"] <= 10
+                            ):
+                                raise AgentFailure("agent_research_progress_invalid")
+                            progress_events += 1
+                if not task_id or not chunks or not size:
+                    raise AgentFailure("agent_research_not_completed")
+                task = await client.get_task(GetTaskRequest(id=task_id, history_length=2))
+                if (
+                    task.status.state != TaskState.TASK_STATE_COMPLETED
+                    or len(task.status.message.parts) != 1
+                    or len(task.artifacts) != 1
+                    or len(task.artifacts[0].parts) != 1
+                    or task.artifacts[0].parts[0].text != "".join(chunks)
+                ):
+                    raise AgentFailure("agent_research_readback_invalid")
+                receipt = ResearchReceipt.model_validate_json(task.status.message.parts[0].text)
+                return ResearchInvocation(
+                    "".join(chunks),
+                    {
+                        "items": receipt.items,
+                        "user_preserved": 1,
+                        "validated": 1,
+                        "progress_events": progress_events,
+                        "artifact_events": len(chunks),
+                        "generation_calls": receipt.generation_calls,
+                        "usage_observed_calls": receipt.usage_observed_calls,
+                        "input_tokens": receipt.input_tokens,
+                        "output_tokens": receipt.output_tokens,
+                        "tool_calls": receipt.tool_calls,
+                        "task_reads": 1,
+                    },
+                )
+            finally:
+                await client.close()
+    except A2AError, httpx.HTTPError, TimeoutError:
+        raise AgentFailure("agent_research_acceptance_unavailable") from None
+    except ValueError:
+        raise AgentFailure("agent_research_acceptance_response_invalid") from None
+
+
+async def verify_research(request: ResearchRequest) -> dict[str, int]:
+    settings = ClientSettings.from_environment(os.environ)
+    async with httpx.AsyncClient(trust_env=False, follow_redirects=False, timeout=10) as http:
+        token = await sign_in(settings, http)
+        return (await invoke_research(settings, token, http, request)).counts

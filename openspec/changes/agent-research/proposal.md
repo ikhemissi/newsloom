@@ -13,12 +13,22 @@ supplied in the current request.
 - Add an explicit research operation alongside the unchanged `recent-news`
   demonstrator. Accept a question, optional selected stored-item IDs and filters,
   and request-local language/audience/detail/focus preferences.
+- Give explicit content and quotation requirements in the question precedence
+  over presentation hints such as brevity, within unchanged evidence, authority
+  and budget limits. A brief preference must not silently shorten explicitly
+  requested complete stored evidence.
 - Use a finite model-selected loop over only the four existing read-only MCP
   tools, with the originating user's secretless OBO and one shared deadline.
   Discover, search and compare stored items rather than offering an unbounded
   autonomous agent or a second retrieval pipeline.
 - Separate trusted controls from untrusted questions/news; enforce typed tool
   calls, caller constraints, aggregate budgets and request-owned cleanup.
+- Derive planning schemas from frozen, application-owned state: constrain detail
+  lookups to already known IDs and restrict synthesis to available detail
+  evidence or the healthy empty-result path. Keep independent call batching,
+  but require a later planning turn for calls that depend on newly discovered
+  IDs. Independently validate the complete plan before dispatch; retain all
+  existing guards and budgets.
 - Stream safe progress, then expose only a schema/citation-validated answer.
   Resolve citation IDs to the exact retrieved URLs in application code. State
   no-match, missing selected items, incomplete coverage and absent supporting
@@ -34,7 +44,12 @@ supplied in the current request.
 [verified skeleton archive](../archive/2026-10-27-agent-skeleton/tasks.md#verified-archival),
 archive commit `2c160e395bf2e0106a0d910c1118292da4f48cff` and
 [passing exact-SHA CI](https://github.com/ikhemissi/newsloom/actions/runs/40559574136).
-This proposal permits planning only, not implementation, inference or deployment.
+On 2026-10-27 the user authorized Step 2.2 implementation, agent-only deployment
+and bounded paid live acceptance without further approval prompts. This standing
+authorization supersedes the proposal's original planning-only restriction.
+Local validation, exact owning-preview review, finite live budgets and
+preservation checks remain required; unrelated resources, permissions, model
+capacity and Step 2.3 evaluations remain outside this authorization.
 
 **Out of scope:** external web search/fetching, Foundry project/toolbox creation,
 new models/capacity/grants, Responses API, direct database access, application-only
@@ -73,7 +88,7 @@ deferring the phase-wide study does not waive this slice's acceptance.
 - **Identity/capacity/cost:** OBO already passed, but multiple calls still need
   actual same-user verification. Retain the existing chat-only deployment and
   region; recheck current availability, shared quota, token/search cost and the
-  proposed finite profile before separately approved Azure acceptance.
+  proposed finite profile before bounded Azure acceptance under that authorization.
   Semantic `search_news` uses MCP's existing embedding permission, never a new
   agent embedding grant.
 - **Toolbox finding:** official

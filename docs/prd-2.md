@@ -30,10 +30,13 @@ with [A2A serving](../openspec/specs/a2a-serving/spec.md) and
 contracts. Multi-step research, frozen phase-wide evaluations and
 the Phase 3 browser UI remain future work.
 
-Step 2.2 is now
-[proposed separately](../openspec/changes/agent-research/proposal.md): deepen or
+Step 2.2 is being
+[implemented separately](../openspec/changes/agent-research/proposal.md): deepen or
 compare one or multiple stored MCP items and tailor the response to preferences
-provided in the current request. It is not implemented or Azure-verified.
+provided in the current request. Local implementation and the source-bound
+agent-only deployment are verified; complete signed-in acceptance and publication
+remain open. The [runbook](agent.md#state-constrained-planning-follow-up) retains
+the failed planning attempts and the state-constrained follow-up.
 Progress precedes a validated final answer; external web enrichment and
 persistent personalization are explicitly deferred below.
 
