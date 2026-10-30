@@ -39,7 +39,8 @@ def sync_directory(path: Path) -> None:
 
 
 class Approval(StrictModel):
-    schema_version: StrictInt = Field(ge=1, le=1)
+    schema_version: StrictInt = Field(ge=2, le=2)
+    publication_protocol: Literal["native-python"]
     execution_approved: StrictBool
     source_sha256: Digest
     fixture_sha256: Digest
@@ -50,7 +51,7 @@ class Approval(StrictModel):
     input_per_million_usd: StrictStr
     output_per_million_usd: StrictStr
     publication_read_limit: StrictInt = Field(ge=60, le=60)
-    publication_mutation_limit: StrictInt = Field(ge=3, le=3)
+    publication_mutation_limit: StrictInt = Field(ge=2, le=2)
     publication_request_timeout_s: StrictInt = Field(ge=30, le=30)
     publication_poll_spacing_s: StrictInt = Field(ge=5, le=5)
 

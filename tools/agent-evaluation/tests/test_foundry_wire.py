@@ -7,9 +7,6 @@ from azure.ai.projects.models import (
     CodeBasedEvaluatorDefinition,
     EvaluatorVersion,
 )
-from azure.ai.projects.models import (
-    TestingCriterionAzureAIEvaluator as AzureAICriterion,
-)
 from fakes import PROJECT_ENDPOINT, TOKEN, Credential
 from openai import AuthenticationError
 
@@ -33,12 +30,13 @@ async def test_real_project_sdk_uses_entra_and_pages_precomputed_results(
         if request.method == "POST" and request.url.path == prefix:
             body = json.loads(request.content)
             criterion = body["testing_criteria"][0]
-            assert criterion["type"] == "azure_ai_evaluator"
+            assert criterion["type"] == "python"
             assert criterion["name"] == "imported_deepeval_faithfulness"
-            assert criterion["initialization_parameters"] == {
-                "deployment_name": "test-deployment",
-                "pass_threshold": 0.5,
-            }
+            assert (
+                criterion["source"] == "def grade(sample, item):\n    return float(item['score'])\n"
+            )
+            assert criterion["pass_threshold"] == 0.5
+            assert set(criterion) == {"type", "name", "source", "pass_threshold"}
             return httpx2.Response(
                 200,
                 json={
@@ -87,10 +85,12 @@ async def test_real_project_sdk_uses_entra_and_pages_precomputed_results(
                         "run_id": "run_test",
                         "datasource_item_id": index,
                         "datasource_item": rows[index],
-                        "status": "pass" if index == 0 else "fail",
+                        "status": "completed",
                         "results": [
                             {
                                 "name": "imported_deepeval_faithfulness",
+                                "type": "python",
+                                "status": "completed",
                                 "score": rows[index]["score"],
                                 "passed": index == 0,
                             }
@@ -131,16 +131,12 @@ async def test_real_project_sdk_uses_entra_and_pages_precomputed_results(
                 },
             },
             testing_criteria=[
-                AzureAICriterion(
-                    type="azure_ai_evaluator",
-                    name="imported_deepeval_faithfulness",
-                    evaluator_name="imported_deepeval_faithfulness",
-                    initialization_parameters={
-                        "deployment_name": "test-deployment",
-                        "pass_threshold": 0.5,
-                    },
-                    data_mapping={"score": "{{item.score}}"},
-                )
+                {
+                    "type": "python",
+                    "name": "imported_deepeval_faithfulness",
+                    "source": "def grade(sample, item):\n    return float(item['score'])\n",
+                    "pass_threshold": 0.5,
+                }
             ],
             metadata={"source": "synthetic"},
         )
@@ -188,7 +184,7 @@ async def test_real_projects_openai_bridge_does_not_retry_authentication_failure
     assert len(requests) == 1
 
 
-def test_real_projects_code_evaluator_serialization() -> None:
+def test_historical_projects_code_evaluator_serialization() -> None:
     code = "def grade(sample, item):\n    return float(item['score'])\n"
     definition = EvaluatorVersion(
         evaluator_type="custom",

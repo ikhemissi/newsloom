@@ -13,8 +13,6 @@ from urllib.parse import urlsplit
 
 import httpx2
 from azure.ai.projects.aio import AIProjectClient
-from azure.ai.projects.models import CodeBasedEvaluatorDefinition, EvaluatorVersion
-from azure.ai.projects.models import TestingCriterionAzureAIEvaluator as AzureAICriterion
 from azure.identity.aio import AzureCliCredential
 from pydantic import Field, JsonValue, StrictInt, StrictStr
 
@@ -37,7 +35,7 @@ from agent_evaluation.runner import (
 )
 
 ORIGIN: Final = "imported_deepeval_faithfulness"
-Mutation = Literal["catalog", "evaluation", "run"]
+Mutation = Literal["evaluation", "run"]
 
 
 class PublicationRow(MeasuredCase):
@@ -53,13 +51,50 @@ class PublicationRow(MeasuredCase):
     answer: StrictStr
 
 
+def _wire_schema() -> dict[str, object]:
+    schema = PublicationRow.model_json_schema()
+    schema["properties"]["score"] = {"type": "string"}
+    return schema
+
+
+def _wire_row(row: PublicationRow) -> dict[str, object]:
+    value = row.model_dump(mode="json")
+    value["score"] = repr(row.score)
+    return value
+
+
+def _read_row(value: JsonValue) -> PublicationRow:
+    if isinstance(value, dict) and "item" in value:
+        if set(value) != {"item"} or not isinstance(value["item"], dict):
+            raise EvaluationFailure("invalid_publication_datasource_wrapper")
+        value = value["item"]
+    if isinstance(value, dict):
+        raw = value.get("score")
+        if isinstance(raw, str):
+            try:
+                score = float(raw)
+            except ValueError:
+                raise EvaluationFailure("invalid_publication_score_encoding") from None
+            if not math.isfinite(score) or not 0 <= score <= 1 or repr(score) != raw:
+                raise EvaluationFailure("invalid_publication_score_encoding")
+            value = {**value, "score": score}
+    return PublicationRow.model_validate_json(json.dumps(value))
+
+
+def _has_error(value: JsonValue) -> bool:
+    if isinstance(value, dict):
+        return any(_has_error(child) for child in value.values())
+    return value is not None
+
+
 class PublicationState(StrictModel):
+    schema_version: StrictInt = Field(ge=2, le=2)
+    publication_protocol: Literal["native-python"]
     configuration_sha256: Digest
     results_sha256: Digest
     reads: StrictInt = Field(ge=0, le=60)
     mutations: tuple[Mutation, ...]
     pending: Mutation | None
-    catalog_version: StrictStr | None
     evaluation_id: StrictStr | None
     run_id: StrictStr | None
     verification: Literal["pending", "api_verified", "failed"]
@@ -188,22 +223,25 @@ def load_bundle(path: Path, approved_sha256: str, *, registry: Path | None = Non
             or state.results_sha256 != results_digest
             or len(set(state.mutations)) != len(state.mutations)
             or len(state.mutations) > approval.publication_mutation_limit
-            or (state.pending is not None and state.pending not in state.mutations)
-            or state.mutations != ("catalog", "evaluation", "run")[: len(state.mutations)]
-            or (len(state.mutations) >= 2 and state.catalog_version is None)
-            or (len(state.mutations) >= 3 and state.evaluation_id is None)
+            or (
+                state.pending is not None
+                and (not state.mutations or state.pending != state.mutations[-1])
+            )
+            or state.mutations != ("evaluation", "run")[: len(state.mutations)]
+            or (len(state.mutations) >= 2 and state.evaluation_id is None)
             or (state.evaluation_id is not None and "evaluation" not in state.mutations)
             or (state.run_id is not None and "run" not in state.mutations)
         ):
             raise EvaluationFailure("foreign_publication_recovery_record")
     else:
         state = PublicationState(
+            schema_version=2,
+            publication_protocol="native-python",
             configuration_sha256=digest,
             results_sha256=results_digest,
             reads=0,
             mutations=(),
             pending=None,
-            catalog_version=None,
             evaluation_id=None,
             run_id=None,
             verification="pending",
@@ -223,10 +261,8 @@ class Publisher:
             context.environment["MODEL_ENDPOINT"],
             context.environment["AGENT_EVALUATION_PROJECT_ID"],
         )
-        self.catalog = "newsloom_pilot_" + bundle.result.configuration_sha256[:24]
-        self.deployment = context.environment["ENRICHMENT_DEPLOYMENT"]
+        self.name = "newsloom_pilot_" + bundle.result.configuration_sha256[:24]
         self.prefix = httpx2.URL(self.endpoint)
-        self.catalog_path = self.prefix.path + "/evaluators/" + self.catalog + "/versions"
         self.eval_path = self.prefix.path + "/openai/v1/evals"
         self.deadline = time.monotonic() + self.remaining()
         self.seen: set[str] = set()
@@ -247,9 +283,14 @@ class Publisher:
         )
 
     def metadata(self) -> dict[str, str]:
-        return {"configuration_sha256": self.bundle.result.configuration_sha256, "origin": ORIGIN}
+        return {
+            "configuration_sha256": self.bundle.result.configuration_sha256,
+            "origin": ORIGIN,
+            "grader_protocol": self.bundle.approval.publication_protocol,
+        }
 
     async def admit(self, request: httpx2.Request) -> float:
+        request.headers["Foundry-Features"] = "Evaluations=V1Preview"
         await asyncio.to_thread(self.bundle.approval.validate_execution, datetime.now(UTC))
         url = request.url
         if (url.scheme, url.host, url.port) != (
@@ -260,11 +301,7 @@ class Publisher:
             raise EvaluationFailure("publication_endpoint_rejected")
         mutation: Mutation | None = None
         allowed = False
-        if url.path == self.catalog_path or url.path.startswith(self.catalog_path + "/"):
-            allowed = request.method == "GET"
-            if request.method == "POST" and url.path == self.catalog_path:
-                mutation = "catalog"
-        elif url.path == self.eval_path:
+        if url.path == self.eval_path:
             allowed = request.method == "GET" and self.bundle.recovery
             if request.method == "POST":
                 mutation = "evaluation"
@@ -284,6 +321,7 @@ class Publisher:
                 or mutation in self.state.mutations
                 or self.state.pending is not None
                 or len(self.state.mutations) >= self.bundle.approval.publication_mutation_limit
+                or mutation != ("evaluation", "run")[len(self.state.mutations)]
             ):
                 raise EvaluationFailure("publication_mutation_replay_rejected")
             await self.save(mutations=(*self.state.mutations, mutation), pending=mutation)
@@ -296,27 +334,31 @@ class Publisher:
         return min(self.remaining(), self.bundle.approval.publication_request_timeout_s)
 
     def inspect(self, request: httpx2.Request, value: dict[str, JsonValue]) -> None:
-        if value.get("error"):
+        if _has_error(value.get("error")):
             raise EvaluationFailure("publication_service_error")
         if request.url.path == self.eval_path + "/" + str(self.state.evaluation_id):
             criteria = value.get("testing_criteria")
             schema = value.get("data_source_config")
+            expected_schema = _wire_schema()
             if (
                 not isinstance(criteria, list)
                 or len(criteria) != 1
                 or not isinstance(criteria[0], dict)
-                or criteria[0].get("type") != "azure_ai_evaluator"
+                or set(criteria[0]) - {"id", "type", "name", "source", "pass_threshold"}
+                or criteria[0].get("type") != "python"
                 or criteria[0].get("name") != ORIGIN
-                or criteria[0].get("evaluator_name") != self.catalog
-                or criteria[0].get("initialization_parameters")
-                != {
-                    "deployment_name": self.deployment,
-                    "pass_threshold": 0.5,
-                }
-                or criteria[0].get("data_mapping") != {"score": "{{item.score}}"}
+                or criteria[0].get("source") != self.code
+                or type(criteria[0].get("pass_threshold")) not in (int, float)
+                or criteria[0].get("pass_threshold") != 0.5
                 or not isinstance(schema, dict)
                 or schema.get("type") != "custom"
-                or schema.get("item_schema") != PublicationRow.model_json_schema()
+                or schema.get("item_schema") not in ({}, expected_schema)
+                or ("schema" in schema and schema["schema"] != {"item": expected_schema})
+                or (
+                    schema.get("item_schema") == {}
+                    and schema.get("schema") != {"item": expected_schema}
+                )
+                or schema.get("include_sample_schema") not in (None, False)
             ):
                 raise EvaluationFailure("evaluation_definition_drift")
         if request.url.path.endswith("/output_items"):
@@ -334,6 +376,27 @@ class Publisher:
         counts = value.get("result_counts")
         if isinstance(counts, dict) and counts.get("errored") not in (None, 0):
             raise EvaluationFailure("publication_item_execution_error")
+        if (
+            self.state.evaluation_id is not None
+            and self.state.run_id is not None
+            and request.url.path
+            == self.eval_path + "/" + self.state.evaluation_id + "/runs/" + self.state.run_id
+            and value.get("status") == "completed"
+        ):
+            passed = sum(row.score >= 0.5 for row in self.bundle.rows)
+            expected_counts = {"total": 2, "passed": passed, "failed": 2 - passed, "errored": 0}
+            if (
+                not isinstance(counts, dict)
+                or any(
+                    type(counts.get(key)) is not int or counts[key] != count
+                    for key, count in expected_counts.items()
+                )
+                or (
+                    "skipped" in counts
+                    and (type(counts["skipped"]) is not int or counts["skipped"] != 0)
+                )
+            ):
+                raise EvaluationFailure("publication_result_counts_mismatch")
 
     def validate_item(self, item: JsonValue) -> None:
         if not isinstance(item, dict):
@@ -342,31 +405,38 @@ class Publisher:
         if (
             item.get("eval_id") != self.state.evaluation_id
             or item.get("run_id") != self.state.run_id
-            or item.get("status") not in ("pass", "fail")
-            or item.get("error")
+            or item.get("status") != "completed"
+            or _has_error(item.get("error"))
             or item.get("errors")
             or not isinstance(results, list)
             or len(results) != 1
             or not isinstance(results[0], dict)
         ):
             raise EvaluationFailure("publication_item_execution_error")
-        row = PublicationRow.model_validate_json(json.dumps(item.get("datasource_item")))
-        expected = {value.case_id: value for value in self.bundle.rows}
         metric = results[0]
+        for sample in (item.get("sample"), metric.get("sample")):
+            if sample is not None and not isinstance(sample, dict):
+                raise EvaluationFailure("invalid_publication_sample")
+            if isinstance(sample, dict) and (
+                _has_error(sample.get("error")) or sample.get("errors")
+            ):
+                raise EvaluationFailure("publication_item_execution_error")
+        row = _read_row(item.get("datasource_item"))
+        expected = {value.case_id: value for value in self.bundle.rows}
         score = metric.get("score")
         if (
             row.case_id in self.seen
-            or row != expected[row.case_id]
+            or row != expected.get(row.case_id)
+            or metric.get("type") != "python"
+            or metric.get("status") != "completed"
             or metric.get("name") != ORIGIN
             or type(score) not in (int, float)
             or score != row.score
             or type(metric.get("passed")) is not bool
             or metric["passed"] != (row.score >= 0.5)
-            or item["status"] != ("pass" if row.score >= 0.5 else "fail")
-            or metric.get("error")
+            or _has_error(metric.get("error"))
             or metric.get("errors")
             or metric.get("error_message")
-            or metric.get("status") in ("error", "failed", "cancelled")
         ):
             raise EvaluationFailure("publication_score_or_lineage_mismatch")
         self.seen.add(row.case_id)
@@ -376,7 +446,7 @@ class Publisher:
             metadata.get(key) == value for key, value in self.metadata().items()
         )
 
-    async def execute(self, project: AIProjectClient, deployment: str) -> dict[str, object]:
+    async def execute(self, project: AIProjectClient) -> dict[str, object]:
         async with project.get_openai_client(
             max_retries=0,
             http_client=httpx2.AsyncClient(
@@ -389,38 +459,6 @@ class Publisher:
                 follow_redirects=False,
             ),
         ) as client:
-            if self.bundle.recovery and "catalog" in self.state.mutations:
-                versions = [
-                    value
-                    async for value in project.evaluators.list_versions(self.catalog)
-                    if self.owned(value.metadata)
-                ]
-                if len(versions) != 1:
-                    raise EvaluationFailure("ambiguous_catalog_publication")
-                evaluator = versions[0]
-            else:
-                evaluator = await project.evaluators.create_version(
-                    self.catalog,
-                    EvaluatorVersion(
-                        evaluator_type="custom",
-                        categories=["quality"],
-                        display_name=ORIGIN,
-                        supported_evaluation_levels=["turn"],
-                        metadata=self.metadata(),
-                        definition=CodeBasedEvaluatorDefinition(code_text=self.code),
-                    ),
-                )
-            if (
-                not self.owned(evaluator.metadata)
-                or not isinstance(evaluator.definition, CodeBasedEvaluatorDefinition)
-                or evaluator.definition.code_text != self.code
-                or evaluator.version is None
-            ):
-                raise EvaluationFailure("foreign_catalog_evaluator")
-            await self.save(
-                catalog_version=_identifier(evaluator.version),
-                pending=None if self.state.pending == "catalog" else self.state.pending,
-            )
             if (
                 self.bundle.recovery
                 and self.state.evaluation_id is None
@@ -436,23 +474,19 @@ class Publisher:
                 await self.save(evaluation_id=_identifier(owned[0].id), pending=None)
             if self.state.evaluation_id is None:
                 evaluation = await client.evals.create(
-                    name=self.catalog,
+                    name=self.name,
                     metadata=self.metadata(),
                     data_source_config={
                         "type": "custom",
-                        "item_schema": PublicationRow.model_json_schema(),
+                        "item_schema": _wire_schema(),
                     },
                     testing_criteria=[
-                        AzureAICriterion(
-                            type="azure_ai_evaluator",
-                            name=ORIGIN,
-                            evaluator_name=self.catalog,
-                            initialization_parameters={
-                                "deployment_name": deployment,
-                                "pass_threshold": 0.5,
-                            },
-                            data_mapping={"score": "{{item.score}}"},
-                        )
+                        {
+                            "type": "python",
+                            "name": ORIGIN,
+                            "source": self.code,
+                            "pass_threshold": 0.5,
+                        }
                     ],
                 )
                 if not self.owned(evaluation.metadata):
@@ -462,7 +496,8 @@ class Publisher:
             retained_evaluation = await client.evals.retrieve(evaluation_id)
             if (
                 not self.owned(retained_evaluation.metadata)
-                or retained_evaluation.name != self.catalog
+                or retained_evaluation.name != self.name
+                or retained_evaluation.id != evaluation_id
             ):
                 raise EvaluationFailure("foreign_evaluation_publication")
             if self.bundle.recovery and self.state.run_id is None and "run" in self.state.mutations:
@@ -477,15 +512,13 @@ class Publisher:
             if self.state.run_id is None:
                 run = await client.evals.runs.create(
                     evaluation_id,
-                    name=self.catalog,
+                    name=self.name,
                     metadata=self.metadata(),
                     data_source={
                         "type": "jsonl",
                         "source": {
                             "type": "file_content",
-                            "content": [
-                                {"item": row.model_dump(mode="json")} for row in self.bundle.rows
-                            ],
+                            "content": [{"item": _wire_row(row)} for row in self.bundle.rows],
                         },
                     },
                 )
@@ -495,7 +528,12 @@ class Publisher:
             run_id = _identifier(self.state.run_id)
             while True:
                 retained_run = await client.evals.runs.retrieve(run_id, eval_id=evaluation_id)
-                if not self.owned(retained_run.metadata) or retained_run.eval_id != evaluation_id:
+                if (
+                    not self.owned(retained_run.metadata)
+                    or retained_run.eval_id != evaluation_id
+                    or retained_run.id != run_id
+                    or retained_run.name != self.name
+                ):
                     raise EvaluationFailure("foreign_run_publication")
                 if retained_run.status == "completed":
                     break
@@ -511,6 +549,17 @@ class Publisher:
                 pass
             if self.seen != {"p01", "p02"}:
                 raise EvaluationFailure("publication_case_set_mismatch")
+            counts = retained_run.result_counts
+            passed = sum(row.score >= 0.5 for row in self.bundle.rows)
+            if (
+                counts is None
+                or counts.errored != 0
+                or counts.total != 2
+                or counts.passed != passed
+                or counts.failed != 2 - passed
+                or getattr(counts, "skipped", 0) != 0
+            ):
+                raise EvaluationFailure("publication_result_counts_mismatch")
             report = urlsplit(retained_run.report_url or "")
             if report.scheme != "https" or report.netloc != "ai.azure.com":
                 raise EvaluationFailure("invalid_publication_report_reference")
@@ -518,6 +567,7 @@ class Publisher:
                 "outcome": "api_verified",
                 "verified_at": datetime.now(UTC).isoformat(),
                 "ui_verified": False,
+                "publication_protocol": self.state.publication_protocol,
                 "cases": 2,
                 "report_url": retained_run.report_url,
                 "configuration_sha256": self.state.configuration_sha256,
@@ -553,7 +603,6 @@ async def _publish(bundle: Bundle, *, continue_unsubmitted: bool) -> dict[str, o
     context = await read_context()
     if context.digest() != bundle.approval.context_sha256:
         raise EvaluationFailure("execution_context_digest_mismatch")
-    await context.verify_deployment()
     publisher = await asyncio.to_thread(
         Publisher, bundle, context, continue_unsubmitted=continue_unsubmitted
     )
@@ -568,7 +617,9 @@ async def _publish(bundle: Bundle, *, continue_unsubmitted: bool) -> dict[str, o
     completed = False
     try:
         async with (
-            AzureCliCredential(tenant_id=context.environment["AGENT_TENANT_ID"]) as credential,
+            AzureCliCredential(
+                tenant_id=context.environment["AGENT_TENANT_ID"], process_timeout=30
+            ) as credential,
             AIProjectClient(
                 endpoint=publisher.endpoint,
                 credential=credential,
@@ -578,7 +629,7 @@ async def _publish(bundle: Bundle, *, continue_unsubmitted: bool) -> dict[str, o
                 transport=transport,
             ) as project,
         ):
-            receipt = await publisher.execute(project, context.environment["ENRICHMENT_DEPLOYMENT"])
+            receipt = await publisher.execute(project)
             completed = True
             return receipt
     finally:

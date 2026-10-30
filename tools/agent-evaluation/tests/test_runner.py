@@ -30,7 +30,8 @@ from agent_evaluation.runner import Approval, Journal, MeasuredCase, read_approv
 def approval_data() -> dict[str, object]:
     now = datetime.now(UTC)
     return {
-        "schema_version": 1,
+        "schema_version": 2,
+        "publication_protocol": "native-python",
         "execution_approved": True,
         "source_sha256": source_digest(),
         "fixture_sha256": FIXTURE_SHA256,
@@ -41,7 +42,7 @@ def approval_data() -> dict[str, object]:
         "input_per_million_usd": "0.825",
         "output_per_million_usd": "4.95",
         "publication_read_limit": 60,
-        "publication_mutation_limit": 3,
+        "publication_mutation_limit": 2,
         "publication_request_timeout_s": 30,
         "publication_poll_spacing_s": 5,
     }
@@ -66,6 +67,9 @@ def test_approval_is_source_fixture_time_and_price_bound() -> None:
         ("execution_approved", 1),
         ("input_per_million_usd", 0.825),
         ("approved_at", "2026-10-28T00:00:00"),
+        ("schema_version", 1),
+        ("publication_protocol", "catalog-v1"),
+        ("publication_mutation_limit", 3),
     ],
 )
 def test_unknown_or_coerced_configuration_is_rejected(field: str, value: object) -> None:

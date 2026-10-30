@@ -1,5 +1,6 @@
 import asyncio
 import hashlib
+import re
 import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -23,7 +24,8 @@ Asset = Literal["run", "evaluation", "catalog"]
 
 
 class CleanupApproval(StrictModel):
-    schema_version: StrictInt = Field(ge=1, le=1)
+    schema_version: StrictInt = Field(ge=2, le=2)
+    publication_protocol: Literal["native-python", "catalog-v1"]
     execution_approved: StrictBool
     source_sha256: Digest
     context_sha256: Digest
@@ -32,13 +34,13 @@ class CleanupApproval(StrictModel):
     project_id: StrictStr
     project_endpoint: StrictStr
     origin: Literal["imported_deepeval_faithfulness", "newsloom_metadata_probe"]
-    catalog_version: Reference
+    catalog_version: Reference | None
     evaluation_id: Reference | None
     run_id: Reference | None
     approved_at: datetime
     expires_at: datetime
     read_limit: StrictInt = Field(ge=60, le=60)
-    mutation_limit: StrictInt = Field(ge=3, le=3)
+    mutation_limit: StrictInt = Field(ge=2, le=3)
     request_timeout_s: StrictInt = Field(ge=30, le=30)
     deadline_s: StrictInt = Field(ge=600, le=600)
 
@@ -58,6 +60,18 @@ class CleanupApproval(StrictModel):
             or not timedelta(0) < self.expires_at - self.approved_at <= timedelta(days=1)
             or self.source_sha256 != source_digest()
             or (self.run_id is not None and self.evaluation_id is None)
+            or (
+                self.publication_protocol == "native-python"
+                and (
+                    self.catalog_version is not None
+                    or self.mutation_limit != 2
+                    or self.evaluation_id is None
+                )
+            )
+            or (
+                self.publication_protocol == "catalog-v1"
+                and (self.catalog_version is None or self.mutation_limit != 3)
+            )
         ):
             raise EvaluationFailure("stale_or_unapproved_cleanup")
 
@@ -74,6 +88,7 @@ class CleanupState(StrictModel):
     attempted: tuple[Asset, ...]
     removed: tuple[Asset, ...]
     outcome: Literal["pending", "owned_verified", "api_absence_verified", "failed"]
+    delete_acknowledgement: dict[str, JsonValue] | None = None
 
 
 def load_cleanup(
@@ -88,16 +103,45 @@ def load_cleanup(
     historical = read_approval(path / "approval.json")
     if hashlib.sha256(historical).hexdigest() != approval.historical_approval_sha256:
         raise EvaluationFailure("foreign_cleanup_journal")
+    producer = json_document(historical)
+    if (
+        not isinstance(producer, dict)
+        or (
+            approval.publication_protocol == "native-python"
+            and (
+                producer.get("schema_version") != 2
+                or producer.get("publication_protocol") != "native-python"
+            )
+        )
+        or (
+            approval.publication_protocol == "catalog-v1"
+            and (
+                producer.get("schema_version") != 1
+                or producer.get("publication_protocol") is not None
+            )
+        )
+    ):
+        raise EvaluationFailure("foreign_cleanup_protocol")
     journal = Journal.reopen(path, approval.historical_approval_sha256, registry=registry)
     publication = read_file(path / "publication-state.json", 64 * 1024)
     value = json_document(publication)
+    native = approval.publication_protocol == "native-python"
+    stages = ("evaluation", "run") if native else ("catalog", "evaluation", "run")
     if (
         hashlib.sha256(publication).hexdigest() != approval.publication_state_sha256
         or not isinstance(value, dict)
         or value.get("configuration_sha256") != approval.historical_approval_sha256
         or not isinstance(value.get("mutations"), list)
-        or value["mutations"]
-        not in (["catalog"], ["catalog", "evaluation"], ["catalog", "evaluation", "run"])
+        or value["mutations"] not in [list(stages[:count]) for count in range(1, len(stages) + 1)]
+        or (
+            native
+            and (
+                value.get("schema_version") != 2
+                or value.get("publication_protocol") != "native-python"
+                or "catalog_version" in value
+            )
+        )
+        or (not native and value.get("publication_protocol") is not None)
     ):
         raise EvaluationFailure("foreign_cleanup_publication")
     for key in ("catalog_version", "evaluation_id", "run_id"):
@@ -132,7 +176,7 @@ def load_cleanup(
         state_bytes = read_file(state_path, 16 * 1024)
         json_document(state_bytes)
         state = CleanupState.model_validate_json(state_bytes)
-        expected_assets = {"catalog"}
+        expected_assets = set() if native else {"catalog"}
         if approval.evaluation_id is not None:
             expected_assets.add("evaluation")
         if approval.run_id is not None:
@@ -177,13 +221,12 @@ class Cleaner:
         self.prefix = httpx2.URL(approval.project_endpoint)
         root = self.prefix.path
         self.evals = root + "/openai/v1/evals"
-        self.paths: dict[Asset, str] = {
-            "catalog": root
-            + "/evaluators/"
-            + approval.catalog()
-            + "/versions/"
-            + approval.catalog_version
-        }
+        self.paths: dict[Asset, str] = {}
+        if approval.publication_protocol == "catalog-v1":
+            assert approval.catalog_version is not None
+            self.paths["catalog"] = (
+                root + "/evaluators/" + approval.catalog() + "/versions/" + approval.catalog_version
+            )
         if approval.evaluation_id is not None:
             self.paths["evaluation"] = self.evals + "/" + approval.evaluation_id
         if approval.run_id is not None:
@@ -206,9 +249,15 @@ class Cleaner:
         return isinstance(value, dict) and (
             value.get("configuration_sha256") == self.approval.historical_approval_sha256
             and value.get("origin") == self.approval.origin
+            and (
+                self.approval.publication_protocol == "catalog-v1"
+                or value.get("grader_protocol") == "native-python"
+            )
         )
 
     async def admit(self, request: httpx2.Request) -> float:
+        if self.approval.publication_protocol == "native-python":
+            request.headers["Foundry-Features"] = "Evaluations=V1Preview"
         await asyncio.to_thread(self.approval.validate_execution)
         url = request.url
         if (url.scheme, url.host, url.port) != (
@@ -218,11 +267,12 @@ class Cleaner:
         ) or set(url.params.keys()) - {"api-version", "after", "limit", "order", "order_by"}:
             raise EvaluationFailure("cleanup_endpoint_rejected")
         self.remaining()
-        if request.method == "GET" and url.path in (
-            *self.paths.values(),
-            self.evals,
-            self.paths.get("evaluation", "") + "/runs",
-        ):
+        allowed_reads = {*self.paths.values()}
+        if "catalog" in self.paths:
+            allowed_reads.add(self.evals)
+        if "evaluation" in self.paths:
+            allowed_reads.add(self.paths["evaluation"] + "/runs")
+        if request.method == "GET" and url.path in allowed_reads:
             if self.state.reads >= self.approval.read_limit:
                 raise EvaluationFailure("cleanup_read_limit")
             await self.save(reads=self.state.reads + 1)
@@ -242,13 +292,57 @@ class Cleaner:
 
     def inspect(self, request: httpx2.Request, value: dict[str, JsonValue]) -> None:
         path = request.url.path
-        if value.get("error"):
+        owned_terminal_failure = (
+            request.method == "GET"
+            and path == self.paths.get("run")
+            and value.get("id") == self.approval.run_id
+            and value.get("eval_id") == self.approval.evaluation_id
+            and value.get("status") in ("failed", "cancelled")
+            and self.owns(value.get("metadata"))
+        )
+        if value.get("error") and not owned_terminal_failure:
             raise EvaluationFailure("cleanup_service_error")
         if request.method == "DELETE":
             asset = next(key for key, target in self.paths.items() if target == path)
             key = "run_id" if asset == "run" else "eval_id"
             expected = self.approval.run_id if asset == "run" else self.approval.evaluation_id
-            if value.get("deleted") is not True or value.get(key) != expected:
+            references: dict[str, JsonValue] = {}
+            for field in (key, "id"):
+                returned = value.get(field)
+                if isinstance(returned, str) and re.fullmatch(
+                    r"(?:eval|evalrun)_[A-Za-z0-9_-]{1,240}", returned
+                ):
+                    references[field] = returned
+            deleted = value.get("deleted")
+            location = value.get("location")
+            asynchronous = deleted is False and isinstance(location, str) and bool(location)
+            self.state = self.state.model_copy(
+                update={
+                    "delete_acknowledgement": {
+                        "asset": asset,
+                        "keys": sorted(value),
+                        "deleted_type": type(value.get("deleted")).__name__,
+                        "deleted": deleted if type(deleted) is bool else None,
+                        "asynchronous": asynchronous,
+                        "location_type": type(location).__name__,
+                        "references": references,
+                        "reference_types": {
+                            field: type(value.get(field)).__name__ for field in (key, "id")
+                        },
+                        "empty_reference_fields": [
+                            field for field in (key, "id") if value.get(field) == ""
+                        ],
+                        "expected_reference_matches": value.get(key) == expected,
+                    }
+                }
+            )
+            if (
+                value.get("deleted") is not None
+                and value["deleted"] is not True
+                and not asynchronous
+            ) or any(
+                value.get(field) is not None and value[field] != expected for field in (key, "id")
+            ):
                 raise EvaluationFailure("cleanup_deletion_unconfirmed")
         elif path in self.paths.values():
             asset = next(key for key, target in self.paths.items() if target == path)
@@ -268,13 +362,22 @@ class Cleaner:
                 )
             if not valid:
                 raise EvaluationFailure("foreign_or_active_cleanup_asset")
-        elif path == self.evals:
+        elif path == self.evals or path == self.paths.get("evaluation", "") + "/runs":
             rows = value.get("data")
             if not isinstance(rows, list) or type(value.get("has_more")) is not bool:
+                raise EvaluationFailure("incomplete_cleanup_inventory")
+            if value["has_more"] and (
+                not rows
+                or not isinstance(rows[-1], dict)
+                or not isinstance(rows[-1].get("id"), str)
+                or value.get("last_id") != rows[-1]["id"]
+            ):
                 raise EvaluationFailure("incomplete_cleanup_inventory")
             for row in rows:
                 if not isinstance(row, dict):
                     raise EvaluationFailure("incomplete_cleanup_inventory")
+                if path != self.evals:
+                    continue
                 criteria = row.get("testing_criteria")
                 if not isinstance(criteria, list):
                     raise EvaluationFailure("incomplete_cleanup_inventory")
@@ -284,7 +387,9 @@ class Cleaner:
                 ):
                     raise EvaluationFailure("foreign_cleanup_dependency")
 
-    async def exists(self, project: AIProjectClient, asset: Asset) -> bool:
+    async def exists(
+        self, project: AIProjectClient, asset: Asset, *, pending_deletion: bool = False
+    ) -> bool:
         a = self.approval
         async with project.get_openai_client(
             max_retries=0,
@@ -298,6 +403,7 @@ class Cleaner:
         ) as client:
             try:
                 if asset == "catalog":
+                    assert a.catalog_version is not None
                     await project.evaluators.get_version(a.catalog(), a.catalog_version)
                 elif asset == "evaluation":
                     assert a.evaluation_id is not None
@@ -309,7 +415,7 @@ class Cleaner:
                 if asset not in self.state.attempted or asset not in self.state.owned:
                     raise EvaluationFailure("missing_cleanup_ownership") from None
                 return False
-        if asset in self.state.attempted:
+        if asset in self.state.attempted and not pending_deletion:
             raise EvaluationFailure("cleanup_deletion_unconfirmed")
         return True
 
@@ -332,8 +438,9 @@ class Cleaner:
                 follow_redirects=False,
             ),
         ) as client:
-            async for _ in client.evals.list(limit=100):
-                pass
+            if "catalog" in self.paths:
+                async for _ in client.evals.list(limit=100):
+                    pass
             if "evaluation" in present:
                 assert a.evaluation_id is not None
                 initial_runs = [
@@ -365,9 +472,18 @@ class Cleaner:
                     assert a.evaluation_id is not None
                     await client.evals.delete(a.evaluation_id)
                 else:
+                    assert a.catalog_version is not None
                     await project.evaluators.delete_version(a.catalog(), a.catalog_version)
-                if await self.exists(project, asset):
-                    raise EvaluationFailure("cleanup_deletion_unconfirmed")
+                acknowledgement = self.state.delete_acknowledgement
+                asynchronous = (
+                    acknowledgement is not None and acknowledgement.get("asynchronous") is True
+                )
+                while await self.exists(project, asset, pending_deletion=asynchronous):
+                    if not asynchronous:
+                        raise EvaluationFailure("cleanup_deletion_unconfirmed")
+                    if self.remaining() <= 5:
+                        raise EvaluationFailure("cleanup_deadline")
+                    await asyncio.sleep(5)
                 await self.save(removed=(*self.state.removed, asset))
         outcome = (
             "api_absence_verified"
@@ -384,6 +500,7 @@ class Cleaner:
             "verified_at": datetime.now(UTC).isoformat(),
             "backup_erasure_verified": False,
             "approval_sha256": self.state.approval_sha256,
+            "publication_protocol": self.approval.publication_protocol,
         }
         await self.journal.persist("cleanup.json", receipt)
         return receipt
@@ -423,7 +540,9 @@ async def cleanup(
                 )
             )
             async with (
-                AzureCliCredential(tenant_id=context.environment["AGENT_TENANT_ID"]) as credential,
+                AzureCliCredential(
+                    tenant_id=context.environment["AGENT_TENANT_ID"], process_timeout=30
+                ) as credential,
                 AIProjectClient(
                     endpoint=approval.project_endpoint,
                     credential=credential,

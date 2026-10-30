@@ -118,6 +118,9 @@ def main() -> None:
                 "prepare-agent-identity",
                 "prepare-agent-layer",
                 "prepare-agent-evaluation-layer",
+                "verify-agent-evaluation",
+                "verify-agent-evaluation-role",
+                "reconcile-agent-evaluation",
                 "build-agent",
                 "verify-agent",
                 "evaluate-mcp",
@@ -131,18 +134,50 @@ def main() -> None:
             ],
         )
         parser.add_argument("--force", action="store_true")
+        parser.add_argument("--manifest")
         parser.add_argument("--limit", type=int, default=25)
         parser.add_argument(
             "workload", nargs="?", choices=["ingestion", "enrichment", "mcp", "migrations"]
         )
         args = parser.parse_args()
+        if (args.manifest is not None) != (
+            args.command
+            in (
+                "verify-agent-evaluation",
+                "verify-agent-evaluation-role",
+                "reconcile-agent-evaluation",
+            )
+        ):
+            raise PlatformFailure("verification_manifest_required_for_verification_only")
         if args.force and args.command != "execute-ingestion":
             raise PlatformFailure("force_requires_ingestion_execution")
         if not 1 <= args.limit <= 25 or (args.limit != 25 and args.command != "execute-enrichment"):
             raise PlatformFailure("invalid_enrichment_limit")
         if args.command != "probe" and args.workload is not None:
             raise PlatformFailure("unexpected_workload_argument")
-        if args.command in [
+        if args.command in (
+            "verify-agent-evaluation",
+            "verify-agent-evaluation-role",
+            "reconcile-agent-evaluation",
+        ):
+            from newsloom_platform import control as platform_control
+            from newsloom_platform import evaluation_verification
+
+            if args.command == "verify-agent-evaluation-role":
+                from newsloom_platform import evaluation_role
+
+                evaluation_role.verify(platform_control.environment(), correlation, args.manifest)
+            elif args.command == "reconcile-agent-evaluation":
+                from newsloom_platform import evaluation_reconciliation
+
+                evaluation_reconciliation.verify(
+                    platform_control.environment(), correlation, args.manifest
+                )
+            else:
+                evaluation_verification.verify(
+                    platform_control.environment(), correlation, args.manifest
+                )
+        elif args.command in [
             "migrate",
             "probe",
             "ingestion-status",

@@ -171,7 +171,7 @@ def exercise(home: Path, mode: str) -> None:
             state = json.loads((path / "publication-state.json").read_bytes())
             if expected:
                 assert state["verification"] == "failed"
-                assert state["mutations"] == ["catalog"]
+                assert state["mutations"] == ["evaluation"]
         else:
             path, manifest, digest, service_delete = asyncio.run(prepare(root, monkeypatch))
             old_delete = service_delete.respond

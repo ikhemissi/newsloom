@@ -1,7 +1,9 @@
+import base64
 import hashlib
 import json
 import re
 import sys
+import time
 from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -21,6 +23,75 @@ class Foundation:
     deployment: dict[str, object]
     updates: dict[str, str] = field(default_factory=dict)
     calls: list[list[str]] = field(default_factory=list)
+
+
+def data_environment(foundation: Foundation) -> dict[str, str]:
+    return {
+        **foundation.env,
+        "AGENT_EVALUATION_FOUNDRY_USER_ROLE_ID": "-".join(
+            ["53ca6127", "db72", "4b80", "b1b0", "d745d6d5456d"]
+        ),
+        "AGENT_EVALUATION_FOUNDRY_PROJECT_MANAGER_ROLE_ID": "-".join(
+            ["eadc314b", "1a2d", "4efa", "be10", "5d325db5065e"]
+        ),
+        "AGENT_EVALUATION_DATA_RESOURCES_ENABLED": "true",
+        "AGENT_EVALUATION_IMPORT_EXISTING_DATA_RESOURCES": "true",
+        "AGENT_EVALUATION_STORAGE_ACCOUNT_NAME": "stnewsloomevaltest",
+        "AGENT_EVALUATION_STORAGE_CONNECTION_NAME": "stnewsloomevaltestmanual",
+        "AGENT_EVALUATION_STORAGE_GRANT_NAME": str(uuid4()),
+        "AGENT_EVALUATION_ACCOUNT_USER_GRANT_NAME": str(uuid4()),
+        "AGENT_EVALUATION_ACCOUNT_MANAGER_GRANT_NAME": str(uuid4()),
+        "AGENT_EVALUATION_STORAGE_ROLE_ID": "-".join(
+            ["ba92f5b4", "2d11", "453d", "a403", "e96b0029c9fe"]
+        ),
+    }
+
+
+def test_data_adoption_configuration_preserves_exact_names_without_cloud_reads(
+    foundation: Foundation,
+) -> None:
+    env = data_environment(foundation)
+    original = deepcopy(env)
+    values = agent_evaluation.data_configuration(env)
+    assert values["enabled"] == values["import_existing"] == "true"
+    assert values["connection_name"] == env["AGENT_EVALUATION_STORAGE_CONNECTION_NAME"]
+    assert values["storage_grant_name"] == env["AGENT_EVALUATION_STORAGE_GRANT_NAME"]
+    assert values["retain_experimental_appinsights_grants"] == "false"
+    assert env == original and not foundation.calls and not foundation.updates
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("enabled", "invalid"),
+        ("storage_name", "foreign/parent"),
+        ("connection_name", "foreign/connection"),
+        ("storage_grant_name", ""),
+        ("account_user_grant_name", "invalid"),
+        ("storage_role_id", str(uuid4())),
+    ],
+)
+def test_data_adoption_rejects_bad_inputs_before_cloud_reads(
+    foundation: Foundation, field: str, value: str
+) -> None:
+    env = data_environment(foundation)
+    env[agent_evaluation.DATA_INPUTS[field]] = value
+    with pytest.raises(PlatformFailure):
+        agent_evaluation.data_configuration(env)
+    assert not foundation.calls and not foundation.updates
+
+
+def test_diagnostic_grants_cannot_expand_to_another_component(foundation: Foundation) -> None:
+    env = data_environment(foundation)
+    env.update(
+        {
+            "AGENT_EVALUATION_RETAIN_DIAGNOSTIC_GRANTS": "true",
+            "AGENT_EVALUATION_DIAGNOSTIC_APPINSIGHTS_ID": "/foreign/component",
+        }
+    )
+    with pytest.raises(PlatformFailure, match="agent_evaluation_diagnostic_scope_invalid"):
+        agent_evaluation.data_configuration(env)
+    assert not foundation.calls and not foundation.updates
 
 
 @pytest.fixture
@@ -89,8 +160,14 @@ def foundation(monkeypatch: pytest.MonkeyPatch) -> Foundation:
         result.calls.append(arguments)
         if arguments == ["account", "show"]:
             return result.context
-        if arguments == ["ad", "signed-in-user", "show", "--query", "id"]:
-            return result.operator
+        if arguments == agent_evaluation.OPERATOR_TOKEN:
+            claims = {
+                "oid": result.operator,
+                "tid": result.context["tenantId"],
+                "exp": time.time() + 600,
+            }
+            payload = base64.urlsafe_b64encode(json.dumps(claims).encode()).decode().rstrip("=")
+            return f"header.{payload}.signature"
         raise AssertionError("unexpected_azure_command")
 
     def rest(url: str, category: str, *, body: object | None = None) -> object:
@@ -118,7 +195,55 @@ def test_default_disabled_preparation_has_no_azure_calls(foundation: Foundation)
         "AGENT_EVALUATION_ENABLED": "false",
         "AGENT_EVALUATION_TENANT_ID": "",
         "AGENT_EVALUATION_OPERATOR_PRINCIPAL_ID": "",
+        "AGENT_EVALUATION_FOUNDRY_USER_ROLE_ID": "",
+        "AGENT_EVALUATION_FOUNDRY_PROJECT_MANAGER_ROLE_ID": "",
+        **{
+            name: "false" if key in agent_evaluation.DATA_BOOLEAN_INPUTS else ""
+            for key, name in agent_evaluation.DATA_INPUTS.items()
+        },
     }
+
+
+@pytest.mark.parametrize("role", ["foreign", str(uuid4()), "Foundry User"])
+def test_unapproved_foundry_role_is_rejected_before_cloud(
+    foundation: Foundation, role: str
+) -> None:
+    foundation.env["AGENT_EVALUATION_FOUNDRY_USER_ROLE_ID"] = role
+    with pytest.raises(PlatformFailure, match="agent_evaluation_foundry_user_role_invalid"):
+        agent_evaluation.prepare(foundation.env, "local")
+    assert not foundation.calls and not foundation.updates
+
+
+@pytest.mark.parametrize("role", ["foreign", str(uuid4()), "Foundry Project Manager"])
+def test_unapproved_project_manager_role_is_rejected_before_cloud(
+    foundation: Foundation, role: str
+) -> None:
+    foundation.env["AGENT_EVALUATION_FOUNDRY_PROJECT_MANAGER_ROLE_ID"] = role
+    with pytest.raises(
+        PlatformFailure, match="agent_evaluation_foundry_project_manager_role_invalid"
+    ):
+        agent_evaluation.prepare(foundation.env, "local")
+    assert not foundation.calls and not foundation.updates
+
+
+@pytest.mark.parametrize(
+    "change", [{"tid": str(uuid4())}, {"exp": 0}, {"exp": True}, {"oid": "foreign"}]
+)
+def test_operator_binding_uses_cli_token_without_directory_reads(
+    foundation: Foundation, change: dict[str, object]
+) -> None:
+    claims = {
+        "oid": foundation.operator,
+        "tid": foundation.env["AGENT_TENANT_ID"],
+        "exp": time.time() + 600,
+        **change,
+    }
+    payload = base64.urlsafe_b64encode(json.dumps(claims).encode()).decode().rstrip("=")
+    with pytest.raises(PlatformFailure):
+        agent_evaluation.operator_from_token(
+            f"header.{payload}.signature", foundation.env["AGENT_TENANT_ID"]
+        )
+    assert not foundation.calls
 
 
 def test_disabled_preparation_retains_existing_operator_and_outputs(foundation: Foundation) -> None:
@@ -127,6 +252,12 @@ def test_disabled_preparation_retains_existing_operator_and_outputs(foundation: 
         "AGENT_EVALUATION_TENANT_ID": foundation.env["AGENT_TENANT_ID"],
         "AGENT_EVALUATION_OPERATOR_PRINCIPAL_ID": foundation.operator,
         "AGENT_EVALUATION_PROJECT_ID": "PRIVATE_PROJECT_CANARY",
+        "AGENT_EVALUATION_FOUNDRY_USER_ROLE_ID": "",
+        "AGENT_EVALUATION_FOUNDRY_PROJECT_MANAGER_ROLE_ID": "",
+        **{
+            name: "false" if key in agent_evaluation.DATA_BOOLEAN_INPUTS else ""
+            for key, name in agent_evaluation.DATA_INPUTS.items()
+        },
     }
     before = dict(env)
     agent_evaluation.prepare(env, "local")
@@ -146,6 +277,12 @@ def test_preparation_is_read_only_and_allows_staged_parent_preview(
     assert foundation.updates == {
         "AGENT_EVALUATION_TENANT_ID": foundation.env["AGENT_TENANT_ID"],
         "AGENT_EVALUATION_OPERATOR_PRINCIPAL_ID": foundation.operator,
+        "AGENT_EVALUATION_FOUNDRY_USER_ROLE_ID": "",
+        "AGENT_EVALUATION_FOUNDRY_PROJECT_MANAGER_ROLE_ID": "",
+        **{
+            name: "false" if key in agent_evaluation.DATA_BOOLEAN_INPUTS else ""
+            for key, name in agent_evaluation.DATA_INPUTS.items()
+        },
     }
     output = capsys.readouterr().out
     assert json.loads(output)["counts"] == {
@@ -343,6 +480,11 @@ def test_owning_layer_has_only_project_and_custom_operator_authority() -> None:
         ("azurerm_cognitive_account_project", "evaluation"),
         ("azurerm_role_definition", "operator"),
         ("azurerm_role_assignment", "operator"),
+        ("azurerm_role_assignment", "foundry_user"),
+        ("azurerm_role_assignment", "foundry_project_manager"),
+        ("azapi_resource", "evaluation_storage"),
+        ("azapi_resource", "evaluation_storage_connection"),
+        ("azapi_resource", "data_grants"),
     }
     source = (root / "infra" / "main.tf").read_text()
     account = source.split('resource "azurerm_cognitive_account" "models" {', 1)[1].split(

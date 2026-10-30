@@ -89,3 +89,21 @@ resource "azurerm_role_assignment" "operator" {
   principal_id       = var.operator_principal_id
   principal_type     = "User"
 }
+
+resource "azurerm_role_assignment" "foundry_user" {
+  count              = var.enabled && var.foundry_user_role_id != "" ? 1 : 0
+  name               = uuidv5("url", "${azurerm_cognitive_account_project.evaluation[0].id}/foundry-user/${var.operator_principal_id}")
+  scope              = azurerm_cognitive_account_project.evaluation[0].id
+  role_definition_id = "/subscriptions/${var.subscription_id}/providers/Microsoft.Authorization/roleDefinitions/${var.foundry_user_role_id}"
+  principal_id       = var.operator_principal_id
+  principal_type     = "User"
+}
+
+resource "azurerm_role_assignment" "foundry_project_manager" {
+  count              = var.enabled && var.foundry_project_manager_role_id != "" ? 1 : 0
+  name               = uuidv5("url", "${azurerm_cognitive_account_project.evaluation[0].id}/foundry-project-manager/${var.operator_principal_id}")
+  scope              = azurerm_cognitive_account_project.evaluation[0].id
+  role_definition_id = "/subscriptions/${var.subscription_id}/providers/Microsoft.Authorization/roleDefinitions/${var.foundry_project_manager_role_id}"
+  principal_id       = var.operator_principal_id
+  principal_type     = "User"
+}

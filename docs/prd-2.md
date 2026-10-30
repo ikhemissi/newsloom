@@ -49,6 +49,15 @@ the failed planning attempts and the state-constrained follow-up.
 Progress precedes a validated final answer; external web enrichment and
 persistent personalization are explicitly deferred below.
 
+Step 2.3's active
+[evaluation foundation](agent-evaluation.md#status-and-scope) has verified the
+two-answer synthetic DeepEval/Foundry interoperability path, lifecycle,
+Terraform ownership and scoped preservation. Its source-bound publication gates
+remain in the [owning ledger](../openspec/changes/agent-evaluation-foundation/tasks.md).
+This preparatory slice does not complete Step 2.3 or P2-C06: the frozen
+deployed-agent question set, calibrated baseline, candidate comparisons and
+online-monitoring follow-ups remain pending.
+
 This document owns phase sequencing and capability-to-slice assignments.
 [Capabilities](prd-2-capabilities.md) own behavior, user stories, acceptance
 criteria, and unresolved product decisions. See [the ADRs](adrs.md) for technical choices.

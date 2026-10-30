@@ -1,10 +1,12 @@
-import math
-
-
-def grade(sample: dict[str, object], item: dict[str, object]) -> float:
-    score = item["score"]
-    if type(score) not in (int, float):
+def grade(sample, item):
+    # type: (dict[str, object], dict[str, object]) -> float
+    raw = item["score"]
+    if isinstance(raw, bool) or not isinstance(raw, (int, float, str)):
         raise ValueError("invalid_imported_score")
-    if not isinstance(score, int | float) or not math.isfinite(score) or not 0 <= score <= 1:
+    try:
+        score = float(raw)
+    except ValueError:
+        raise ValueError("invalid_imported_score") from None
+    if not 0 <= score <= 1:
         raise ValueError("invalid_imported_score")
-    return float(score)
+    return score
