@@ -120,6 +120,10 @@ actual answer and exact frozen summary evidence. Proposed release criteria are
 each eligible score at least 0.8 and their macro mean at least 0.9. All frozen
 deterministic citation/request/denial gates must pass. These criteria require
 review and freezing before execution; do not tune them after observing answers.
+Valid below-threshold live scores remain measured quality failures, not runtime
+errors: complete the bounded suite once and publish its unchanged scores if all
+required results are valid, while leaving release acceptance open. Operational
+errors, evidence drift or failed calibration retain their stop behavior.
 
 Validate canonical stored citation URLs and expected item coverage separately.
 URL membership proves structural validity, not semantic support; faithfulness

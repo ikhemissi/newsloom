@@ -80,6 +80,16 @@ and operational correctness MUST remain distinct from semantic support.
 - **AND** predeclared inapplicability is explicit; missing/error scores cannot
   become inapplicable or change any metric denominator after execution
 
+#### Scenario: A valid live score misses its quality threshold
+- **WHEN** a completed live case produces a finite valid score below its frozen
+  quality threshold without an execution error
+- **THEN** the original score remains a valid failed-quality measurement and
+  eligible for exact publication
+- **AND** the bounded suite may complete once, but release acceptance remains
+  unchecked; no case is dropped, repaired or rescored to obtain a pass
+- **AND** calibration failures, evidence drift and execution errors retain
+  their separate stop behavior
+
 ### Requirement: Honest tool and injection acceptance
 Tool-policy and indirect-injection acceptance SHALL include exact authored
 controller/transport assertions for requested operations, arguments, identity
