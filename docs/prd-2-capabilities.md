@@ -137,13 +137,14 @@ Define frozen questions and evaluation pass criteria when implementing P2-C06.
 The user's preferred Step 2.3 direction is DeepEval combined with Microsoft
 Foundry evaluations, with run results visible in Foundry's evaluations experience.
 Offline and online quality evaluation, cost management and governance are
-primary project priorities. The active
+primary project priorities. The delivered interoperability
 [evaluation foundation](agent-evaluation.md#status-and-scope) has verified
 isolated Python/SDK compatibility, secretless judging, exact imported-score
 API/user-attested UI parity, evaluation storage and disposable lifecycle.
 Its two authored precomputed answers do not establish this capability's frozen
-deployed-agent baseline; foundation publication remains gated by its
-[owning ledger](../openspec/changes/agent-evaluation-foundation/tasks.md).
+deployed-agent baseline. The foundation's
+[owning ledger](../openspec/changes/agent-evaluation-foundation/tasks.md) records
+its separate implementation, measured-status and completion CI.
 Define evaluator calibration, sampling, content privacy, retention and spend
 limits for the subsequent quality slices. Define an iterative improvement loop:
 classify failures, change one agent component, compare candidates against a

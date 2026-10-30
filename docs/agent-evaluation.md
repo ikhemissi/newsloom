@@ -37,8 +37,9 @@ explicitly approved
 preservation without rewriting that blocked snapshot or changing Defender.
 The [implementation publication](#verified-implementation-publication) and its
 exact-SHA CI have passed. The separate measured-status receipt also passed its
-own exact-SHA CI. The active ledger is 25/26; only completion publication with
-exact-SHA CI remains open.
+own exact-SHA CI. The completion ledger subsequently passed its exact-SHA CI;
+all 26 foundation tasks are verified. The final checklist/status closure still
+requires its own exact-head CI before handoff.
 
 Verified locally: the separately locked evaluation project resolves on Python
 3.15.1, real DeepEval and Projects SDK imports and mocked wire execution succeed
@@ -1960,8 +1961,8 @@ them, renew an expired authorization or replace the before-baseline.
 The offline acceptance check passed one positive and six negative cases,
 rejecting an unapproved endpoint, extra resource, missing custom roles, altered
 original record, foreign scanning destination and extra manual execution.
-No owned local helper/client remains running. Tasks 1.2, 6.1 and 6.5 are closed;
-the three exact-source publication gates remain pending.
+No owned local helper/client remains running. Tasks 1.2, 6.1 and 6.5 were closed by this receipt; the subsequent publication
+gates are recorded separately below.
 
 This is only the defined RG/database/project-app preservation claim.
 Subscription-wide inventories, inherited/management-group grants, global
@@ -1997,7 +1998,7 @@ This separate receipt follows successful implementation CI, not a second paid
 evaluation. Receipt commit `6531aaea8bbea611aefc91d6412d1b2b1ebed155`
 passed its own
 [exact-SHA CI](https://github.com/ikhemissi/newsloom/actions/runs/41093707423).
-The completion ledger remains subject to its separate exact-head CI.
+The completion ledger subsequently passed its separate exact-head CI below.
 
 | Surface | Measured result |
 | --- | --- |
@@ -2058,7 +2059,14 @@ not add cloud acceptance, restart inference or change the retained environment.
 | Owned experiment cleanup | All 16 failed pairs absent, protected definitions retained, native/probe reconciliation and corrected catalog-parent read observations |
 | Implementation publication | `4eae16851ed664a6d29a145d1cb7a5c5f9b182f5`, passing exact-SHA CI |
 | Separate measured-status publication | `6531aaea8bbea611aefc91d6412d1b2b1ebed155`, passing exact-SHA CI |
-| Completion-ledger publication | Await this ledger commit's exact-head primary CI; task 7.3 remains unchecked until observed |
+| Completion-ledger publication | `aa87b98e48faf8a0d002a980d77b68acb1f67a09`, [passing exact-SHA CI](https://github.com/ikhemissi/newsloom/actions/runs/41094492939), observed before task 7.3 was checked |
+
+All 26 foundation tasks now have evidence. This final checklist/status closure
+is a follow-up publication, not a new inference/deployment acceptance; its own
+exact-head CI must also pass before handoff. The reference-account definition
+created by the explicitly approved A/B diagnostic is intentionally outside
+Newsloom cleanup: its exact private intent/accepted-ID journal remains retained,
+and no reference-project deletion or wider cleanup is claimed.
 
 This is a foundation-only ledger. Step 2.3/P2-C06, the frozen quality baseline,
 calibrated judges, candidate comparisons and online monitoring remain pending.

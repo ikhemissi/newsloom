@@ -49,11 +49,12 @@ the failed planning attempts and the state-constrained follow-up.
 Progress precedes a validated final answer; external web enrichment and
 persistent personalization are explicitly deferred below.
 
-Step 2.3's active
+Step 2.3's delivered interoperability
 [evaluation foundation](agent-evaluation.md#status-and-scope) has verified the
 two-answer synthetic DeepEval/Foundry interoperability path, lifecycle,
-Terraform ownership and scoped preservation. Its source-bound publication gates
-remain in the [owning ledger](../openspec/changes/agent-evaluation-foundation/tasks.md).
+Terraform ownership and scoped preservation, with passing implementation,
+separate measured-status and completion-ledger CI. Its source-bound evidence
+is retained in the [owning ledger](../openspec/changes/agent-evaluation-foundation/tasks.md).
 This preparatory slice does not complete Step 2.3 or P2-C06: the frozen
 deployed-agent question set, calibrated baseline, candidate comparisons and
 online-monitoring follow-ups remain pending.

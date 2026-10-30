@@ -2,14 +2,18 @@
 
 ## Current delivery status
 
-On 2026-10-30, 25/26 tasks are verified; only completion-ledger publication
-with exact-SHA CI remains. Implementation
+On 2026-10-30, all 26/26 foundation tasks are verified. Implementation
 `4eae16851ed664a6d29a145d1cb7a5c5f9b182f5` passed
 [exact-SHA primary CI](https://github.com/ikhemissi/newsloom/actions/runs/41092639258):
 290 evaluator tests and 1,576 PostgreSQL-enabled application tests passed;
 the sole skip is the intentionally excluded live-publisher test.
 The separate measured receipt `6531aaea8bbea611aefc91d6412d1b2b1ebed155`
 also passed [exact-SHA CI](https://github.com/ikhemissi/newsloom/actions/runs/41093707423).
+Completion ledger `aa87b98e48faf8a0d002a980d77b68acb1f67a09` then passed
+[its exact-SHA CI](https://github.com/ikhemissi/newsloom/actions/runs/41094492939)
+before task 7.3 was checked. The final checklist/status closure must also pass
+its own exact-head CI before handoff; prior successful runs do not establish
+that final result.
 The [final audited preservation receipt](../../../docs/agent-evaluation.md#final-audited-preservation-acceptance)
 closes 1.2, 6.1 and 6.5 against measured evidence, not a reset baseline.
 The earlier checkpoints below retain their historical failures and task counts.
@@ -536,7 +540,7 @@ principal or full-payload translation. Progress remains 18/26; 6.4 stays open.
 
 - [x] 7.1 Update the evaluation runbook with actual compatibility, source/configuration, owning preview/apply, API/report visibility, retention, privacy, budget and preservation evidence; update only directly owning ADR/PRD links. Publish the verified implementation and wait for exact-commit primary CI, preserving unrelated customization edits. Keep Step 2.3/P2-C06 incomplete and distinguish the evaluator source from the unchanged agent image provenance.
 - [x] 7.2 Publish a separate measured evidence/status receipt after implementation CI passes, including exact report references kept private where required, actual counts, incomplete-usage reservations, cleanup and evidence limitations. Wait for that receipt's exact-SHA CI before completing delivery acceptance; no hypothetical or failed verification may become a passed task.
-- [ ] 7.3 After the evidence/status CI passes, mark only this foundation delivery's completed gates and publish its completion ledger with final exact-head CI. Verify all foundation tasks have evidence while the frozen baseline/calibration, candidate comparison and online-monitoring slices remain pending; do not synchronize or archive this change automatically.
+- [x] 7.3 After the evidence/status CI passes, mark only this foundation delivery's completed gates and publish its completion ledger with final exact-head CI. Verify all foundation tasks have evidence while the frozen baseline/calibration, candidate comparison and online-monitoring slices remain pending; do not synchronize or archive this change automatically.
 
 ## Workflow follow-up
 
