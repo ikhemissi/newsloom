@@ -9,8 +9,8 @@ and actual Foundry evaluation-report visibility.
 
 ## What Changes
 
-- Deliver the first bounded part of [Step 2.3](../../../docs/prd-2.md#delivery-plan),
-  preparing for [P2-C06](../../../docs/prd-2-capabilities.md#p2-c06-repeatable-agent-quality-and-azure-acceptance)
+- Deliver the first bounded part of [Step 2.3](../../../../docs/prd-2.md#delivery-plan),
+  preparing for [P2-C06](../../../../docs/prd-2-capabilities.md#p2-c06-repeatable-agent-quality-and-azure-acceptance)
   without declaring that capability or Phase 2 complete.
 - Add an operator-invoked evaluation pilot using two authored, precomputed
   question/evidence/answer cases: one supported answer and one deliberately

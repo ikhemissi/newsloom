@@ -54,7 +54,9 @@ Step 2.3's delivered interoperability
 two-answer synthetic DeepEval/Foundry interoperability path, lifecycle,
 Terraform ownership and scoped preservation, with passing implementation,
 separate measured-status and completion-ledger CI. Its source-bound evidence
-is retained in the [owning ledger](../openspec/changes/agent-evaluation-foundation/tasks.md).
+is retained in the [owning ledger](../openspec/changes/archive/2026-10-30-agent-evaluation-foundation/tasks.md).
+The verified change is archived, with its interoperability contract in the
+[main evaluation spec](../openspec/specs/agent-evaluation/spec.md).
 This preparatory slice does not complete Step 2.3 or P2-C06: the frozen
 deployed-agent question set, calibrated baseline, candidate comparisons and
 online-monitoring follow-ups remain pending.

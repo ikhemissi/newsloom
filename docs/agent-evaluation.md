@@ -2,12 +2,27 @@
 
 ## Status and scope
 
-This is the active [evaluation foundation](../openspec/changes/agent-evaluation-foundation/proposal.md),
+This is the delivered [evaluation foundation](../openspec/changes/archive/2026-10-30-agent-evaluation-foundation/proposal.md),
 not the frozen quality baseline or completed
 [P2-C06](prd-2-capabilities.md#p2-c06-repeatable-agent-quality-and-azure-acceptance).
-The [task ledger](../openspec/changes/agent-evaluation-foundation/tasks.md) owns
+The [task ledger](../openspec/changes/archive/2026-10-30-agent-evaluation-foundation/tasks.md) owns
 acceptance status. Research is already delivered; its measured evidence belongs
 to the [agent runbook](agent.md).
+
+The verified change is archived as
+[`2026-10-30-agent-evaluation-foundation`](../openspec/changes/archive/2026-10-30-agent-evaluation-foundation/).
+Its ten requirements are synchronized into the delivered
+[agent-evaluation contract](../openspec/specs/agent-evaluation/spec.md).
+The archival review confirmed all four artifacts and 26 tasks complete, with
+final delivery head `e4a4b4f22987d7f028e232e1c6226b67a89dafe2` and its
+[passing exact-SHA CI](https://github.com/ikhemissi/newsloom/actions/runs/41095374175).
+The sync preserves every requirement/scenario and the delta purpose verbatim,
+changing only canonical main-spec framing. Relative links were rebased for the
+archive; historical acceptance, failures and private receipts were not replayed.
+This documentation-only archival performs no Azure reads/writes, model calls,
+new verification execution or production redeployment. Its publication still
+requires its own exact-SHA CI. Later statements that the change was active,
+unsynchronized or unarchived describe the earlier measured checkpoints.
 
 On 2026-10-30 a separately approved publication-only diagnostic achieved
 [exact two-case API parity](#recorded-score-wire-format-diagnosis-and-first-api-parity)
@@ -229,7 +244,7 @@ requests/retries are not claimed as separately counted requests. Directory
 and role-definition reads share that envelope.
 
 All evaluation checks use the user-approved
-[verification boundary](../openspec/changes/agent-evaluation-foundation/design.md#verification-scope):
+[verification boundary](../openspec/changes/archive/2026-10-30-agent-evaluation-foundation/design.md#verification-scope):
 the selected Newsloom RG and its resources, the configured Newsloom database
 there, and the exact MCP API/client and agent API/client registrations with
 their federation/consent configuration. Requests and pagination are guarded
@@ -473,7 +488,7 @@ neither new baselines nor metadata normalization may conceal the failure.
 
 ### Audited preservation reconciliation
 
-The approved [reconciliation contract](../openspec/changes/agent-evaluation-foundation/design.md#4a-evidence-bound-reconciliation-after-failed-readback)
+The approved [reconciliation contract](../openspec/changes/archive/2026-10-30-agent-evaluation-foundation/design.md#4a-evidence-bound-reconciliation-after-failed-readback)
 is implemented by the platform's
 [reconciler](../services/platform/src/newsloom_platform/evaluation_reconciliation.py)
 and [fixed record probe](../services/platform/src/newsloom_platform/evaluation_record_probe.py).
@@ -1000,7 +1015,7 @@ The runner also excludes the 70-second windows around half-hour schedule
 boundaries; it does not change schedules or increase capacity.
 
 The [shared controller](../tools/agent-evaluation/agent_evaluation/budget.py)
-implements the [proposed finite envelope](../openspec/changes/agent-evaluation-foundation/design.md#5-finite-accounting-before-the-first-paid-request).
+implements the [proposed finite envelope](../openspec/changes/archive/2026-10-30-agent-evaluation-foundation/design.md#5-finite-accounting-before-the-first-paid-request).
 Each admitted request reserves the full 400,000-token model context as a
 conservative input bound, plus 1,024 output tokens. This deliberately exceeds
 the [documented model's](https://developers.openai.com/api/docs/models/gpt-5.4-mini)
@@ -1160,7 +1175,7 @@ The proposed pilot-artifact window is 30 days, with explicit operator-owned
 cleanup, not automatic service expiry. Exact-target cleanup and privacy
 canaries are implemented and verified locally. The real metadata-only probe stopped at catalog authorization, before
 evaluation/run creation. Deletion and observed service lifecycle remain pending in the
-[task ledger](../openspec/changes/agent-evaluation-foundation/tasks.md).
+[task ledger](../openspec/changes/archive/2026-10-30-agent-evaluation-foundation/tasks.md).
 Publication recovery alone is not a cleanup mechanism.
 
 The current official contracts establish these candidate operations:
@@ -1320,7 +1335,7 @@ call, role change or infrastructure mutation occurred during recovery.
 
 The user explicitly approved uploading the existing two-case synthetic pilot
 before deletion testing, superseding only the deletion-first sequencing under
-[design 4e](../openspec/changes/agent-evaluation-foundation/design.md#4e-approved-sample-first-sequencing-and-conditional-permission-escalation).
+[design 4e](../openspec/changes/archive/2026-10-30-agent-evaluation-foundation/design.md#4e-approved-sample-first-sequencing-and-conditional-permission-escalation).
 Foundry Project Manager is conditional on successful upload followed by failed
 post-upload deletion, not on the historical cleanup failure.
 
@@ -2140,7 +2155,7 @@ configuration separately from that accepted image/source.
 The two-answer runner, imported-score publication/recovery bridge, exact-target
 cleanup and privacy safeguards are verified locally and by the specifically
 recorded Azure acceptance above. The
-[design](../openspec/changes/agent-evaluation-foundation/design.md) still governs
+[design](../openspec/changes/archive/2026-10-30-agent-evaluation-foundation/design.md) still governs
 new execution: completed evidence does not renew inference, publication, cleanup
 or migration-job approvals. Preserve the 30-day manual report-retention window
 and exact-target ownership checks. Do not upload production news or conversations,

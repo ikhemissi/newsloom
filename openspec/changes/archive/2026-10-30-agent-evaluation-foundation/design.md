@@ -7,8 +7,8 @@ See [the proposal](proposal.md#why) for motivation and the
 This is the interoperability foundation, not P2-C06's baseline delivery.
 
 The repository has one Python 3.15 uv workspace, six packages and a
-credential-free [primary check](../../../scripts/check.sh). The
-[agent image](../../../services/agent/Dockerfile) installs only the agent package,
+credential-free [primary check](../../../../scripts/check.sh). The
+[agent image](../../../../services/agent/Dockerfile) installs only the agent package,
 without development dependencies. Existing research, signed-in client and
 content-free telemetry stay unchanged.
 

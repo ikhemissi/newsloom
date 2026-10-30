@@ -1,5 +1,20 @@
 # Tasks
 
+## Archival review
+
+On 2026-10-30 the user approved synchronization and archival of this verified
+change. All four artifacts and 26 tasks were complete. Delivery head
+`e4a4b4f22987d7f028e232e1c6226b67a89dafe2` passed
+[exact-SHA CI](https://github.com/ikhemissi/newsloom/actions/runs/41095374175).
+All ten requirements and their scenarios, together with the original purpose,
+were synchronized into the
+[main spec](../../../specs/agent-evaluation/spec.md).
+The original planning/acceptance chronology below is retained; its earlier
+unsynchronized/unarchived statements predate this review. Only archive-relative
+links and this review note were added. No acceptance, paid run, cloud mutation
+or migration verification was repeated. Archival publication requires separate
+exact-source CI and does not complete Step 2.3/P2-C06.
+
 ## Current delivery status
 
 On 2026-10-30, all 26/26 foundation tasks are verified. Implementation
@@ -14,7 +29,7 @@ Completion ledger `aa87b98e48faf8a0d002a980d77b68acb1f67a09` then passed
 before task 7.3 was checked. The final checklist/status closure must also pass
 its own exact-head CI before handoff; prior successful runs do not establish
 that final result.
-The [final audited preservation receipt](../../../docs/agent-evaluation.md#final-audited-preservation-acceptance)
+The [final audited preservation receipt](../../../../docs/agent-evaluation.md#final-audited-preservation-acceptance)
 closes 1.2, 6.1 and 6.5 against measured evidence, not a reset baseline.
 The earlier checkpoints below retain their historical failures and task counts.
 Step 2.3/P2-C06 is not complete, and this change is not synchronized or archived.
@@ -57,7 +72,7 @@ exact-target cleanup and privacy guards pass 218 actual-library/offline
 tests, lint, formatting and strict types on Python 3.15.1. The application lock
 and all six production closures remain unchanged; isolated agent startup and
 six-package builds pass. Mocked wire evidence is documented in the
-[evaluation runbook](../../../docs/agent-evaluation.md), not Azure/report acceptance.
+[evaluation runbook](../../../../docs/agent-evaluation.md), not Azure/report acceptance.
 Fresh read-only workload/directory/model/grant preservation now passes after an
 earlier interrupted preflight. Native account/operator inventory and an
 independent count/hash-only stored-record baseline also pass. Evaluation
@@ -151,7 +166,7 @@ preparation/boundary tests, pass, as do 12 evaluation-layer and three applicatio
 mock runs, strict types, lint, formatting, platform packaging and CLI help.
 These verify the declared boundaries and destruction guards, not native update
 actions or working catalog authorization. See the
-[owning-layer runbook](../../../docs/agent-evaluation.md#owning-infrastructure-boundary).
+[owning-layer runbook](../../../../docs/agent-evaluation.md#owning-infrastructure-boundary).
 Local 4.2 evidence: 124 verifier tests and the combined 307 focused platform
 regressions pass, with strict types over 135 files, lint, formatting, CLI and
 documentation checks. Actual saved-plan decoding and pinned-provider mock JSON
@@ -171,7 +186,7 @@ the intentionally excluded live-publisher test. Strict types, lint, formatting,
 OpenSpec/identifier guards, all six package builds, unchanged original production
 dependency graphs and actual isolated production-installation checks pass.
 The application lock is unchanged; evaluator source provenance is recorded in
-the [runbook](../../../docs/agent-evaluation.md#complete-local-integration-gate).
+the [runbook](../../../../docs/agent-evaluation.md#complete-local-integration-gate).
 The owned temporary PostgreSQL container was stopped and removed. This is local
 acceptance, not Azure foundation, paid judging, report visibility or publication CI.
 
@@ -203,7 +218,7 @@ found one additional service-reported `CostControls` feature flag, timestamp-onl
 changes in inherited role-definition metadata, and a stored-news count increase
 from 2,106 to 2,108. Original-record append-only proof remains unavailable:
 the existing MCP role correctly denies the needed `created_at` column.
-See the [blocked readback evidence](../../../docs/agent-evaluation.md#applied-parent-and-blocked-preservation-readback).
+See the [blocked readback evidence](../../../../docs/agent-evaluation.md#applied-parent-and-blocked-preservation-readback).
 Project/grant provisioning, metadata lifecycle mutation and paid evaluation
 execution are stopped. No task checkbox is completed by this partial apply.
 
@@ -310,14 +325,14 @@ One catalog-create intent is pending with unknown remote version; no replay,
 evaluation/run create, paid judging or two-case score upload followed. Both old
 and new uncertain targets remain retained, without absence/deletion claims.
 Task 6.3 remains unchecked and the original paid envelope remains unused.
-The [runbook](../../../docs/agent-evaluation.md#actual-publication-retry) records
+The [runbook](../../../../docs/agent-evaluation.md#actual-publication-retry) records
 the private service request reference. Initial inspection of the supplied
 public repository found only its local runner, but that did not establish the
 absence of another live upload workflow. Subsequent read-only inspection of the
 user-linked reference project verified a completed native-Python recorded-score
 replay with 16 result rows, seven metrics and zero execution errors, plus the
 registered custom rubric. See the
-[verified reference](../../../docs/agent-evaluation.md#verified-native-python-replay-reference).
+[verified reference](../../../../docs/agent-evaluation.md#verified-native-python-replay-reference).
 The user subsequently approved adopting its native inline Python protocol,
 including fresh metadata-only lifecycle verification followed by the original
 bounded two-case scoring/upload. Design 4d owns that transition. It does not

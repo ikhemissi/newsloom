@@ -143,7 +143,7 @@ isolated Python/SDK compatibility, secretless judging, exact imported-score
 API/user-attested UI parity, evaluation storage and disposable lifecycle.
 Its two authored precomputed answers do not establish this capability's frozen
 deployed-agent baseline. The foundation's
-[owning ledger](../openspec/changes/agent-evaluation-foundation/tasks.md) records
+[owning ledger](../openspec/changes/archive/2026-10-30-agent-evaluation-foundation/tasks.md) records
 its separate implementation, measured-status and completion CI.
 Define evaluator calibration, sampling, content privacy, retention and spend
 limits for the subsequent quality slices. Define an iterative improvement loop:
