@@ -36,8 +36,9 @@ explicitly approved
 [audited final reconciliation](#final-audited-preservation-acceptance) now closes
 preservation without rewriting that blocked snapshot or changing Defender.
 The [implementation publication](#verified-implementation-publication) and its
-exact-SHA CI have passed. The active ledger is 24/26; separate evidence/status
-and completion publication with exact-SHA CI remain open.
+exact-SHA CI have passed. The separate measured-status receipt also passed its
+own exact-SHA CI. The active ledger is 25/26; only completion publication with
+exact-SHA CI remains open.
 
 Verified locally: the separately locked evaluation project resolves on Python
 3.15.1, real DeepEval and Projects SDK imports and mocked wire execution succeed
@@ -1993,8 +1994,10 @@ relabelled as this evaluator checkout.
 ## Measured foundation evidence/status receipt
 
 This separate receipt follows successful implementation CI, not a second paid
-evaluation. Its own exact-SHA CI and the completion ledger remain pending until
-independently observed.
+evaluation. Receipt commit `6531aaea8bbea611aefc91d6412d1b2b1ebed155`
+passed its own
+[exact-SHA CI](https://github.com/ikhemissi/newsloom/actions/runs/41093707423).
+The completion ledger remains subject to its separate exact-head CI.
 
 | Surface | Measured result |
 | --- | --- |
@@ -2037,6 +2040,31 @@ frozen deployed-agent questions and quality thresholds, judge calibration,
 candidate comparisons and online monitoring remain incomplete. This status
 publication performs no cloud writes, additional job starts or model calls,
 does not redeploy the agent, and does not synchronize or archive this change.
+
+## Foundation completion ledger
+
+The implementation and separate measured-status receipts above have passed
+their own exact-SHA CI in that order. This completion-ledger publication does
+not add cloud acceptance, restart inference or change the retained environment.
+
+| Foundation gate | Evidence |
+| --- | --- |
+| Dependency/runtime isolation and local integration | Actual-library/offline tests, unchanged production closures, local primary gate and six package builds |
+| Owned Azure foundation | In-place account/project applies, exact grant readback, seven-object adoption and separate two-grant removal |
+| Real scoring and report visibility | Once-measured original scores, API parity and separate user-attested UI evidence |
+| Precision and deletion | Two nine-case exact-score replays and disposable lifecycle API absence |
+| Privacy, bounds and retention | Content-free diagnostics, original eight-call usage, immutable failed journals, finite separate recovery windows and manual 30-day report retention |
+| Original data and scoped authority | Final audited receipt, exact metadata reconstructions, complete row fingerprints and bounded history comparison |
+| Owned experiment cleanup | All 16 failed pairs absent, protected definitions retained, native/probe reconciliation and corrected catalog-parent read observations |
+| Implementation publication | `4eae16851ed664a6d29a145d1cb7a5c5f9b182f5`, passing exact-SHA CI |
+| Separate measured-status publication | `6531aaea8bbea611aefc91d6412d1b2b1ebed155`, passing exact-SHA CI |
+| Completion-ledger publication | Await this ledger commit's exact-head primary CI; task 7.3 remains unchecked until observed |
+
+This is a foundation-only ledger. Step 2.3/P2-C06, the frozen quality baseline,
+calibrated judges, candidate comparisons and online monitoring remain pending.
+No spec synchronization or archival is performed. The
+[PRD-2 execution boundary](prd-2.md#delivery-plan) requires pausing for user
+review after that entire phase's verified delivery, before any PRD-3 work.
 
 ## Read-only foundation preflight
 

@@ -2,12 +2,14 @@
 
 ## Current delivery status
 
-On 2026-10-30, 24/26 tasks are verified; only separate evidence/status and
-completion-ledger publication with exact-SHA CI remain. Implementation
+On 2026-10-30, 25/26 tasks are verified; only completion-ledger publication
+with exact-SHA CI remains. Implementation
 `4eae16851ed664a6d29a145d1cb7a5c5f9b182f5` passed
 [exact-SHA primary CI](https://github.com/ikhemissi/newsloom/actions/runs/41092639258):
 290 evaluator tests and 1,576 PostgreSQL-enabled application tests passed;
 the sole skip is the intentionally excluded live-publisher test.
+The separate measured receipt `6531aaea8bbea611aefc91d6412d1b2b1ebed155`
+also passed [exact-SHA CI](https://github.com/ikhemissi/newsloom/actions/runs/41093707423).
 The [final audited preservation receipt](../../../docs/agent-evaluation.md#final-audited-preservation-acceptance)
 closes 1.2, 6.1 and 6.5 against measured evidence, not a reset baseline.
 The earlier checkpoints below retain their historical failures and task counts.
@@ -533,7 +535,7 @@ This reproduces the full project-flow failure but does not isolate the internal
 principal or full-payload translation. Progress remains 18/26; 6.4 stays open.
 
 - [x] 7.1 Update the evaluation runbook with actual compatibility, source/configuration, owning preview/apply, API/report visibility, retention, privacy, budget and preservation evidence; update only directly owning ADR/PRD links. Publish the verified implementation and wait for exact-commit primary CI, preserving unrelated customization edits. Keep Step 2.3/P2-C06 incomplete and distinguish the evaluator source from the unchanged agent image provenance.
-- [ ] 7.2 Publish a separate measured evidence/status receipt after implementation CI passes, including exact report references kept private where required, actual counts, incomplete-usage reservations, cleanup and evidence limitations. Wait for that receipt's exact-SHA CI before completing delivery acceptance; no hypothetical or failed verification may become a passed task.
+- [x] 7.2 Publish a separate measured evidence/status receipt after implementation CI passes, including exact report references kept private where required, actual counts, incomplete-usage reservations, cleanup and evidence limitations. Wait for that receipt's exact-SHA CI before completing delivery acceptance; no hypothetical or failed verification may become a passed task.
 - [ ] 7.3 After the evidence/status CI passes, mark only this foundation delivery's completed gates and publish its completion ledger with final exact-head CI. Verify all foundation tasks have evidence while the frozen baseline/calibration, candidate comparison and online-monitoring slices remain pending; do not synchronize or archive this change automatically.
 
 ## Workflow follow-up
