@@ -72,6 +72,11 @@ criteria, and unresolved product decisions. See [the ADRs](adrs.md) for technica
 
 Use [the development guide](development.md#openspec) to execute each slice.
 
+**Execution boundary:** pause for user review when all PRD-2 acceptance and
+delivery-publication gates are verified. Do not begin PRD-3 or its browser UI
+automatically; resuming beyond this phase requires explicit user approval.
+Completing the synthetic evaluation foundation alone is not the end of PRD-2.
+
 ## Deferred research TODOs
 
 - [ ] Revisit optional web enrichment for user-requested deeper research on MCP

@@ -35,7 +35,8 @@ Final scoped readback found two further metadata/resource differences. The
 explicitly approved
 [audited final reconciliation](#final-audited-preservation-acceptance) now closes
 preservation without rewriting that blocked snapshot or changing Defender.
-The active ledger is 23/26; source-bound implementation, separate evidence/status
+The [implementation publication](#verified-implementation-publication) and its
+exact-SHA CI have passed. The active ledger is 24/26; separate evidence/status
 and completion publication with exact-SHA CI remain open.
 
 Verified locally: the separately locked evaluation project resolves on Python
@@ -1967,6 +1968,75 @@ built-in definitions outside the explicit provider exceptions, quota/catalog
 inventories and unrelated directory/database objects were not rechecked.
 API absence is not backup/artifact erasure, and the UI evidence remains a
 separate user attestation rather than an automated browser inspection.
+
+## Verified implementation publication
+
+The verified implementation is commit
+`4eae16851ed664a6d29a145d1cb7a5c5f9b182f5`, published after the measured Azure
+acceptance and final preservation reconciliation.
+[Exact-commit primary CI](https://github.com/ikhemissi/newsloom/actions/runs/41092639258)
+passed with 290 evaluator tests and 1,576 application tests using PostgreSQL
+18/pgvector. The sole skipped test deliberately excludes live publishers from
+normal CI; the dedicated record-proof database tests ran rather than inheriting
+the 67 local database-dependent skips. Strict types, lint, formatting,
+identifier/OpenSpec guards and all Terraform validations/mocks passed, including
+19 evaluation-layer tests.
+
+The final local primary gate separately passed 290 evaluator tests and 1,510
+application tests with 67 explicit PostgreSQL-dependent skips. All six packages
+built as wheels and source archives, and local documentation validation checked
+162 links/anchors and 15 shell blocks across eight owning documents.
+The 39 implementation files exclude the user's unrelated prompt/skill edits.
+Neither the accepted production agent image nor its deployed source was
+relabelled as this evaluator checkout.
+
+## Measured foundation evidence/status receipt
+
+This separate receipt follows successful implementation CI, not a second paid
+evaluation. Its own exact-SHA CI and the completion ledger remain pending until
+independently observed.
+
+| Surface | Measured result |
+| --- | --- |
+| Real DeepEval pilot | Two authored precomputed answers, measured once; `p01=1.0`, `p02=0.0` |
+| Inference accounting | Eight calls; 3,051 input tokens, 404 output tokens; complete usage, no unknown reservations |
+| Estimated chat cost | USD 0.004516875 at the recorded USD 0.825/4.95 per-million input/output rates; not billing or infrastructure cost |
+| Main-publisher upload | Two creates, eight reads, exact original scores/explanations/lineage; no rescoring |
+| Actual report | API parity and separate user-attested Completed/Inline-data UI with both cases; diagnostic aggregate 50% |
+| Fractional regression | Nine explicitly synthetic scores replayed twice; all 18 exact comparisons passed, zero execution errors |
+| Disposable lifecycle | One constant-score `0.375` case; two creates, two deletes, 14 reads; both exact assets API-absent |
+| Terraform reconciliation | Seven existing objects imported, no additions/replacements/destroys; one provider-state-only connection reconciliation |
+| Unused permissions | Separate reviewed plan removed exactly two diagnostic telemetry grants; five adopted objects retained, 12 managed evaluation-layer objects total |
+| Historical experiments | All 16 failed evaluation/run pairs API-absent, four protected definitions retained; separate native/probe and corrected catalog-parent read receipts preserved |
+| Cleanup accounting | 33 cumulative attempted DELETEs and 257 recorded maintenance reads for the failed-experiment cleanup, including the separately approved timeout retry |
+| Original data | All 2,116 baseline row fingerprints unchanged in the independent 2,139-row evidence; 23 additions, zero missing/changed |
+| Preservation | Original resources, workloads, projects, custom roles, models and authority preserved within scope; only five approved Terraform-owned grant additions |
+
+Private references bind the actual successful report, immutable scoring
+approval/results, source/configuration and all failed attempts. Original producer
+source remains
+`9901718728c0f81eef05a3839ce1d95fbd9b6c178b4e1fbf4c8a97a9e552ddbc`;
+the successful main-publisher source is separately recorded as
+`60314944471643480c05773da68285b4d60dfa31ad4c0fd46c2655fb453a5f65`.
+The original configuration/results fingerprints and fresh publication-only
+admission remain unchanged; expired scoring approvals were not renewed.
+The final audited receipt above separately binds current platform/infrastructure/
+evaluator source and actual metadata/record observation times.
+
+Limitations remain explicit: user-attested rather than automated UI inspection;
+manual 30-day report retention rather than automatic TTL; logical API absence
+rather than backup erasure; no complete inherited/effective-access or wider
+inventory claim; approved broad operator roles rather than minimum-RBAC proof.
+Policy-managed scanning side resources are neither direct application IaC nor
+orphan experiments, and no Defender changes were made. Exact local historical
+evidence remains private; no credentials, deployment identifiers, article text
+or generated explanations enter this public receipt.
+
+Only the synthetic interoperability foundation is covered. Step 2.3/P2-C06,
+frozen deployed-agent questions and quality thresholds, judge calibration,
+candidate comparisons and online monitoring remain incomplete. This status
+publication performs no cloud writes, additional job starts or model calls,
+does not redeploy the agent, and does not synchronize or archive this change.
 
 ## Read-only foundation preflight
 
