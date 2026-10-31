@@ -317,6 +317,24 @@ class ResearchAnswer(ResearchContract):
         return self
 
 
+class SynthesisScope(ResearchContract):
+    coverage: Literal["complete", "partial", "none", "discovery"]
+    missing_item_ids: Annotated[tuple[UUID, ...], Field(max_length=MAX_SELECTED_ITEMS)] = Field(
+        repr=False
+    )
+
+    @field_validator("missing_item_ids")
+    @classmethod
+    def distinct_missing(cls, value: tuple[UUID, ...]) -> tuple[UUID, ...]:
+        return distinct_ids(value)
+
+    def validate_answer(self, answer: ResearchAnswer) -> None:
+        if answer.coverage != self.coverage or set(answer.missing_item_ids) != set(
+            self.missing_item_ids
+        ):
+            raise AgentFailure("research_coverage_invalid")
+
+
 class ResearchReceipt(ResearchContract):
     outcome: Literal["supported", "limited", "no_match"]
     items: Annotated[int, Field(strict=True, ge=0, le=MAX_EVIDENCE_ITEMS)]

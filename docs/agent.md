@@ -220,6 +220,36 @@ local authored responses, not Azure research or semantic-quality acceptance.
 
 ### Research configuration and usage observations
 
+The [coverage correctness slice](../openspec/changes/research-answer-scope-fix/proposal.md)
+binds synthesis coverage and missing-item IDs from typed controller state,
+using the same trusted-scope pattern as planning. Its final response schema
+permits only the actual coverage value and missing-ID membership/count.
+Untrusted context cannot select these controls, and independently inconsistent
+provider output still fails without being rewritten or retried. Existing
+no-match, selection/filter, citation, deadline and token limits remain intact.
+The targeted local generation/controller/A2A/capture selection passes 148 tests,
+including all four coverage modes and wrong/foreign/duplicate provider values.
+These local results do not establish a new deployed image or full quality
+baseline; those gates remain in the owning slice ledger.
+
+The subsequent approved agent-only deployment changed zero resource counts
+and only the existing image/runtime revision. Its new source is
+`994707f93566db4f67d8d79aff1116ace2d763776d3775a41de835568a4dc60c`
+and immutable image digest is
+`7cac78479b9c3c755e527e4a4986015ecbb3e46610c721bfd53c23930868e337`.
+After initial rollout lag, the owning image/configuration readback passed.
+The first live discovery check expired during sign-in at the user's availability
+deadline, before generation; that attempt is retained. A subsequently resumed,
+bounded same-user discovery check passed against the new image: supported
+outcome, one evidence item, two tool calls, four generation/usage calls, 4,743
+input and 373 output tokens. Pre/post item/pool fingerprints and streamed/
+completed-task parity matched; final validation establishes discovery coverage.
+Estimated chat cost was USD 0.005759325, with embedding exposure reserved
+separately. No answer/news text or judge reason was saved. This is narrow
+coverage acceptance, not full quality-baseline or live injection acceptance.
+Publication/CI is still unchecked in the [owning ledger](../openspec/changes/research-answer-scope-fix/tasks.md).
+The failed baseline and its original accepted image are not relabelled.
+
 `AGENT_RESEARCH_ENABLED` defaults to `false`; only exact `true`/`false` values are
 accepted. The owning app's separate `research_enabled` input injects the same
 setting. Enabling research does not add resources, identities, permissions,

@@ -22,7 +22,12 @@ from newsloom_agent.generation import (
     model_failure,
 )
 from newsloom_agent.models import AgentFailure
-from newsloom_agent.research_models import PlanningScope, ResearchAnswer, ResearchPlan
+from newsloom_agent.research_models import (
+    PlanningScope,
+    ResearchAnswer,
+    ResearchPlan,
+    SynthesisScope,
+)
 
 MAX_PLANNING_CALLS = 3
 MAX_MODEL_CALLS = 4
@@ -135,7 +140,12 @@ class ResearchModel(Protocol):
     ) -> ResearchPlan: ...
 
     async def synthesize(
-        self, context: str, authorization: Authorization, stats: ResearchStats
+        self,
+        context: str,
+        authorization: Authorization,
+        stats: ResearchStats,
+        *,
+        scope: SynthesisScope,
     ) -> ResearchAnswer: ...
 
 
@@ -157,6 +167,16 @@ def strict_schema(value: object) -> object:
     if isinstance(value, list):
         return [strict_schema(child) for child in value]
     return value
+
+
+def synthesis_schema(scope: SynthesisScope) -> object:
+    schema = ResearchAnswer.model_json_schema(by_alias=True)
+    schema["properties"]["coverage"]["enum"] = [scope.coverage]
+    missing = schema["properties"]["missing_item_ids"]
+    missing["minItems"] = missing["maxItems"] = len(scope.missing_item_ids)
+    if scope.missing_item_ids:
+        missing["items"]["enum"] = [str(item_id) for item_id in scope.missing_item_ids]
+    return strict_schema(schema)
 
 
 def planning_schema(scope: PlanningScope) -> object:
@@ -233,9 +253,23 @@ class FoundryResearchGenerator:
         )
 
     async def synthesize(
-        self, context: str, authorization: Authorization, stats: ResearchStats
+        self,
+        context: str,
+        authorization: Authorization,
+        stats: ResearchStats,
+        *,
+        scope: SynthesisScope,
     ) -> ResearchAnswer:
-        return await self._complete(context, authorization, stats, ResearchAnswer, final=True)
+        answer = await self._complete(
+            context,
+            authorization,
+            stats,
+            ResearchAnswer,
+            final=True,
+            schema=synthesis_schema(scope),
+        )
+        scope.validate_answer(answer)
+        return answer
 
     async def _complete[Result: BaseModel](
         self,

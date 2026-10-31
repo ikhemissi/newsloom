@@ -15,7 +15,16 @@ from uuid import UUID, uuid4
 
 import httpx
 from a2a.client import A2ACardResolver, ClientConfig, ClientFactory
-from a2a.types import AgentCard, GetTaskRequest, Message, Part, Role, SendMessageRequest, TaskState
+from a2a.types import (
+    AgentCard,
+    GetTaskRequest,
+    Message,
+    Part,
+    Role,
+    SendMessageRequest,
+    TaskState,
+    TaskStatus,
+)
 from a2a.utils.errors import A2AError
 from google.protobuf.json_format import Parse
 from google.protobuf.struct_pb2 import Value
@@ -31,6 +40,18 @@ from newsloom_agent.runtime import Config
 CALLBACK = "http://127.0.0.1:8400/callback"
 SIGN_IN_SECONDS = 180
 MAX_SIGN_IN_BYTES = 32 * 1024
+RESEARCH_CLIENT_FAILURES = {
+    "agent_research_acceptance_unavailable",
+    "agent_research_acceptance_response_invalid",
+    "agent_research_not_completed",
+    "agent_research_remote_failed",
+    "agent_research_event_limit",
+    "agent_research_artifact_invalid",
+    "agent_research_answer_limit",
+    "agent_research_progress_invalid",
+    "agent_research_readback_invalid",
+    "agent_client_transport_boundary",
+}
 
 
 class ClientSettings(DelegationConfig):
@@ -446,6 +467,34 @@ async def verify_delegation(*, streaming: bool = False) -> dict[str, int]:
 class ResearchInvocation:
     text: str
     counts: dict[str, int]
+    receipt: ResearchReceipt | None = None
+
+
+def research_message(request: ResearchRequest) -> SendMessageRequest:
+    return SendMessageRequest(
+        message=Message(
+            message_id=str(uuid4()),
+            role=Role.ROLE_USER,
+            parts=[
+                Part(
+                    data=Parse(request.model_dump_json(by_alias=True), Value()),
+                    media_type="application/json",
+                )
+            ],
+        )
+    )
+
+
+def raise_research_failure(status: TaskStatus) -> None:
+    if status.state != TaskState.TASK_STATE_FAILED:
+        return
+    from newsloom_agent.telemetry import CATEGORIES
+
+    if len(status.message.parts) == 1:
+        part = status.message.parts[0]
+        if part.WhichOneof("content") == "text" and part.text and part.text in CATEGORIES:
+            raise AgentFailure(part.text)
+    raise AgentFailure("agent_research_remote_failed")
 
 
 async def invoke_research(
@@ -453,6 +502,9 @@ async def invoke_research(
     token: str,
     http: httpx.AsyncClient,
     request: ResearchRequest,
+    *,
+    request_hook: Callable[[httpx.Request], Awaitable[None]] | None = None,
+    response_hook: Callable[[httpx.Response], Awaitable[None]] | None = None,
 ) -> ResearchInvocation:
     try:
         if http.headers.get("authorization"):
@@ -469,6 +521,8 @@ async def invoke_research(
                 or outgoing.headers.get_list("authorization") != [f"Bearer {token}"]
             ):
                 raise AgentFailure("agent_client_transport_boundary")
+            if request_hook is not None:
+                await request_hook(outgoing)
 
         async with (
             asyncio.timeout(120),
@@ -477,7 +531,10 @@ async def invoke_research(
                 follow_redirects=False,
                 timeout=120,
                 headers={"Authorization": f"Bearer {token}"},
-                event_hooks={"request": [guard]},
+                event_hooks={
+                    "request": [guard],
+                    "response": [] if response_hook is None else [response_hook],
+                },
             ) as authorized,
         ):
             client = ClientFactory(
@@ -491,24 +548,12 @@ async def invoke_research(
                 chunks: list[str] = []
                 task_id = ""
                 progress_events = events = size = 0
-                async for response in client.send_message(
-                    SendMessageRequest(
-                        message=Message(
-                            message_id=str(uuid4()),
-                            role=Role.ROLE_USER,
-                            parts=[
-                                Part(
-                                    data=Parse(request.model_dump_json(by_alias=True), Value()),
-                                    media_type="application/json",
-                                )
-                            ],
-                        )
-                    )
-                ):
+                async for response in client.send_message(research_message(request)):
                     events += 1
                     if events > 64:
                         raise AgentFailure("agent_research_event_limit")
                     if response.HasField("task"):
+                        raise_research_failure(response.task.status)
                         task_id = response.task.id
                     if response.HasField("artifact_update"):
                         artifact = response.artifact_update.artifact
@@ -525,6 +570,7 @@ async def invoke_research(
                         chunks.append(text)
                     if response.HasField("status_update"):
                         status = response.status_update.status
+                        raise_research_failure(status)
                         if status.state == TaskState.TASK_STATE_WORKING and status.message.parts:
                             if chunks or len(status.message.parts) != 1:
                                 raise AgentFailure("agent_research_progress_invalid")
@@ -547,6 +593,7 @@ async def invoke_research(
                 if not task_id or not chunks or not size:
                     raise AgentFailure("agent_research_not_completed")
                 task = await client.get_task(GetTaskRequest(id=task_id, history_length=2))
+                raise_research_failure(task.status)
                 if (
                     task.status.state != TaskState.TASK_STATE_COMPLETED
                     or len(task.status.message.parts) != 1
@@ -571,6 +618,7 @@ async def invoke_research(
                         "tool_calls": receipt.tool_calls,
                         "task_reads": 1,
                     },
+                    receipt,
                 )
             finally:
                 await client.close()

@@ -41,6 +41,7 @@ from newsloom_agent.research_models import (
     SourcesArguments,
     SourcesCall,
     SourcesResult,
+    SynthesisScope,
     ToolCall,
 )
 from newsloom_core.categories import Category
@@ -159,7 +160,12 @@ class ScriptedModel:
         return self.plans.pop(0)
 
     async def synthesize(
-        self, context: str, authorization: Authorization, stats: ResearchStats
+        self,
+        context: str,
+        authorization: Authorization,
+        stats: ResearchStats,
+        *,
+        scope: SynthesisScope,
     ) -> ResearchAnswer:
         self.contexts.append(context)
         self.final_calls += 1
@@ -167,6 +173,7 @@ class ScriptedModel:
         stats.usage(100, 50, FINAL_TOKENS)
         if self.answer is None:
             pytest.fail("unexpected synthesis")
+        scope.validate_answer(self.answer)
         return self.answer
 
 

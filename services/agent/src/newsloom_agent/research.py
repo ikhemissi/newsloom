@@ -36,6 +36,7 @@ from newsloom_agent.research_models import (
     SearchResults,
     SourcesCall,
     SourcesResult,
+    SynthesisScope,
     ToolCall,
     ToolName,
 )
@@ -395,7 +396,15 @@ class ResearchController:
                     if not state.details:
                         raise AgentFailure("research_missing_detail")
                     yield progress("synthesizing")
-                    answer = await self.model.synthesize(state.context(stats), delegated, stats)
+                    answer = await self.model.synthesize(
+                        state.context(stats),
+                        delegated,
+                        stats,
+                        scope=SynthesisScope(
+                            coverage=state.coverage,
+                            missing_item_ids=state.missing_ids,
+                        ),
+                    )
                 remaining(delegated)
                 yield progress("validating")
                 await asyncio.sleep(0)

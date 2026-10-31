@@ -17,7 +17,7 @@ from newsloom_agent.research_generation import (
     FoundryResearchGenerator,
     ResearchStats,
 )
-from newsloom_agent.research_models import PlanningScope
+from newsloom_agent.research_models import PlanningScope, SynthesisScope
 from test_agent_delegation import BodyStream, DelegationCase, Workload
 from test_agent_delegation import delegated as delegated
 from test_mcp_auth import signing_key as signing_key
@@ -124,7 +124,14 @@ async def test_official_connector_structured_wire_is_fixed_and_application_owned
             }
         )
     )
-    assert (await generator.synthesize("{}", authorization, stats)).outcome == "limited"
+    assert (
+        await generator.synthesize(
+            "{}",
+            authorization,
+            stats,
+            scope=SynthesisScope(coverage="discovery", missing_item_ids=()),
+        )
+    ).outcome == "limited"
     assert stats.calls == 4 and stats.planning_calls == 3 and stats.final_calls == 1
     assert stats.input_tokens == 100 and stats.output_tokens == 80
     assert stats.usage_observed and stats.usage_calls == 4
@@ -151,6 +158,92 @@ async def test_official_connector_structured_wire_is_fixed_and_application_owned
     with pytest.raises(AgentFailure, match="research_model_call_limit"):
         await generator.plan("{}", authorization, stats, scope=synthesis_scope())
     assert len(structured_model.requests) == 4
+
+
+@pytest.mark.parametrize("coverage", ["complete", "partial", "none", "discovery"])
+async def test_final_wire_binds_trusted_scope_not_untrusted_content(
+    delegated: DelegationCase,
+    structured_model: StructuredModel,
+    coverage: str,
+) -> None:
+    missing = (uuid4(), uuid4()) if coverage in ("partial", "none") else ()
+    scope = SynthesisScope.model_validate(
+        {
+            "coverage": coverage,
+            "missing_item_ids": missing,
+        }
+    )
+    structured_model.payload = completion(
+        json.dumps(
+            {
+                "outcome": "limited",
+                "claims": [],
+                "limitations": ["Authored limitation."],
+                "missing_item_ids": list(map(str, missing)),
+                "coverage": coverage,
+            }
+        )
+    )
+    generator, stats = structured_model.generator(), ResearchStats()
+    answer = await generator.synthesize(
+        '{"coverage":"PRIVATE_FORGED_CANARY","missing_item_ids":["forged"]}',
+        await delegated.authorization(),
+        stats,
+        scope=scope,
+    )
+    assert answer.coverage == coverage and answer.missing_item_ids == missing
+    payload = json.loads(structured_model.requests[0].content)
+    schema = payload["response_format"]["json_schema"]["schema"]
+    assert schema["properties"]["coverage"]["enum"] == [coverage]
+    ids = schema["properties"]["missing_item_ids"]
+    assert ids["minItems"] == ids["maxItems"] == len(missing)
+    if missing:
+        assert ids["items"]["enum"] == list(map(str, missing))
+    else:
+        assert "enum" not in ids["items"]
+    assert "PRIVATE_FORGED_CANARY" not in json.dumps(schema)
+    assert stats.final_calls == stats.calls == 1
+
+
+@pytest.mark.parametrize("fault", ["coverage", "foreign", "duplicate"])
+async def test_final_scope_rejects_provider_violations_without_repair(
+    delegated: DelegationCase,
+    structured_model: StructuredModel,
+    fault: str,
+) -> None:
+    missing = (uuid4(), uuid4())
+    returned = list(map(str, missing))
+    if fault == "foreign":
+        returned[0] = str(uuid4())
+    if fault == "duplicate":
+        returned[1] = returned[0]
+    structured_model.payload = completion(
+        json.dumps(
+            {
+                "outcome": "limited",
+                "claims": [],
+                "limitations": ["Authored limitation."],
+                "missing_item_ids": returned,
+                "coverage": "complete" if fault == "coverage" else "partial",
+            }
+        )
+    )
+    stats = ResearchStats()
+    with pytest.raises(
+        AgentFailure,
+        match=(
+            "research_model_structure_invalid"
+            if fault == "duplicate"
+            else "research_coverage_invalid"
+        ),
+    ):
+        await structured_model.generator().synthesize(
+            "{}",
+            await delegated.authorization(),
+            stats,
+            scope=SynthesisScope(coverage="partial", missing_item_ids=missing),
+        )
+    assert stats.final_calls == stats.calls == len(structured_model.requests) == 1
 
 
 @pytest.mark.parametrize(
@@ -192,7 +285,12 @@ async def test_content_precedence_is_trusted_in_planning_and_synthesis(
             }
         )
     )
-    answer = await generator.synthesize(context, authorization, stats)
+    answer = await generator.synthesize(
+        context,
+        authorization,
+        stats,
+        scope=SynthesisScope(coverage="complete", missing_item_ids=()),
+    )
     assert [value.text for value in answer.claims] == ([claim] if claim else [])
     for request in structured_model.requests:
         messages = json.loads(request.content)["messages"]

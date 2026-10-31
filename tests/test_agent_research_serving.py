@@ -16,6 +16,7 @@ from newsloom_agent import cli
 from newsloom_agent import client as acceptance
 from newsloom_agent.app import create_app
 from newsloom_agent.client import ClientSettings
+from newsloom_agent.models import AgentFailure
 from newsloom_agent.research import ResearchController
 from newsloom_agent.research_models import ResearchReceipt, ResearchRequest
 from newsloom_agent.serving import TaskRegistry
@@ -470,12 +471,15 @@ async def test_foreign_read_list_cancel_and_context_do_not_replay_research(
     assert len(delegated.forms) == 1 and len(research_wire.requests) == 2
 
 
+@pytest.mark.parametrize("remote_failure", [False, True])
 async def test_explicit_research_acceptance_client_uses_native_sdk_and_safe_counts(
     delegated: DelegationCase,
     endpoint: Endpoint,
     research_wire: ResearchWire,
     monkeypatch: pytest.MonkeyPatch,
+    remote_failure: bool,
 ) -> None:
+    research_wire.unknown_citation = remote_failure
     authorization = await delegated.authorization()
     settings = ClientSettings(
         tenant=delegated.config.tenant,
@@ -528,12 +532,30 @@ async def test_explicit_research_acceptance_client_uses_native_sdk_and_safe_coun
 
         async with original(transport=httpx.MockTransport(route)) as public:
             monkeypatch.setattr("httpx.AsyncClient", LocalClient)
-            result = await acceptance.invoke_research(
-                settings, authorization.caller.assertion, public, request(str(endpoint[1].item.id))
-            )
-        assert result.counts["validated"] == result.counts["user_preserved"] == 1
-        assert result.counts["generation_calls"] == result.counts["usage_observed_calls"] == 2
-        assert result.counts["progress_events"] > 0 and result.counts["task_reads"] == 1
-        assert endpoint[1].item.url in result.text
-        assert "CANARY" not in json.dumps(result.counts)
+            if remote_failure:
+                with pytest.raises(AgentFailure, match="research_citation_unknown"):
+                    await acceptance.invoke_research(
+                        settings,
+                        authorization.caller.assertion,
+                        public,
+                        request(str(endpoint[1].item.id)),
+                    )
+            else:
+                result = await acceptance.invoke_research(
+                    settings,
+                    authorization.caller.assertion,
+                    public,
+                    request(str(endpoint[1].item.id)),
+                )
+                assert result.counts["validated"] == result.counts["user_preserved"] == 1
+                assert (
+                    result.counts["generation_calls"] == result.counts["usage_observed_calls"] == 2
+                )
+                assert result.counts["progress_events"] > 0 and result.counts["task_reads"] == 1
+                assert result.receipt is not None
+                assert result.receipt.outcome == "supported"
+                assert result.receipt.user_preserved and result.receipt.validated
+                assert result.receipt.input_tokens == result.counts["input_tokens"]
+                assert endpoint[1].item.url in result.text
+                assert "CANARY" not in json.dumps(result.counts)
     await registry.close()
