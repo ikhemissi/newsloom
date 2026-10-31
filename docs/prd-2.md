@@ -51,8 +51,8 @@ persistent personalization are explicitly deferred below.
 
 The subsequent [coverage-contract correction](agent.md#verified-coverage-contract-correction)
 has local tests, an agent-only deployment and one successful signed-in discovery
-case, with implementation CI passed. Its separate measured-status CI remains
-pending. It fixes application-owned synthesis metadata, not the whole
+case, with implementation and separate measured-status CI passed.
+It fixes application-owned synthesis metadata, not the whole
 Step 2.3 semantic-quality baseline or Foundry report acceptance.
 
 Step 2.3's delivered interoperability

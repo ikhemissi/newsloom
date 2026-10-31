@@ -249,8 +249,10 @@ separately. No answer/news text or judge reason was saved. This is narrow
 coverage acceptance, not full quality-baseline or live injection acceptance.
 Implementation publication passed its
 [exact-source primary CI](https://github.com/ikhemissi/newsloom/actions/runs/41197276231)
-at `af108f171b60a757fbc3c18aaed335997a457aa9`. Separate measured-status
-publication/CI remains open in the [owning ledger](../openspec/changes/research-answer-scope-fix/tasks.md).
+at `af108f171b60a757fbc3c18aaed335997a457aa9`. The separate measured-status
+publication passed [its own exact-source CI](https://github.com/ikhemissi/newsloom/actions/runs/41197818200)
+at `b07c50035367459eb91e68ab2dc0222e18d092bd`; all five fix gates are verified
+in the [owning ledger](../openspec/changes/research-answer-scope-fix/tasks.md).
 The failed baseline and its original accepted image are not relabelled.
 
 `AGENT_RESEARCH_ENABLED` defaults to `false`; only exact `true`/`false` values are
@@ -302,8 +304,8 @@ and enabled research without widening the existing 0.25 CPU/0.5 GiB profile.
 The scoped implementation and the independently reverified image remain
 source-matched. After implementation CI passed, this separate measured-status
 publication records the successful discovery case and preserved failures.
-Its own exact-source CI is pending; the narrow fix is not fully delivered
-until that publication gate passes. Whole-baseline semantic scores, Foundry
+Its own [exact-source CI passed](https://github.com/ikhemissi/newsloom/actions/runs/41197818200),
+so the narrow correction is delivered. Whole-baseline semantic scores, Foundry
 report/UI parity and broader PRD-2 completion remain unverified.
 
 Across the retained evaluation attempts and successful coverage check, observed

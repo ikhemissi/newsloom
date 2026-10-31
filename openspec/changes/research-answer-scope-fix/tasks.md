@@ -92,4 +92,11 @@ unstaged. This separate measured-status publication records live acceptance
 after implementation CI, but its own exact-source CI is still pending.
 Task 3.1 remains unchecked until both publication gates have passed.
 
-- [ ] 3.1 Publish the implementation and measured evidence, preserving unrelated work; verify exact-source primary CI and separate measured-status publication/CI before completing this slice. Keep any unavailable acceptance unchecked and do not archive automatically.
+The separate measured-status commit
+`b07c50035367459eb91e68ab2dc0222e18d092bd` passed its
+[exact-source primary CI](https://github.com/ikhemissi/newsloom/actions/runs/41197818200).
+Both publication gates are now verified; the deployed source/image remains
+unchanged. All five tracked fix tasks are complete. This does not close the
+whole baseline or authorize automatic archival/PRD-3.
+
+- [x] 3.1 Publish the implementation and measured evidence, preserving unrelated work; verify exact-source primary CI and separate measured-status publication/CI before completing this slice. Keep any unavailable acceptance unchecked and do not archive automatically.
