@@ -247,7 +247,10 @@ completed-task parity matched; final validation establishes discovery coverage.
 Estimated chat cost was USD 0.005759325, with embedding exposure reserved
 separately. No answer/news text or judge reason was saved. This is narrow
 coverage acceptance, not full quality-baseline or live injection acceptance.
-Publication/CI is still unchecked in the [owning ledger](../openspec/changes/research-answer-scope-fix/tasks.md).
+Implementation publication passed its
+[exact-source primary CI](https://github.com/ikhemissi/newsloom/actions/runs/41197276231)
+at `af108f171b60a757fbc3c18aaed335997a457aa9`. Separate measured-status
+publication/CI remains open in the [owning ledger](../openspec/changes/research-answer-scope-fix/tasks.md).
 The failed baseline and its original accepted image are not relabelled.
 
 `AGENT_RESEARCH_ENABLED` defaults to `false`; only exact `true`/`false` values are
@@ -293,6 +296,23 @@ original single-call token limits. No question, preference, plan, news, URL,
 draft, answer or credential is added to diagnostic attributes.
 Mocked-provider validation passed **15 owning app cases**, including default-off
 and enabled research without widening the existing 0.25 CPU/0.5 GiB profile.
+
+### Verified coverage-contract correction
+
+The scoped implementation and the independently reverified image remain
+source-matched. After implementation CI passed, this separate measured-status
+publication records the successful discovery case and preserved failures.
+Its own exact-source CI is pending; the narrow fix is not fully delivered
+until that publication gate passes. Whole-baseline semantic scores, Foundry
+report/UI parity and broader PRD-2 completion remain unverified.
+
+Across the retained evaluation attempts and successful coverage check, observed
+chat token cost is estimated at USD 0.039391275. Separately reserved unknown
+chat/embedding exposure totals USD 0.958144512, giving conservative model
+exposure USD 0.997535787 against the user's USD 100 allowance. Reservations
+are not measured spend, and registry-build/runtime/log costs are not metered
+by this token report. Prior approvals, expired callbacks and failed captures
+remain retained rather than relabelled or repaired.
 
 ### Research privacy and cancellation
 

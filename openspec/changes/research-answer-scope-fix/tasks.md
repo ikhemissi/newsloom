@@ -83,4 +83,13 @@ provider-violation compatibility remain separately grounded in the local
 148-test selection and full primary gate. The whole baseline and report/UI
 gates remain open. Source-bound implementation/status CI is still pending.
 
+Implementation publication is verified at
+`af108f171b60a757fbc3c18aaed335997a457aa9`, with passing
+[exact-source primary CI](https://github.com/ikhemissi/newsloom/actions/runs/41197276231).
+Only the scoped agent/contracts/tests/runbook/change artifacts were committed;
+the active baseline and unrelated customization work remain preserved and
+unstaged. This separate measured-status publication records live acceptance
+after implementation CI, but its own exact-source CI is still pending.
+Task 3.1 remains unchecked until both publication gates have passed.
+
 - [ ] 3.1 Publish the implementation and measured evidence, preserving unrelated work; verify exact-source primary CI and separate measured-status publication/CI before completing this slice. Keep any unavailable acceptance unchecked and do not archive automatically.
