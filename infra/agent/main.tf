@@ -4,13 +4,14 @@ locals {
   identity = var.enabled ? jsondecode(base64decode(var.identity_base64)) : {
     id = "", client_id = "", principal_id = ""
   }
-  resource_url = var.enabled ? "https://${local.name}.${data.azurerm_container_app_environment.existing[0].default_domain}/a2a" : ""
+  resource_url    = var.enabled ? "https://${local.name}.${data.azurerm_container_app_environment.existing[0].default_domain}/a2a" : ""
+  allowed_origins = var.allowed_origins_base64 == "" ? var.allowed_origins : toset(jsondecode(base64decode(var.allowed_origins_base64)))
   environment = {
     AZURE_CLIENT_ID        = local.identity.client_id
     AGENT_TENANT_ID        = var.tenant_id
     AGENT_API_CLIENT_ID    = var.api_client_id
     AGENT_RESOURCE_URL     = local.resource_url
-    AGENT_ALLOWED_ORIGINS  = join(",", sort(tolist(var.allowed_origins)))
+    AGENT_ALLOWED_ORIGINS  = join(",", sort(tolist(local.allowed_origins)))
     AGENT_RUNTIME_REVISION = var.image_revision
     AGENT_RESEARCH_ENABLED = tostring(var.research_enabled)
     MCP_API_CLIENT_ID      = var.mcp_api_client_id
@@ -24,6 +25,10 @@ data "azurerm_container_app_environment" "existing" {
   name                = basename(var.container_app_environment_id)
   resource_group_name = var.resource_group_name
   lifecycle {
+    precondition {
+      condition     = length(var.allowed_origins) == 0 || var.allowed_origins == local.allowed_origins
+      error_message = "Explicit origins and the prepared azd origin input must agree."
+    }
     postcondition {
       condition     = self.id == var.container_app_environment_id
       error_message = "Use the retained owning Container Apps environment, not a lookalike."

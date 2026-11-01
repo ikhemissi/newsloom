@@ -1,0 +1,57 @@
+import hashlib
+from pathlib import Path
+
+import pytest
+
+from agent_evaluation.inputs import ROOT
+from agent_evaluation.policy import EvaluationFailure
+from agent_evaluation.production_inputs import (
+    PRODUCTION_INPUTS,
+    PRODUCTION_INPUTS_V2,
+    document_digest,
+    verify_production_inputs,
+)
+
+
+def test_current_and_historical_digests_are_distinct_and_preserved() -> None:
+    assert verify_production_inputs() == document_digest(PRODUCTION_INPUTS_V2)
+    assert PRODUCTION_INPUTS["pyproject.toml"] == (
+        "0e676e369ce0abd956518993ad40fb112bc1f5084abb3f52c55e72dbab8aef59"
+    )
+    assert document_digest(PRODUCTION_INPUTS) != document_digest(PRODUCTION_INPUTS_V2)
+    with pytest.raises(EvaluationFailure, match="baseline_provenance_mismatch"):
+        verify_production_inputs(expected_sha256=document_digest(PRODUCTION_INPUTS))
+    assert verify_production_inputs(expected_sha256=document_digest(PRODUCTION_INPUTS_V2))
+
+
+def test_original_workspace_still_returns_its_original_digest(tmp_path: Path) -> None:
+    for path, expected in PRODUCTION_INPUTS.items():
+        data = (ROOT / path).read_bytes()
+        if path == "pyproject.toml":
+            data = data.replace(
+                b'exclude = ["tools/agent-evaluation", "services/web"]',
+                b'exclude = ["tools/agent-evaluation"]',
+            )
+        assert hashlib.sha256(data).hexdigest() == expected
+        target = tmp_path / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(data)
+    assert verify_production_inputs(tmp_path) == document_digest(PRODUCTION_INPUTS)
+
+
+@pytest.mark.parametrize("name", tuple(PRODUCTION_INPUTS))
+def test_unknown_manifest_changes_are_not_re_pinned(name: str, tmp_path: Path) -> None:
+    for path in PRODUCTION_INPUTS:
+        target = tmp_path / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes((ROOT / path).read_bytes())
+    (tmp_path / name).write_bytes(b"changed")
+    with pytest.raises(EvaluationFailure, match="baseline_production_inputs_changed"):
+        verify_production_inputs(tmp_path)
+
+
+def test_missing_inputs_and_noncanonical_values_fail(tmp_path: Path) -> None:
+    with pytest.raises(EvaluationFailure, match="baseline_production_inputs_unavailable"):
+        verify_production_inputs(tmp_path)
+    with pytest.raises(ValueError):
+        document_digest(float("nan"))

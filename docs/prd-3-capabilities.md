@@ -29,12 +29,14 @@ See [the ADRs](adrs.md) for shared architectural decisions.
 - **P3-C02-US1:** As a news reader, I want to ask research questions in a chat
   interface so that I do not need to operate an A2A client myself.
 - **P3-C02-US2:** As a news reader, I want streamed answers so that I can begin
-  reading while the response is being produced.
+  following progress before the validated final answer is ready.
 
 **Acceptance criteria**
 - The browser communicates with the Phase 2 agent rather than creating a separate
   research/model pipeline.
-- Chat renders the agent's streamed responses.
+- Chat renders the agent's streamed progress and validated final response.
+  The existing backend does not stream unvalidated draft tokens.
+- Each question is independent; transient UI history does not imply agent memory.
 - No-match and refusal responses remain visible as agent responses rather than
   being replaced by invented successful answers.
 - Streaming is verified manually and through Azure browser end-to-end tests.
@@ -112,7 +114,45 @@ chosen, compatible agent integration.
 
 ## Boundaries and decisions still required
 
-The spike owns the framework/transport decision; no framework is selected here.
+The approved [stack decision](adrs.md#ui-stack-comparison) selects plain React,
+official A2A and MSAL with ACA hosting; the bounded compatibility spike and
+deployed browser acceptance are still required. Existing text citations stay
+unchanged; structured citation output needs a separately compatible change.
 Private networking, an edge, curator tooling, budgets/alerts, automatic CI
 deployment, and retention/privacy policy remain later PRDs. These capabilities
 do not add account management, saved chat history, or news-editing features.
+
+## P3-C07: News feed, search and item context
+
+**Status:** latest-feed/search/context slice deployed as early access in
+[`ui-news-feed`](../openspec/changes/ui-news-feed/tasks.md). The user confirmed
+the regular-browser journey; full automated acceptance/publication remains
+pending. Filters, detail routing and multi-selection remain later work.
+
+**Outcome:** Readers can browse stored news and explicitly choose research context.
+
+**User stories**
+- **P3-C07-US1:** As a reader, I want recent news and submitted semantic search
+  so that I can find relevant stored reporting.
+- **P3-C07-US2:** As a reader, I want an item page and bounded selection
+  so that the agent can research the items I chose.
+
+**Acceptance criteria**
+- Browser news access uses a typed NewsCatalog boundary, initially backed by
+  read-only MCP with the user's separate delegated `news.read` token.
+- Recent news uses `get_recent_news`; semantic search uses `search_news` only
+  on explicit submit. Errors remain distinct from empty results.
+- The default page shows the latest 20 stored items without a hidden date cutoff.
+  A top search box shows bounded relevance-ranked results and clears to latest news.
+- Agent interactions use A2A in a closable right-side panel, closed by default.
+  Selecting news supplies visible removable context; opening/searching alone
+  never submits research. Closing/reopening does not replay work.
+- Item detail uses `get_news_item`; source/category choices use `list_sources`.
+- Item context and up to five selected distinct IDs reach the existing agent
+  request contract; no browser database/model access is added.
+- Direct MCP requires its own exact-origin CORS, consent, protocol compatibility
+  and multi-user capacity checks before deployment.
+- The slice explicitly resolves bounded-result/paging behavior; timestamp ties
+  must not be silently skipped while claiming complete pagination.
+- A cached HTTP API, richer structured citations and persistent history remain
+  separate future work.

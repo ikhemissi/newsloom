@@ -1,3 +1,16 @@
+variable "allowed_origins_base64" {
+  type    = string
+  default = ""
+  validation {
+    condition = var.allowed_origins_base64 == "" || try(
+      can(tolist(jsondecode(base64decode(var.allowed_origins_base64)))) &&
+      alltrue([for value in jsondecode(base64decode(var.allowed_origins_base64)) :
+        can(regex("^https://[a-z0-9]+([.-][a-z0-9]+)*(:[0-9]+)?$", value))
+      ]), false
+    )
+    error_message = "Use the prepared canonical HTTPS origin array."
+  }
+}
 variable "subscription_id" {
   type = string
 }

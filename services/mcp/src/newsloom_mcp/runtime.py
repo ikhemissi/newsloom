@@ -11,7 +11,8 @@ import httpx
 import psycopg
 from azure.identity.aio import ManagedIdentityCredential
 from newsloom_core.model_transport import ModelClient, TransportLimits
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from newsloom_core.origins import normalize_origins
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from starlette.applications import Starlette
 
 from newsloom_mcp.app import Services, create_app
@@ -35,6 +36,11 @@ class Config(BaseModel):
     embedding_version: str
     telemetry_routing: str
     allowed_origins: tuple[str, ...] = ()
+
+    @field_validator("allowed_origins")
+    @classmethod
+    def browser_origins(cls, values: tuple[str, ...]) -> tuple[str, ...]:
+        return normalize_origins(values)
 
     @model_validator(mode="after")
     def canonical_origin(self) -> Config:
@@ -66,9 +72,9 @@ class Config(BaseModel):
                 "embedding_model": env["EMBEDDINGS_MODEL"],
                 "embedding_version": env["EMBEDDINGS_VERSION"],
                 "telemetry_routing": env["APPLICATIONINSIGHTS_CONNECTION_STRING"],
-                "allowed_origins": tuple(
-                    item for item in env.get("MCP_ALLOWED_ORIGINS", "").split(",") if item
-                ),
+                "allowed_origins": tuple(env["MCP_ALLOWED_ORIGINS"].split(","))
+                if env.get("MCP_ALLOWED_ORIGINS")
+                else (),
             }
         )
 

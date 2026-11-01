@@ -48,4 +48,5 @@ jobs:
           terraform_version: "1.15.8"
           terraform_wrapper: false
       - run: npm ci --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
       - run: bash scripts/check.sh

@@ -3,16 +3,17 @@ data "azurerm_container_app_environment" "existing" {
   resource_group_name = var.resource_group_name
 }
 locals {
-  name         = "mcp-${trim(substr("newsloom-${var.environment_name}", 0, 25), "-")}"
-  identity     = jsondecode(base64decode(var.workload_identities_base64)).mcp
-  host         = "${local.name}.${data.azurerm_container_app_environment.existing.default_domain}"
-  resource_url = "https://${local.host}/mcp"
+  name            = "mcp-${trim(substr("newsloom-${var.environment_name}", 0, 25), "-")}"
+  identity        = jsondecode(base64decode(var.workload_identities_base64)).mcp
+  host            = "${local.name}.${data.azurerm_container_app_environment.existing.default_domain}"
+  resource_url    = "https://${local.host}/mcp"
+  browser_origins = var.allowed_origins_base64 == "" ? var.allowed_origins : toset(jsondecode(base64decode(var.allowed_origins_base64)))
   environment = {
     AZURE_CLIENT_ID       = local.identity.client_id
     MCP_TENANT_ID         = var.tenant_id
     MCP_API_CLIENT_ID     = var.api_client_id
     MCP_RESOURCE_URL      = local.resource_url
-    MCP_ALLOWED_ORIGINS   = join(",", sort(tolist(var.allowed_origins)))
+    MCP_ALLOWED_ORIGINS   = join(",", sort(tolist(local.browser_origins)))
     POSTGRES_HOST         = var.postgres_host
     POSTGRES_DATABASE     = var.postgres_database
     MODEL_ENDPOINT        = var.model_endpoint

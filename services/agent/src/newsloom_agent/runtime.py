@@ -8,6 +8,7 @@ from uuid import UUID
 
 import httpx
 from azure.identity.aio import ManagedIdentityCredential
+from newsloom_core.origins import normalize_origins
 from pydantic import ConfigDict, Field, field_validator, model_validator
 from starlette.types import ASGIApp
 
@@ -59,20 +60,7 @@ class Config(DelegationConfig):
     @field_validator("allowed_origins")
     @classmethod
     def explicit_origins(cls, values: tuple[str, ...]) -> tuple[str, ...]:
-        for value in values:
-            url = httpx.URL(value)
-            if (
-                url.scheme != "https"
-                or not url.host
-                or "*" in value
-                or url.userinfo
-                or url.query
-                or url.fragment
-                or url.path not in ("", "/")
-                or value.endswith("/")
-            ):
-                raise ValueError("invalid_agent_allowed_origin")
-        return values
+        return normalize_origins(values)
 
     @model_validator(mode="after")
     def separate_identity(self) -> Config:
@@ -97,7 +85,9 @@ class Config(DelegationConfig):
                 "telemetry_routing": env["APPLICATIONINSIGHTS_CONNECTION_STRING"],
                 "research_enabled": env.get("AGENT_RESEARCH_ENABLED", "false"),
                 "allowed_origins": tuple(
-                    filter(None, env.get("AGENT_ALLOWED_ORIGINS", "").split(","))
+                    env["AGENT_ALLOWED_ORIGINS"].split(",")
+                    if env.get("AGENT_ALLOWED_ORIGINS")
+                    else ()
                 ),
             }
         )

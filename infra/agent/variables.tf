@@ -91,6 +91,18 @@ variable "allowed_origins" {
     error_message = "Browser origins must be explicit canonical HTTPS origins; default is none."
   }
 }
+variable "allowed_origins_base64" {
+  type    = string
+  default = ""
+  validation {
+    condition = var.allowed_origins_base64 == "" || try(
+      can(tolist(jsondecode(base64decode(var.allowed_origins_base64)))) &&
+      alltrue([for value in jsondecode(base64decode(var.allowed_origins_base64)) : can(regex("^https://[a-z0-9]+([.-][a-z0-9]+)*(:[0-9]+)?$", value))]),
+      false
+    )
+    error_message = "Use the owning preparation helper's encoded exact HTTPS origin array."
+  }
+}
 variable "model_endpoint" {
   type    = string
   default = ""

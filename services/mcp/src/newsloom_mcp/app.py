@@ -32,6 +32,7 @@ from starlette.routing import Route
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from newsloom_mcp.auth import EntraVerifier
+from newsloom_mcp.cors import McpBrowserCors
 from newsloom_mcp.embedding import QueryEmbedding
 from newsloom_mcp.models import (
     Contract,
@@ -286,6 +287,7 @@ def create_app(
     )
     if services.observe_http is not None:
         app.add_middleware(HttpTelemetry, observer=services.observe_http)
+    app.add_middleware(McpBrowserCors, allowed_origins=tuple(allowed_origins))
     return app
 
 

@@ -4,9 +4,9 @@ Curated AI news for MCP clients, research agents, and people.
 
 **Status: Phase 1 and Phase 2 Steps 2.1-2.2 verified; evaluation interoperability foundation verified; Step 2.3 quality baseline remains pending.**
 - Available: Python workspace, 41-feed catalogue, local/CI checks, azd-managed Azure infrastructure, managed-identity migrations, RSS/Atom ingestion with real Decision-model screening, and durable queue/quarantine storage. Enrichment produces validated summaries, one of 11 categories, tags, and 1536-dimensional embeddings in PostgreSQL. The deployed MCP service provides four read-only browsing/search tools with verified Entra browser sign-in. The authenticated A2A research agent deepens or compares stored news with cited, preference-aware answers, secretless user delegation and Foundry streaming.
-- The [phase acceptance matrix](docs/phase1-acceptance.md#verified-phase-acceptance-matrix) and [agent runbook](docs/agent.md) record measured acceptance, runtime provenance, preservation and passing implementation/status CI. Phase 1 and [Phase 2 Steps 2.1-2.2](docs/prd-2.md) are archived with delivered contracts in the [main specs](openspec/specs/). Frozen phase-wide evaluations, optional external web research, persistent preferences and the browser UI remain future work.
+- The [phase acceptance matrix](docs/phase1-acceptance.md#verified-phase-acceptance-matrix) and [agent runbook](docs/agent.md) record measured acceptance, runtime provenance, preservation and passing implementation/status CI. Phase 1 and [Phase 2 Steps 2.1-2.2](docs/prd-2.md) are archived with delivered contracts in the [main specs](openspec/specs/). Frozen phase-wide evaluations, optional external web research and persistent preferences remain future work. The early-access browser UI is being implemented; deployed acceptance remains pending.
 - The [evaluation foundation](docs/agent-evaluation.md#foundation-completion-ledger) verifies real DeepEval scoring, exact imported-score API/user-attested UI parity, fractional replay and disposable deletion. The two authored cases were scored once (`1.0`, `0.0`) in eight judge calls, with complete usage and estimated chat cost USD 0.004516875. Working storage, its connection and approved operator/project permissions are Terraform-owned; two unused diagnostic grants and 16 failed experiment pairs were cleaned up, with accepted reports retained. All 2,116 baseline row fingerprints were preserved, with 23 additions observed. The [scoped preservation receipt](docs/agent-evaluation.md#final-audited-preservation-acceptance) retains historical failures and excludes verified policy-managed scanning side resources without changing Defender or claiming broader effective-access preservation. Implementation, separate evidence/status and completion-ledger CI passed; the [26-task ledger](openspec/changes/archive/2026-10-30-agent-evaluation-foundation/tasks.md) retains exact-source evidence. This synthetic pilot is not the frozen deployed-agent quality baseline; its delivered contract is synchronized and the verified change is archived.
-- [PRD-2's execution boundary](docs/prd-2.md#delivery-plan) requires pausing for user review after the entire phase is verified and published, before starting PRD-3.
+- The user approved [PRD-2's early-access exception](docs/prd-2.md#delivery-plan) for the minimal browser journey. The [UI runbook](docs/ui.md) records implementation and acceptance; deployment is still pending. This does not complete evaluations or full PRD-3 acceptance.
 
 ## Architecture
 
@@ -28,7 +28,7 @@ flowchart LR
 | Tool | Requirement |
 | --- | --- |
 | uv | 0.13.5+; downloads the pinned Python 3.15.1 runtime |
-| Node.js | 20.19+; 24 LTS recommended |
+| Node.js | 24 LTS or newer; CI uses 24 |
 | Terraform | 1.15.8+ |
 | Azure CLI + azd 1.36.0+ | Required only for Azure setup and deployment |
 
@@ -38,13 +38,20 @@ Git and Bash are also required.
 uv sync --locked --all-packages
 uv sync --directory tools/agent-evaluation --locked
 npm ci --no-audit --no-fund
+npx playwright install chromium
 uv run pre-commit install
 bash scripts/check.sh
 ```
 
-Checks need no cloud credentials or Docker daemon; the first run downloads dependencies.
+Checks need no cloud credentials or Docker daemon; the first run downloads dependencies
+and the local browser tests require Chromium. CI installs its browser dependencies.
 Database integration tests also run in CI and can be enabled against an explicitly
 started local PostgreSQL 18/pgvector instance.
+
+The React browser package is a root npm workspace and excluded from uv.
+Use `npm run -w services/web dev` for local development, and see the
+[UI runbook](docs/ui.md#local-development) for focused checks, authored browser
+fixtures and the separately approved secretless ACA deployment.
 
 Operator-only evaluation tooling has a separate Python 3.15 environment and lock
 because its DeepEval dependency conflicts with the application's Click version.

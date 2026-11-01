@@ -15,9 +15,14 @@ uv run --isolated --locked --no-dev --package newsloom-mcp python -c \
   'import newsloom_mcp.cli; from mcp.server.lowlevel import Server'
 uv run --locked newsloom-validate-feeds config/feeds.json
 uv run --locked python scripts/check_identifiers.py
+npm run -w services/web lint
+npm run -w services/web typecheck
+npm run -w services/web test
+npm run -w services/web build
+bash scripts/check-ui-browser.sh
 npm run spec:check
 terraform fmt -check -recursive infra
-for directory in infra infra/bootstrap infra/migrations infra/ingestion infra/enrichment infra/mcp-identity infra/mcp infra/phase1-acceptance infra/agent-identity infra/agent infra/agent-evaluation; do
+for directory in infra infra/bootstrap infra/migrations infra/ingestion infra/enrichment infra/mcp-identity infra/mcp infra/phase1-acceptance infra/agent-identity infra/agent infra/agent-evaluation infra/ui-identity infra/ui; do
   terraform -chdir="$directory" init -backend=false -input=false -lockfile=readonly
   terraform -chdir="$directory" validate
 done
@@ -32,3 +37,5 @@ terraform -chdir=infra/phase1-acceptance test
 terraform -chdir=infra/agent-identity test
 terraform -chdir=infra/agent test
 terraform -chdir=infra/agent-evaluation test
+terraform -chdir=infra/ui-identity test
+terraform -chdir=infra/ui test

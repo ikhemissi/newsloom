@@ -79,6 +79,8 @@ def source_hash(root: Path) -> str:
             or raw.startswith("tests/azure/")
             or raw
             in (
+                "package.json",
+                "package-lock.json",
                 "config/feeds.json",
                 "config/categories.json",
                 "config/mcp-evaluation.json",
@@ -96,7 +98,9 @@ def build(
     env: dict[str, str],
     correlation: str,
     *,
-    service: Literal["platform", "ingestion", "enrichment", "mcp", "phase1", "agent"] = "platform",
+    service: Literal[
+        "platform", "ingestion", "enrichment", "mcp", "phase1", "agent", "web"
+    ] = "platform",
 ) -> None:
     repository = f"newsloom-{service}"
     registry = env["AZURE_CONTAINER_REGISTRY_NAME"]
@@ -179,7 +183,7 @@ def build(
         f"{service.upper()}_IMAGE",
         f"{env['AZURE_CONTAINER_REGISTRY_ENDPOINT']}/{repository}@{digest}",
     )
-    if service in ("phase1", "agent"):
+    if service in ("phase1", "agent", "web", "mcp"):
         set_environment(f"{service.upper()}_IMAGE_REVISION", tag)
     event("image", "success", correlation, category=tag)
 
@@ -797,10 +801,25 @@ def control(command: str, correlation: str, *, force: bool = False, limit: int =
         from newsloom_platform.mcp_identity import prepare
 
         prepare(env, correlation)
+    elif command in ("prepare-mcp-layer", "verify-mcp-layer"):
+        from newsloom_platform import mcp_control
+
+        action = mcp_control.prepare if command == "prepare-mcp-layer" else mcp_control.verify
+        action(env, correlation)
     elif command == "prepare-agent-identity":
         from newsloom_platform.agent_identity import prepare
 
         prepare(env, correlation)
+    elif command in ("prepare-ui-identity", "prepare-ui-layer", "build-ui", "verify-ui"):
+        from newsloom_platform import ui
+
+        action = {
+            "prepare-ui-identity": ui.prepare_identity,
+            "prepare-ui-layer": ui.prepare,
+            "build-ui": ui.build,
+            "verify-ui": ui.verify,
+        }[command]
+        action(env, correlation)
     elif command == "prepare-agent-evaluation-layer":
         from newsloom_platform.agent_evaluation import prepare
 

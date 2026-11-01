@@ -149,7 +149,7 @@ def test_app_only_disable_preserves_identity_and_rollback_requires_matching_sour
     monkeypatch.setattr(control, "set_environment", lambda key, value: updates.update({key: value}))
     deployment.env["AGENT_ENABLED"] = "false"
     agent_control.prepare(deployment.env, "local")
-    assert updates == {"AGENT_ENABLED": "false"}
+    assert updates == {"AGENT_ENABLED": "false", "AGENT_ALLOWED_ORIGINS_BASE64": "W10="}
     deployment.env["AGENT_ENABLED"] = "true"
     deployment.env["AGENT_IMAGE_REVISION"] = "3" * 64
     monkeypatch.setattr(control, "run", lambda arguments, category: "/tmp/agent-source-fixture")
@@ -168,6 +168,35 @@ def test_readback_proves_exact_owned_image_identity_config_and_profile(
     assert deployment.env["AGENT_API_CLIENT_ID"] not in output
     assert deployment.env["AGENT_RESOURCE_URL"] not in output
     assert deployment.env["AGENT_IMAGE_REVISION"] in output
+
+
+def test_origin_readback_accepts_only_the_normalized_reviewed_list(
+    deployment: Deployment,
+) -> None:
+    deployment.env["AGENT_ALLOWED_ORIGINS"] = "https://b.test,https://a.test"
+    with pytest.raises(PlatformFailure, match="readback_mismatch"):
+        agent_control.verify(deployment.env, "local")
+    properties = json_object(deployment.document["properties"])
+    containers = json_object(properties["template"])["containers"]
+    assert isinstance(containers, list)
+    environment = json_object(containers[0])["env"]
+    assert isinstance(environment, list)
+    for index, row in enumerate(environment):
+        entry = json_object(row)
+        if entry["name"] == "AGENT_ALLOWED_ORIGINS":
+            environment[index] = {**entry, "value": "https://a.test,https://b.test"}
+    agent_control.verify(deployment.env, "local")
+
+
+@pytest.mark.parametrize("value", ["https://*.test", "https://ui.test,", "https://ui.test/"])
+def test_origin_preparation_rejects_invalid_input_before_updates(
+    deployment: Deployment, monkeypatch: pytest.MonkeyPatch, value: str
+) -> None:
+    updates: list[object] = []
+    monkeypatch.setattr(control, "set_environment", lambda *args: updates.append(args))
+    with pytest.raises(PlatformFailure, match="invalid_agent_allowed_origins"):
+        agent_control.prepare({**deployment.env, "AGENT_ALLOWED_ORIGINS": value}, "local")
+    assert updates == []
 
 
 @pytest.mark.parametrize("value", ["", "TRUE", "1", "yes", "false "])

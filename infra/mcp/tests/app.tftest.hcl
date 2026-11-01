@@ -71,3 +71,26 @@ run "no_wildcard_origin" {
   }
   expect_failures = [var.allowed_origins]
 }
+run "prepared_browser_origin_reaches_only_the_existing_app" {
+  command = plan
+  variables {
+    allowed_origins_base64 = base64encode(jsonencode(["https://ui.test"]))
+  }
+  assert {
+    condition = (
+      local.environment.MCP_ALLOWED_ORIGINS == "https://ui.test" &&
+      azurerm_container_app.mcp.template[0].min_replicas == 1 &&
+      azurerm_container_app.mcp.template[0].max_replicas == 1 &&
+      local.environment.MODEL_ENDPOINT == var.model_endpoint &&
+      local.environment.EMBEDDINGS_DEPLOYMENT == var.embedding_deployment
+    )
+    error_message = "The prepared origin must preserve the existing app, model and profile."
+  }
+}
+run "reject_invalid_prepared_origin" {
+  command = plan
+  variables {
+    allowed_origins_base64 = base64encode(jsonencode(["https://*.test"]))
+  }
+  expect_failures = [var.allowed_origins_base64]
+}

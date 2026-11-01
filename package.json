@@ -2,9 +2,10 @@
   "name": "newsloom-tooling",
   "version": "0.1.0",
   "private": true,
-  "description": "Pinned OpenSpec tooling; application services use the uv workspace.",
+  "description": "Pinned OpenSpec tooling and browser workspace; Python services use uv.",
+  "workspaces": ["services/web"],
   "engines": {
-    "node": ">=20.19.0"
+    "node": ">=24"
   },
   "scripts": {
     "spec:check": "openspec validate --all --strict --no-interactive",

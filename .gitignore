@@ -11,6 +11,8 @@ htmlcov/
 dist/
 build/
 node_modules/
+services/web/test-results/
+services/web/playwright-report/
 .azure/
 .env
 .env.*

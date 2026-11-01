@@ -35,6 +35,7 @@ from starlette.routing import Route
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from newsloom_agent.auth import AgentAuthentication, AgentVerifier, request_authorization
+from newsloom_agent.cors import BrowserCors
 from newsloom_agent.generation import NewsGenerator
 from newsloom_agent.models import AgentFailure
 from newsloom_agent.research import ResearchController
@@ -396,7 +397,10 @@ def create_app(
             ),
         ],
     )
-    return TrustedHostMiddleware(
-        Ingress(AgentAuthentication(RpcBoundary(app), verifier), allowed_origins, observer),
-        allowed_hosts=[host, "localhost", "127.0.0.1"],
+    return BrowserCors(
+        TrustedHostMiddleware(
+            Ingress(AgentAuthentication(RpcBoundary(app), verifier), allowed_origins, observer),
+            allowed_hosts=[host, "localhost", "127.0.0.1"],
+        ),
+        allowed_origins,
     )

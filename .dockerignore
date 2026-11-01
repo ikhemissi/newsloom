@@ -2,6 +2,8 @@
 !pyproject.toml
 !uv.lock
 !README.md
+!package.json
+!package-lock.json
 !packages/
 !packages/**
 !services/
@@ -22,3 +24,6 @@
 **/*.tfvars*
 **/dist/
 **/build/
+**/node_modules/
+**/test-results/
+**/playwright-report/

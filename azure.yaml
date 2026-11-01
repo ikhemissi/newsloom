@@ -5,6 +5,28 @@ metadata:
 infra:
   provider: terraform
   layers:
+    - name: ui-identity
+      path: infra/ui-identity
+      dependsOn:
+        - application
+        - agent-identity
+      hooks:
+        preprovision:
+          shell: sh
+          run: uv run --locked newsloom-platform prepare-ui-identity
+          interactive: false
+          continueOnError: false
+    - name: ui
+      path: infra/ui
+      dependsOn:
+        - ui-identity
+        - application
+      hooks:
+        preprovision:
+          shell: sh
+          run: uv run --locked newsloom-platform prepare-ui-layer
+          interactive: false
+          continueOnError: false
     - name: agent-evaluation
       path: infra/agent-evaluation
       dependsOn:
@@ -92,7 +114,7 @@ infra:
       hooks:
         preprovision:
           shell: sh
-          run: uv run --locked newsloom-platform build-mcp
+          run: uv run --locked newsloom-platform build-mcp && uv run --locked newsloom-platform prepare-mcp-layer
           interactive: false
           continueOnError: false
     - name: phase1-acceptance

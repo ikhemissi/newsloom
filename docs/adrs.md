@@ -13,3 +13,44 @@
 | 9 | **Observability.** OpenTelemetry, structured logs, Application Insights with Entra-only ingestion. Attribute allow-list scrubber; third-party HTTP loggers kept at WARNING. Identifiers and counts only. | Safe by construction. A log line that could carry content is a bug. |
 | 10 | **Agent and UI stack.** Microsoft Agent Framework + A2A server on ACA, verified for Step 2.1's bounded recent-news demonstrator and Step 2.2's request-local stored-news research runtime. Per-turn schemas derive from frozen application-owned state; independent whole-plan validation and existing per-call guards retain authority, evidence and budget boundaries. The phase 3 spike still chooses the UI framework and UI-specific integration transport; it does not replace the A2A boundary. | Keeps phase 3 open without blocking phases 1 and 2. The [research receipt](agent.md#state-constrained-actual-acceptance) retains failed prompt-only attempts and verified local/Azure follow-up; [PRD-2](prd-2.md) owns release status. No web, persistent memory or broader grant is implied. |
 | 11 | **Tests and evals follow each phase.** Local PostgreSQL container for database tests; hostile fixtures for retrieval and parsing; labelled sets for the scanner, enrichment and retrieval; frozen questions for the agent; browser end-to-end for the UI. | Phase 1 runtime gates are [verified](phase1-acceptance.md#verified-phase-acceptance-matrix), including explicit manual OIDC integration in one exact disposable database and bounded same-identity cleanup after failure/cancellation. Conditional log-only access adds no development-token/exec authority. Scanner/enrichment/retrieval quality and native-user evidence remain distinct from the four-item integration corpus. Step 2.1 transport/identity acceptance is [verified](agent.md#actual-model-stage-azure-acceptance); Step 2.2's [focused research checks](agent.md#state-constrained-actual-acceptance) do not establish a frozen phase-wide quality score. Step 2.3 must refine DeepEval plus Foundry-visible results, quality/cost governance and iterative candidate comparison; phase-wide evaluations and UI gates remain pending. |
+| 12 | **Early-access UI: React/Vite/strict TypeScript, Tailwind/daisyUI, MSAL and official A2A on ACA.** Use native browser APIs and existing text citations. | The explicitly approved [sequencing exception](prd-2.md#delivery-plan) unblocks a usable browser journey, not PRD-2 quality or full PRD-3 acceptance. [Comparison](#ui-stack-comparison) explains the choice. Direct-MCP feed/search and structured citations follow separately. No SWA deployment-token exception or standing research identity. |
+
+## UI stack comparison
+
+ADR 12 supersedes ADR 10's pending UI selection only; its deployed agent decision
+and all verified research boundaries remain unchanged.
+
+Plain React with the official A2A client directly matches the deployed A2A 1.0
+JSON-RPC progress/final-answer contract. CopilotKit/AG-UI would require evaluating
+an additional integration layer for this backend; its value is not needed for
+the first bounded journey. This is not a claim those frameworks universally
+require a particular server runtime or cannot interoperate.
+
+The user selected React/Vite, strict TypeScript, Tailwind 4/daisyUI 5, MSAL,
+native History/fetch APIs and no router/query library. Native route handling
+arrives with feed/item pages; the first UI needs only chat and its auth callback.
+The official SDK's exact headers, streaming, cancellation and task mappings
+must pass a bounded compatibility check before live acceptance.
+
+ACA preserves the retained Terraform/azd environment and secretless image
+deployment. The proposed SWA deployment-token exception was not selected.
+The first SPA requests only agent `news.agent`; the agent's existing secretless
+OBO remains the MCP path. Direct browser MCP `news.read` is a subsequent owning
+slice. Evaluations evolve as versioned product baselines; incomplete acceptance
+and previously consumed attempts remain recorded.
+
+## News-first browser interaction
+
+The `ui-news-feed` slice makes latest stored news the default page, with a top
+submit-only MCP search box and a closable right-hand agent panel using A2A.
+Current-news context is an explicit removable item selection, not an implicit
+copy of search text or all visible articles. Closing/reopening preserves transient
+interaction state without replaying requests.
+
+The browser acquires separate delegated MCP `news.read` and agent `news.agent`
+tokens through MSAL. The existing agent OBO remains unchanged. Add only the
+intended SPA MCP consent and exact MCP/UI origin/configuration changes through
+owning layers. Default browsing has no model cost; semantic search's existing
+query embeddings and explicit research chat have separate accounting.
+Live user sign-in is only through the user's regular browser; unavailable
+automated checks stay open instead of borrowing/exporting credentials.

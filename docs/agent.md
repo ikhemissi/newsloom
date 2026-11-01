@@ -1,5 +1,10 @@
 # Agent skeleton runbook
 
+The early-access browser slice adds exact-origin CORS and owning origin readback.
+Its [UI runbook](ui.md#agent-browser-origin) owns configuration and browser
+acceptance status. This implementation is not evidence of a deployed UI or
+completion of PRD-2 evaluations.
+
 ## Status and scope
 
 [Step 2.1](prd-2.md) is complete and verified. Its

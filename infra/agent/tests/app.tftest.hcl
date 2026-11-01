@@ -38,6 +38,23 @@ run "disabled_has_no_app" {
     error_message = "Agent creation is explicitly opt-in."
   }
 }
+run "prepared_origins_reach_only_the_existing_agent" {
+  command = plan
+  variables {
+    allowed_origins_base64 = base64encode(jsonencode(["https://ui.test"]))
+  }
+  assert {
+    condition     = local.environment.AGENT_ALLOWED_ORIGINS == "https://ui.test" && length(azurerm_container_app.agent) == 1
+    error_message = "The prepared exact browser origin must configure only the existing app."
+  }
+}
+run "reject_invalid_prepared_origins" {
+  command = plan
+  variables {
+    allowed_origins_base64 = base64encode(jsonencode(["https://*.test"]))
+  }
+  expect_failures = [var.allowed_origins_base64]
+}
 run "one_owned_small_https_immutable_streaming_app" {
   command = plan
   assert {

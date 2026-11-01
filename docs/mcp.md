@@ -1,5 +1,18 @@
 # MCP serving operations
 
+The [feed UI runbook](ui.md#latest-news-search-and-optional-research) owns the
+pending browser delivery. MCP has locally tested exact-origin browser CORS
+for modern POST `/mcp`; native/agent clients remain unchanged. Configure
+`MCP_ALLOWED_ORIGINS` with canonical exact HTTPS origins; the owning preparation
+hook produces `MCP_ALLOWED_ORIGINS_BASE64` for azd. Preflight uses the fixed modern
+headers and consumes no authentication/tool/model work. Actual method, origin,
+authorization and failure boundaries remain enforced.
+
+Use `newsloom-platform prepare-mcp-layer` after the owning image build, and
+`newsloom-platform verify-mcp-layer` for bounded independent ARM image/config/
+origin/profile readback. The existing `verify-mcp` workload/model probe is not
+a substitute for browser readiness. No browser cloud acceptance is claimed yet.
+
 Status: delivered with local, real-model retrieval, actual workload-denial
 and warning-free VS Code/Copilot browser sign-in acceptance.
 [Implementation CI](https://github.com/ikhemissi/newsloom/actions/runs/40133602862)

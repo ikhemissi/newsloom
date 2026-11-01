@@ -86,6 +86,14 @@ delivery-publication gates are verified. Do not begin PRD-3 or its browser UI
 automatically; resuming beyond this phase requires explicit user approval.
 Completing the synthetic evaluation foundation alone is not the end of PRD-2.
 
+**Approved early-access exception (2026-10-31):** the user approved the minimal
+[PRD-3 browser journey](prd-3.md) before Step 2.3 is complete. The
+[`ui-spike-and-shell` change](../openspec/changes/ui-spike-and-shell/proposal.md)
+owns this exception. Existing evaluation receipts, costs and unchecked acceptance
+remain intact; this does not restart halted runs, complete P2-C06 or grant full
+phase acceptance. Research stays visibly early access while quality acceptance
+remains open.
+
 ## Deferred research TODOs
 
 - [ ] Revisit optional web enrichment for user-requested deeper research on MCP

@@ -5,9 +5,19 @@ import json
 import re
 from pathlib import Path
 
+from newsloom_core.origins import normalize_origins
+
 from newsloom_platform import control, mcp_identity
 from newsloom_platform.config import PlatformFailure, json_object, text_field
 from newsloom_platform.events import event
+
+
+def configured_origins(env: dict[str, str]) -> tuple[str, ...]:
+    raw = env.get("AGENT_ALLOWED_ORIGINS", "")
+    try:
+        return normalize_origins(raw.split(",") if raw else ())
+    except ValueError:
+        raise PlatformFailure("invalid_agent_allowed_origins") from None
 
 
 def enabled(env: dict[str, str]) -> bool:
@@ -39,6 +49,11 @@ def image(env: dict[str, str]) -> tuple[str, str]:
 
 def prepare(env: dict[str, str], correlation: str) -> None:
     research_enabled(env)
+    origins = configured_origins(env)
+    control.set_environment(
+        "AGENT_ALLOWED_ORIGINS_BASE64",
+        base64.b64encode(json.dumps(origins).encode()).decode(),
+    )
     if "AGENT_RESEARCH_ENABLED" not in env:
         control.set_environment("AGENT_RESEARCH_ENABLED", "false")
     if not enabled(env):
@@ -131,7 +146,7 @@ def verify(env: dict[str, str], correlation: str) -> None:
         "AGENT_TENANT_ID": identify(env["AGENT_TENANT_ID"]),
         "AGENT_API_CLIENT_ID": identify(env["AGENT_API_CLIENT_ID"]),
         "AGENT_RESOURCE_URL": env["AGENT_RESOURCE_URL"],
-        "AGENT_ALLOWED_ORIGINS": "",
+        "AGENT_ALLOWED_ORIGINS": ",".join(configured_origins(env)),
         "AGENT_RUNTIME_REVISION": revision,
         "AGENT_RESEARCH_ENABLED": str(research_enabled(env)).lower(),
         "MCP_API_CLIENT_ID": identify(env["MCP_API_CLIENT_ID"]),

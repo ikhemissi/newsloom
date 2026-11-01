@@ -197,6 +197,20 @@ def test_image_source_hash_is_stable_and_tracks_source(
     assert first != control.source_hash(tmp_path)
 
 
+@pytest.mark.parametrize("manifest", ["package.json", "package-lock.json"])
+def test_image_source_hash_tracks_root_npm_build_inputs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    manifest: str,
+) -> None:
+    for name in ["pyproject.toml", "uv.lock", "README.md", ".dockerignore", manifest]:
+        (tmp_path / name).write_text(name)
+    monkeypatch.setattr(control, "run", lambda arguments, category: manifest + "\0")
+    original = control.source_hash(tmp_path)
+    (tmp_path / manifest).write_text("changed npm build input")
+    assert control.source_hash(tmp_path) != original
+
+
 def test_failed_build_never_sets_an_image(monkeypatch: pytest.MonkeyPatch) -> None:
     responses: list[object] = [[], {"runId": "synthetic-build", "status": "Failed"}]
     updates: list[tuple[str, str]] = []
@@ -247,8 +261,8 @@ def test_service_build_uses_own_dockerfile_and_immutable_image(
     expected = [
         (service.upper() + "_IMAGE", f"test.azurecr.io/newsloom-{service}@sha256:" + "a" * 64)
     ]
-    if service == "agent":
-        expected.append(("AGENT_IMAGE_REVISION", "b" * 64))
+    if service in ("agent", "mcp"):
+        expected.append((service.upper() + "_IMAGE_REVISION", "b" * 64))
     assert updates == expected
     assert any(str(Path.cwd() / f"services/{service}/Dockerfile") in call for call in calls)
 
