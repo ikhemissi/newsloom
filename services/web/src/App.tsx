@@ -1,10 +1,22 @@
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
-import type { Answer, AuthSession, NewsCatalog, NewsItem, Phase, ResearchClient } from "./domain";
+import type { Answer, AuthSession, NewsCatalog, NewsItem, Phase, ResearchClient, SourceCatalog } from "./domain";
 import { failureMessage, messages, UiFailure } from "./domain";
 import { safeHttps } from "./config";
+import { buildFilters, emptyDraft, emptySnapshot } from "./filters";
+import type { DatePeriod, FilterDraft, FilterSnapshot } from "./filters";
 
 const phases: Phase[] = ["retrieving", "planning", "synthesizing", "validating"];
+const periods: { value: DatePeriod; label: string }[] = [
+  { value: "any", label: "Any time" }, { value: "today", label: "Today" },
+  { value: "7days", label: "Last 7 days" }, { value: "30days", label: "Last 30 days" },
+  { value: "custom", label: "Custom dates" },
+];
+
+function FilterChips({ snapshot }: { snapshot: FilterSnapshot }) {
+  return <ul className="filter-chips">{snapshot.labels.map((label, index) =>
+    <li key={index} className="badge badge-outline">{label}</li>)}</ul>;
+}
 
 export function AnswerView({ answer }: { answer: Answer }) {
   const references = useRef(new Map<number, HTMLLIElement>());
@@ -45,6 +57,12 @@ export function App({ auth, research, catalog }: {
   const [signedIn, setSignedIn] = useState(auth.signedIn());
   const [query, setQuery] = useState("");
   const [submittedQuery, setSubmittedQuery] = useState("");
+  const [draft, setDraft] = useState<FilterDraft>({ ...emptyDraft });
+  const [applied, setApplied] = useState<FilterSnapshot>(emptySnapshot);
+  const [choices, setChoices] = useState<SourceCatalog | null>(null);
+  const [choicesLoading, setChoicesLoading] = useState(false);
+  const [choicesError, setChoicesError] = useState("");
+  const [submittedContext, setSubmittedContext] = useState<{ item: NewsItem | null; snapshot: FilterSnapshot } | null>(null);
   const [items, setItems] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -57,6 +75,8 @@ export function App({ auth, research, catalog }: {
   const run = useRef(0);
   const newsRun = useRef(0);
   const newsController = useRef<AbortController | null>(null);
+  const choicesRun = useRef(0);
+  const choicesController = useRef<AbortController | null>(null);
   const composer = useRef<HTMLTextAreaElement>(null);
   const agentToggle = useRef<HTMLButtonElement>(null);
   const panelOpener = useRef<HTMLButtonElement | null>(null);
@@ -66,16 +86,39 @@ export function App({ auth, research, catalog }: {
   useEffect(() => () => {
     run.current++; current.current?.abort();
     newsRun.current++; newsController.current?.abort();
+    choicesRun.current++; choicesController.current?.abort();
   }, []);
   useEffect(() => {
     if (panelOpen) composer.current?.focus();
   }, [panelOpen]);
   useEffect(() => {
-    if (signedIn) void loadNews("");
-    return () => { newsRun.current++; newsController.current?.abort(); newsController.current = null; };
+    if (signedIn) { void loadNews("", emptySnapshot); void loadSources(); }
+    return () => {
+      newsRun.current++; newsController.current?.abort(); newsController.current = null;
+      choicesRun.current++; choicesController.current?.abort(); choicesController.current = null;
+    };
   }, [signedIn, catalog]);
 
-  async function loadNews(search: string) {
+  async function loadSources() {
+    const id = ++choicesRun.current;
+    choicesController.current?.abort();
+    const controller = new AbortController();
+    choicesController.current = controller;
+    setChoicesLoading(true); setChoicesError("");
+    try {
+      const result = await catalog.sources(controller.signal);
+      if (id === choicesRun.current && !controller.signal.aborted) setChoices(result);
+    } catch (failure) {
+      if (id === choicesRun.current && !controller.signal.aborted) {
+        setChoicesError(failureMessage(failure));
+        if (failure instanceof UiFailure && ["authorization", "interaction"].includes(failure.category))
+          setAuthRequired("news");
+      }
+    } finally {
+      if (id === choicesRun.current) { setChoicesLoading(false); choicesController.current = null; }
+    }
+  }
+  async function loadNews(search: string, snapshot: FilterSnapshot = applied) {
     const researchWasActive = current.current !== null;
     const id = ++newsRun.current;
     newsController.current?.abort();
@@ -83,9 +126,10 @@ export function App({ auth, research, catalog }: {
     newsController.current = controller;
     setLoading(true); setLoaded(false); setNewsError(""); setItems([]);
     setSubmittedQuery(search);
-    if (!researchWasActive) setAnswer(null);
+    setApplied(snapshot);
     try {
-      const result = await (search ? catalog.search(search, controller.signal) : catalog.recent(controller.signal));
+      const result = await (search || Object.keys(snapshot.filters).length
+        ? catalog.search(search || undefined, controller.signal, snapshot.filters) : catalog.recent(controller.signal));
       if (id !== newsRun.current || controller.signal.aborted) return;
       setItems(result); setLoaded(true);
       if (!current.current && !researchWasActive) setSelected((previous) =>
@@ -100,15 +144,23 @@ export function App({ auth, research, catalog }: {
       if (id === newsRun.current) { setLoading(false); newsController.current = null; }
     }
   }
+  function applyFilters(search: string) {
+    if (newsController.current) return;
+    try { void loadNews(search, buildFilters(draft, choices)); }
+    catch (failure) { setNewsError(failureMessage(failure)); }
+  }
   async function signIn(resource: "news" | "agent" = "news") {
-    setError(""); setQuestion(""); setAnswer(null);
+    setError(""); setQuestion(""); setAnswer(null); setSubmittedContext(null);
     try { await auth.signIn(resource); setAuthRequired(null); setSignedIn(auth.signedIn()); }
     catch (failure) { setError(failureMessage(failure)); }
   }
   async function signOut() {
-    run.current++; current.current?.abort(); setBusy(false);
+    run.current++; current.current?.abort(); current.current = null; setBusy(false);
     newsRun.current++; newsController.current?.abort(); newsController.current = null;
     setItems([]); setSelected(null); setQuery(""); setSubmittedQuery("");
+    choicesRun.current++; choicesController.current?.abort(); choicesController.current = null;
+    setChoices(null); setChoicesError(""); setChoicesLoading(false);
+    setDraft({ ...emptyDraft }); setApplied(emptySnapshot); setSubmittedContext(null);
     setNewsError(""); setLoaded(false); setLoading(false); setPanelOpen(false); setAuthRequired(null);
     setQuestion(""); setAnswer(null); setPhase(null); setSignedIn(false); setError("");
     try { await research.stop(); await auth.signOut(); }
@@ -121,8 +173,11 @@ export function App({ auth, research, catalog }: {
     const id = ++run.current;
     current.current = controller;
     setBusy(true); setError(""); setAnswer(null); setPhase(null);
+    const context = { item: selected, snapshot: applied };
+    setSubmittedContext(context);
     try {
-      for await (const result of research.ask(question, controller.signal, selected ? [selected.id] : undefined)) {
+      for await (const result of research.ask(question, controller.signal,
+        context.item ? [context.item.id] : undefined, context.snapshot.filters)) {
         if (id !== run.current) return;
         if (result.kind === "progress") setPhase(result.phase);
         else setAnswer(result.answer);
@@ -153,7 +208,7 @@ export function App({ auth, research, catalog }: {
   function openPanel(opener: HTMLButtonElement, item?: NewsItem) {
     if (!busy && item) {
       setSelected(item);
-      setQuestion(""); setAnswer(null); setError("");
+      setQuestion(""); setError("");
     }
     panelOpener.current = opener;
     setPanelOpen(true);
@@ -171,7 +226,7 @@ export function App({ auth, research, catalog }: {
       <span className="badge badge-outline">Early access</span>
       {signedIn && <form className="top-search" role="search" onSubmit={(event) => {
         event.preventDefault();
-        if (!newsController.current) void loadNews(query.trim());
+        applyFilters(query.trim());
       }}>
         <label htmlFor="news-search" className="sr-only">Search stored news</label>
         <input id="news-search" type="search" className="input" value={query}
@@ -195,10 +250,11 @@ export function App({ auth, research, catalog }: {
       <div className="news-heading">
         <div>
           <div className="eyebrow">STORED NEWS. CLEARER CONTEXT.</div>
-          <h1>{submittedQuery ? "Search results" : "Latest news"}</h1>
+          <h1>{submittedQuery ? "Search results" : Object.keys(applied.filters).length ? "Filtered news" : "Latest news"}</h1>
           <p className="intro">{submittedQuery
             ? `Ranked by relevance · Up to 20 results for "${submittedQuery}"`
-            : "The latest 20 stored articles, newest first."}</p>
+            : Object.keys(applied.filters).length ? "Up to 20 matching stored articles, newest first."
+              : "The latest 20 stored articles, newest first."}</p>
         </div>
         {signedIn && (submittedQuery
           ? <button className="btn btn-outline btn-sm" disabled={loading} onClick={() => {
@@ -210,9 +266,54 @@ export function App({ auth, research, catalog }: {
         <h2>Your news, with context</h2><p>Sign in with your organization account to browse stored news and optionally ask the agent for more detail.</p>
         <button className="btn btn-primary" onClick={() => void signIn()}>Sign in to read news</button>
       </section> : <>
+        <form aria-label="News filters" className="filter-bar" onSubmit={(event) => {
+          event.preventDefault(); applyFilters(submittedQuery);
+        }}>
+          <label><span id="filter-source-label">Source</span>
+            <select aria-labelledby="filter-source-label" className="select" value={draft.source} disabled={!choices || choicesLoading || !!choicesError}
+              onChange={(event) => setDraft({ ...draft, source: event.target.value })}>
+              <option value="">Any source</option>
+              {choices?.sources.map((source) => <option key={source.id} value={source.id}>{source.id}</option>)}
+            </select>
+          </label>
+          <label><span id="filter-category-label">Category</span>
+            <select aria-labelledby="filter-category-label" className="select" value={draft.category} disabled={!choices || choicesLoading || !!choicesError}
+              onChange={(event) => setDraft({ ...draft, category: event.target.value })}>
+              <option value="">Any category</option>
+              {choices?.categories.map((category) => <option key={category.id} value={category.id}>{category.label}</option>)}
+            </select>
+          </label>
+          <label><span id="filter-period-label">Date period</span>
+            <select aria-labelledby="filter-period-label" className="select" value={draft.period} onChange={(event) => {
+              const period = periods.find((value) => value.value === event.target.value);
+              if (period) setDraft({ ...draft, period: period.value });
+              else setNewsError(messages.invalid_filters);
+            }}>
+              {periods.map((period) => <option key={period.value} value={period.value}>{period.label}</option>)}
+            </select>
+          </label>
+          {draft.period === "custom" && <>
+            <label>Start date<input className="input" type="date" value={draft.start}
+              onChange={(event) => setDraft({ ...draft, start: event.target.value })} /></label>
+            <label>End date<input className="input" type="date" value={draft.end}
+              onChange={(event) => setDraft({ ...draft, end: event.target.value })} /></label>
+          </>}
+          <button className="btn btn-outline btn-sm" disabled={loading}>Apply filters</button>
+          <button type="button" className="btn btn-ghost btn-sm" disabled={loading} onClick={() => {
+            setDraft({ ...emptyDraft }); void loadNews(submittedQuery, emptySnapshot);
+          }}>Reset filters</button>
+          <p className="filter-help">Dates are inclusive calendar dates in your local timezone. Changes apply only on Apply or Search.</p>
+        </form>
+        {choicesLoading && <p role="status">Loading source/category choices...</p>}
+        {choicesError && <div role="alert" className="alert">
+          <span>Source/category choices unavailable. {choicesError} Applied filters remain unchanged.</span>
+          <button type="button" className="btn btn-outline btn-sm" onClick={() => void loadSources()}>Retry catalogue</button>
+        </div>}
+        <section aria-label="Applied news filters"><FilterChips snapshot={applied} /></section>
         {loading && <p role="status" aria-live="polite">Loading stored news...</p>}
         {newsError && <div className="alert alert-error" role="alert">{newsError}</div>}
-        {loaded && !items.length && <p role="status">{submittedQuery ? "No news matches this search." : "No stored news yet."}</p>}
+        {loaded && !items.length && <p role="status">{submittedQuery ? "No news matches this search."
+          : Object.keys(applied.filters).length ? "No news matches these filters." : "No stored news yet."}</p>}
         <div className="news-list">
           {items.map((item) => {
             const link = safeHttps(item.url);
@@ -241,9 +342,13 @@ export function App({ auth, research, catalog }: {
         {selected && <div className="context-chip">
           <span>Current news: {selected.title}</span>
           <button className="btn btn-ghost btn-xs" disabled={busy} aria-label="Remove news context"
-            onClick={() => { setSelected(null); setAnswer(null); }}>Remove</button>
+            onClick={() => setSelected(null)}>Remove</button>
         </div>}
         {!selected && <p className="context-note">General research · No news item selected</p>}
+        <section aria-label="Next research filters">
+          <p className="context-note">Browsing filters for the next question</p>
+          <FilterChips snapshot={applied} />
+        </section>
         <form onSubmit={(event) => void ask(event)}>
           <label htmlFor="question" className="composer-label">What would you like to understand?</label>
           <textarea ref={composer} id="question" className="textarea" rows={4} value={question} disabled={busy}
@@ -265,6 +370,11 @@ export function App({ auth, research, catalog }: {
             {phases.map((value) => <span key={value} className={value === phase ? "active-phase" : ""}>{value}</span>)}
           </div>
         </div>}
+        {(busy || answer) && submittedContext && <section aria-label="Submitted research context" className="context-note">
+          <p>Context used for this {busy ? "request" : "answer"}</p>
+          <p>{submittedContext.item ? `Submitted news: ${submittedContext.item.title}` : "No news item was submitted"}</p>
+          <FilterChips snapshot={submittedContext.snapshot} />
+        </section>}
         {answer && <AnswerView answer={answer} />}
       </aside>}
       {authRequired && <div className="alert" role="alert">

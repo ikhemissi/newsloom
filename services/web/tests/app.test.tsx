@@ -4,11 +4,12 @@ import { App, AnswerView } from "../src/App";
 import { parseAnswer } from "../src/answer";
 import { UiFailure } from "../src/domain";
 import type { AuthSession, ResearchClient } from "../src/domain";
-import { newsItem } from "./fixtures";
+import { newsItem, sourceCatalog } from "./fixtures";
 
 const catalog = {
   recent: vi.fn(async () => [newsItem]),
   search: vi.fn(async () => []),
+  sources: vi.fn(async () => sourceCatalog),
 };
 const openAgent = () => fireEvent.click(screen.getByRole("button", { name: "Agent" }));
 
@@ -100,7 +101,7 @@ test("latest news is the default and typing/searching does not invoke the agent"
   const recent = vi.fn(async () => [newsItem]);
   const search = vi.fn(async () => [{ ...newsItem, title: "Ranked fixture result" }]);
   const ask = vi.fn(async function* () { yield { kind: "answer" as const, answer: parseAnswer("Fixture") }; });
-  render(<App auth={auth(true)} catalog={{ recent, search }} research={{ ask, stop: async () => false }} />);
+  render(<App auth={auth(true)} catalog={{ recent, search, sources: catalog.sources }} research={{ ask, stop: async () => false }} />);
   expect(await screen.findByRole("heading", { name: newsItem.title })).toBeInTheDocument();
   expect(screen.queryByRole("complementary")).toBeNull();
   expect(recent).toHaveBeenCalledOnce();
@@ -109,7 +110,7 @@ test("latest news is the default and typing/searching does not invoke the agent"
   expect(ask).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "Search" }));
   expect(await screen.findByRole("heading", { name: "Ranked fixture result" })).toBeInTheDocument();
-  expect(search).toHaveBeenCalledWith("fixture query", expect.any(AbortSignal));
+  expect(search).toHaveBeenCalledWith("fixture query", expect.any(AbortSignal), {});
   expect(ask).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "Clear search" }));
   expect(await screen.findByRole("heading", { name: newsItem.title })).toBeInTheDocument();
@@ -128,7 +129,7 @@ test("right panel uses displayed current-news context and close/reopen does not 
   fireEvent.change(screen.getByLabelText("What would you like to understand?"), { target: { value: "Explain this item" } });
   fireEvent.click(screen.getByRole("button", { name: "Ask Newsloom" }));
   expect(await screen.findByText("Fixture answer.")).toBeInTheDocument();
-  expect(ask).toHaveBeenCalledWith("Explain this item", expect.any(AbortSignal), [newsItem.id]);
+  expect(ask).toHaveBeenCalledWith("Explain this item", expect.any(AbortSignal), [newsItem.id], {});
   fireEvent.click(screen.getByRole("button", { name: "Close agent panel" }));
   expect(itemAction).toHaveFocus();
   expect(screen.queryByRole("complementary")).toBeNull();
@@ -139,7 +140,7 @@ test("right panel uses displayed current-news context and close/reopen does not 
 
 test("search replaces stale idle context and failures are not successful empty lists", async () => {
   const search = vi.fn(async () => { throw new UiFailure("unavailable"); });
-  render(<App auth={auth(true)} catalog={{ recent: async () => [newsItem], search }}
+  render(<App auth={auth(true)} catalog={{ recent: async () => [newsItem], search, sources: catalog.sources }}
     research={{ ask: vi.fn(), stop: async () => false }} />);
   fireEvent.click(await screen.findByRole("button", { name: `Ask about this: ${newsItem.title}` }));
   fireEvent.change(screen.getByLabelText("Search stored news"), { target: { value: "fixture" } });
@@ -152,7 +153,7 @@ test("search replaces stale idle context and failures are not successful empty l
 test("sign-out prevents an unfinished read from repopulating news", async () => {
   let release: ((value: typeof newsItem[]) => void) | undefined;
   const pending = new Promise<typeof newsItem[]>((resolve) => { release = resolve; });
-  render(<App auth={auth(true)} catalog={{ recent: () => pending, search: async () => [] }}
+  render(<App auth={auth(true)} catalog={{ recent: () => pending, search: async () => [], sources: catalog.sources }}
     research={{ ask: vi.fn(), stop: async () => false }} />);
   fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
   release?.([newsItem]);

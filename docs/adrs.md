@@ -54,3 +54,23 @@ owning layers. Default browsing has no model cost; semantic search's existing
 query embeddings and explicit research chat have separate accounting.
 Live user sign-in is only through the user's regular browser; unavailable
 automated checks stay open instead of borrowing/exporting credentials.
+
+## Explicit filters and subsequent API transport
+
+The `ui-news-filters` slice keeps draft edits separate from applied browsing and
+structured A2A constraints. Catalogue discovery uses existing MCP `list_sources`;
+metadata-only browsing uses query-less `search_news`, with no embeddings.
+Calendar presets use local dates, not fixed-hour subtraction. Submitted research
+context remains attached to its answer when browsing changes.
+
+After measured UI publication and filters, the confirmed preferred direction is
+a cached HTTP API co-hosted in the MCP ACA app where practical, with existing
+delegated `news.read` and workload identity. Its owning proposal must define
+route authentication/CORS explicitly and authorize before every cache lookup/hit.
+Credentials and conversations are not cached. Detail/cursor contracts, cache
+freshness/invalidation, authorization partitioning and replica behavior belong
+there, not in filters. No cache resource has been selected.
+
+The later UI slice swaps the transport-neutral NewsCatalog adapter to HTTP;
+agent interaction stays A2A and agent tools stay MCP. Versioned evaluations resume
+after that migration, preserving historical attempts, receipts and accounting.

@@ -1,5 +1,5 @@
 import type { RuntimeConfig } from "../src/config";
-import type { NewsItem } from "../src/domain";
+import type { NewsItem, SourceCatalog } from "../src/domain";
 
 export const runtimeConfig: RuntimeConfig = {
   tenantId: crypto.randomUUID(), clientId: crypto.randomUUID(),
@@ -8,6 +8,11 @@ export const runtimeConfig: RuntimeConfig = {
 };
 export const newsItem: NewsItem = {
   id: crypto.randomUUID(), title: "Authored news headline", summary: "Authored stored summary.",
-  source: "fixture-source", category: "agents",
+  source: "fixture-source", category: "agents-applications",
   publishedAt: "2026-11-01T08:00:00Z", url: "https://publisher.test/article",
+};
+export const sourceCatalog: SourceCatalog = {
+  sources: [{ id: "fixture-source", categories: ["agents-applications"] }],
+  categories: [{ id: "agents-applications", label: "Agents and applications" },
+    { id: "models", label: "Models" }],
 };

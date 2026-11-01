@@ -163,3 +163,28 @@ test("selected-news IDs reach the existing A2A data contract exactly", async () 
     for await (const event of adapter.ask("Fixture", new AbortController().signal, [selected, selected])) void event;
   }).rejects.toThrow("invalid_input");
 });
+
+test("A2A filters are validated structured fields frozen before asynchronous transport", async () => {
+  const filters = { source: "fixture-source", category: "agents-applications",
+    from: "2026-11-01T00:00:00Z", to: "2026-11-02T00:00:00Z" };
+  const original = { ...filters };
+  const base = transport();
+  const fetchImpl: typeof fetch = async (input, options) => {
+    if (String(input).endsWith("/.well-known/agent-card.json")) filters.source = "changed";
+    else {
+      const data = JSON.parse(String(options?.body)).params.message.parts[0].data;
+      expect(data.filters).toEqual(original);
+      expect(data.question).toBe("Independent fixture question");
+      expect(data).not.toHaveProperty("query");
+    }
+    return base(input, options);
+  };
+  const adapter = new A2aResearch(config, auth, fetchImpl);
+  for await (const event of adapter.ask("Independent fixture question", new AbortController().signal, undefined, filters)) void event;
+  const token = vi.fn(auth.token);
+  await expect(async () => {
+    for await (const event of new A2aResearch(config, { ...auth, token }, fetchImpl)
+      .ask("Fixture", new AbortController().signal, undefined, { from: "invalid" })) void event;
+  }).rejects.toThrow("invalid_filters");
+  expect(token).not.toHaveBeenCalled();
+});

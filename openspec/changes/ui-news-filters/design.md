@@ -104,6 +104,15 @@ while unavailable Azure checks remain open. Available automation controls only
 VS Code's integrated browser, not the existing regular-browser session. Do not
 request another sign-in or add a verifier silently. Keep original automated
 acceptance tasks unchecked; this exception permits progress, not phase acceptance.
+The user subsequently approved the reviewed UI-image/runtime-only filter rollout
+and selective publication with unavailable signed-in Azure checks still open.
+Keep the filter journey's acceptance task open until its actual evidence exists;
+publication under this explicit exception does not authorize archival.
+Live validation found that Azure CLI's uploader included five generated dist
+entries despite the directory ignore rule. The cloud CSS then differed from the
+tested pinned build. The user approved explicit recursive content exclusions,
+actual uploader verification, a regression guard and a fresh reviewed UI-only
+rollout before publication. This is build-input correction, not new product scope.
 
 For filters, run local type/lint/unit/contract/headless browser and accessibility
 checks, then the primary gate. Deploy only a reviewed immutable UI image/revision

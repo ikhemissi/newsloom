@@ -3,6 +3,7 @@
 import asyncio
 import json
 import socket
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import uvicorn
@@ -16,7 +17,14 @@ from mcp.types import (
     PaginatedRequestParams,
     Tool,
 )
-from newsloom_mcp.models import NewsResults, RecentInput, SearchInput, SearchResults
+from newsloom_mcp.app import INPUTS, EmptyInput
+from newsloom_mcp.models import (
+    NewsResults,
+    RecentInput,
+    SearchInput,
+    SearchResults,
+    SourcesResult,
+)
 from starlette.datastructures import Headers
 from starlette.responses import JSONResponse
 from starlette.types import Receive, Scope, Send
@@ -38,6 +46,11 @@ async def tools(
                 input_schema=SearchInput.model_json_schema(),
                 output_schema=SearchResults.model_json_schema(),
             ),
+            Tool(
+                name="list_sources",
+                input_schema=EmptyInput.model_json_schema(),
+                output_schema=SourcesResult.model_json_schema(),
+            ),
         ]
     )
 
@@ -46,12 +59,32 @@ async def call(
     context: ServerRequestContext[None], params: CallToolRequestParams
 ) -> CallToolResult:
     values = dict(params.arguments or {})
+    if params.name == "list_sources":
+        EmptyInput.model_validate(values)
+        return CallToolResult(
+            content=[],
+            structured_content={
+                "sources": [{"id": "fixture-source", "categories": ["agents-applications"]}],
+                "categories": [
+                    {"id": "agents-applications", "label": "Agents and applications"},
+                    {"id": "models", "label": "Models"},
+                ],
+            },
+        )
     if params.name == "search_news":
-        SearchInput.model_validate(values)
+        search = SearchInput.model_validate(values)
         if values.get("query") == "empty":
             return CallToolResult(content=[], structured_content={"items": []})
         if values.get("query") == "delay":
             await asyncio.sleep(5)
+        publication = datetime(2026, 11, 1, 8, tzinfo=UTC)
+        if (
+            (search.source is not None and search.source != "fixture-source")
+            or (search.category is not None and search.category != "agents-applications")
+            or (search.from_ is not None and publication < search.from_)
+            or (search.to is not None and publication >= search.to)
+        ):
+            return CallToolResult(content=[], structured_content={"items": []})
     else:
         RecentInput.model_validate(values)
     return CallToolResult(
@@ -63,7 +96,7 @@ async def call(
                     "title": "Authored SDK result",
                     "summary": "Authored summary.",
                     "source": "fixture-source",
-                    "category": "agents",
+                    "category": "agents-applications",
                     "tags": [],
                     "published_at": "2026-11-01T08:00:00Z",
                     "url": "https://publisher.test/article",
@@ -79,11 +112,7 @@ server = Server[None](
     version="0.1.0",
     on_list_tools=tools,
     on_call_tool=call,
-    get_tool_input_schema=lambda name: (
-        SearchInput.model_json_schema()
-        if name == "search_news"
-        else RecentInput.model_json_schema()
-    ),
+    get_tool_input_schema=lambda name: INPUTS[name].model_json_schema(),
 )
 app = server.streamable_http_app(
     streamable_http_path="/mcp",

@@ -35,7 +35,7 @@ The existing evaluation ledger and consumed runs stay unchanged.
 - [x] 5.3 Apply/deploy only the approved owning layers and immutable UI/CORS-agent images; verify independent exact image/configuration/SPA-permission/UI-origin/agent-origin readback and HTTPS headers. Preserve prior revisions and state for rollback; deployment/health alone do not complete browser acceptance.
 - [ ] 5.4 With the user ready at the stable UI URL, run the real signed-in browser research/progress/completed-task/citation journey and deployed keyboard/axe checks; verify same-user delegated access and explicit live authorization failure without content capture. Separately label routed hostile/no-match/cancellation fixtures as UI-only checks, not real research-quality evidence; record safe outcomes and observed usage estimates without resetting existing costs.
 - [x] 5.5 Selectively commit/push only this slice after local/Azure checks and verify passing CI for the exact implementation commit; exclude baseline implementation and unrelated prompt/skill edits, and retain the source/image/evidence association.
-- [ ] 5.6 Publish the measured UI status/runbook/README and separate exact-source status CI; verify this slice's checked tasks match actual evidence, the UI remains early access, PRD-2 evaluations stay open, and later feed/search/structured-citation/full-phase gates are not claimed complete.
+- [x] 5.6 Publish the measured UI status/runbook/README and separate exact-source status CI; verify this slice's checked tasks match actual evidence, the UI remains early access, PRD-2 evaluations stay open, and later feed/search/structured-citation/full-phase gates are not claimed complete.
 
 ## Workflow follow-up
 
@@ -55,6 +55,10 @@ checks, frontend build and Terraform checks passed. Fewer tests than the broader
 dirty-worktree run reflect deliberately excluded parked evaluation implementation,
 not omitted publication-tree tests. The publication source hash matches the
 retained lofi deployment. All 52 parked paths were hash-checked unchanged.
+
+Measured-status publication: commit `14e5956b36869d764040abe8298a4b31a8c5c2c4`
+passed separate exact-source CI run `41330011319`. Automated signed-in Azure
+acceptance is still open; this publication does not complete task 5.4 or PRD-2.
 
 Local implementation evidence (2026-10-31): locked npm installation, frontend
 lint/typecheck/build and 21 unit/component/official-SDK tests passed. The authored

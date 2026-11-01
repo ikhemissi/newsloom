@@ -4,7 +4,8 @@ Status: deployed early access. The user confirmed latest news, submitted search,
 contextual agent interaction and independent panel scrolling in their regular
 browser. Full automated Azure acceptance remains open; this is not full phase acceptance.
 Implementation commit `9153485d1cdffb1f7d982c239786a90369f8e316` passed exact-source
-CI run `41329362328`; separate measured-status publication is being verified.
+CI run `41329362328`; measured-status commit
+`14e5956b36869d764040abe8298a4b31a8c5c2c4` passed separate CI `41330011319`.
 On 2026-11-01 the user approved selective publication and filter implementation
 with those unavailable checks explicitly open. Automation can control the
 integrated VS Code browser, not their existing regular-browser session; another
@@ -168,7 +169,8 @@ reset the evaluation ledger during UI rollback.
 ## Latest news, search and optional research
 
 The [feed slice](../openspec/changes/ui-news-feed/tasks.md) is deployed for
-early-access verification, with remaining acceptance/publication gates open.
+early-access verification, with unavailable automated acceptance still open and
+selective implementation/status publication verified.
 The default signed-in page shows the latest
 20 stored news items without a date cutoff. Refresh uses recent-news access only.
 The top search box calls MCP `search_news` only on submit; clearing it returns
@@ -202,3 +204,49 @@ authored data only. It is not production-user or model evidence.
 User sign-in happens only in the user's regular browser. No separate test-browser
 sign-in, credential export or saved storage-state is used. Automated live checks
 that cannot run through that workflow remain explicitly unchecked.
+
+## Source, category and date filters
+
+The [filters slice](../openspec/changes/ui-news-filters/tasks.md) is deployed as
+early access. Local/SDK/authored browser checks and owning Azure image/configuration/
+permission readback passed; regular-browser filter confirmation and unavailable
+automated signed-in Azure acceptance remain open. Its final source is
+`87e78e9ceb6e695e6f5c3fb305df39ad12c192afbb4ad16f24767bab258ac9da`.
+It reuses existing MCP `news.read`, A2A `news.agent` and runtime configuration.
+NewsCatalog exposes source/category discovery and optional-query filtered search
+without leaking SDK types to components, preserving the later HTTP adapter seam.
+
+Source IDs and category labels come from authorized `list_sources`, once per
+signed-in view. Discovery and news reads have separate bounded cancellation lanes,
+at most one request per lane; catalogue failure does not block date-only browsing.
+Unavailable choices are disabled with explicit retry, not invented or silently
+substituted. Existing applied constraints remain visible.
+
+Editing controls dispatches nothing. Apply uses the last submitted query; Search
+submits draft query and filters together. Reset clears metadata but preserves that
+query; Clear search retains applied filters. Any time omits date bounds. Other
+presets and inclusive custom dates use the reader's local calendar and serialize
+UTC-aware inclusive `from` and exclusive `to`; DST is not treated as fixed 24-hour
+arithmetic. Invalid dates fail visibly before dispatch.
+
+Only explicit semantic queries request embeddings. Query-less metadata search
+does not invoke inference; filtering never sends A2A automatically. Each explicit
+research request sends structured filters and optional selected ID. Its displayed
+context remains attached to the answer, even after browsing filters or selected
+news change. Questions remain independent and sign-out clears transient state.
+
+The confirmed follow-up order is cached API with detail/cursor contracts, UI HTTP
+adapter, then versioned evaluations; see [PRD-3](prd-3.md#delivery-plan) and the
+[API direction ADR](adrs.md#explicit-filters-and-subsequent-api-transport).
+No API, cache, detail/pagination route, grant or new model is implemented here.
+
+Build contexts must exclude generated/cache/environment directories and their
+contents explicitly. Azure CLI's file-wise ACR uploader can re-include children
+after a directory-only rule when an earlier source allow rule matches them.
+Keep recursive rules such as `**/dist/**`, `**/node_modules/**` and
+`**/test-results/**`; the owning regression guard covers the complete list.
+Verify the actual archive when changing context rules, rather than assuming a
+local Docker/Podman build exercises the Azure uploader.
+The corrected deployed stylesheet and both script chunks matched the pinned
+production build's filenames and bytes exactly. No generated output or cached
+environment data is admitted to the source archive.

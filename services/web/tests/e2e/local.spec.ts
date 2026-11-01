@@ -75,3 +75,62 @@ test("long agent replies scroll independently of the page", async ({ page }) => 
   await page.keyboard.press("PageDown");
   await expect.poll(() => panel.evaluate((element) => element.scrollTop)).toBeGreaterThan(before);
 });
+
+test("keyboard filter/search/reset journey preserves submitted research context and responsive accessibility", async ({ page }) => {
+  await page.goto("/tests/harness.html");
+  await page.getByLabel("Source").selectOption("fixture-source");
+  await page.getByLabel("Category").selectOption("agents-applications");
+  await page.getByLabel("Date period").selectOption("custom");
+  await page.getByRole("button", { name: "Apply filters", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText("valid, complete dates");
+  await page.getByLabel("Start date").fill("2026-11-01");
+  await page.getByLabel("End date").fill("2026-11-01");
+  expect(await page.locator("html").getAttribute("data-search-calls")).toBe("0");
+  await page.getByRole("button", { name: "Apply filters", exact: true }).focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("heading", { name: "Filtered news" })).toBeVisible();
+  expect(await page.locator("html").getAttribute("data-queryless-calls")).toBe("1");
+  expect(await page.locator("html").getAttribute("data-research-calls")).toBe("0");
+  await page.getByLabel("Search stored news").fill("fixture query");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Search results", exact: true })).toBeVisible();
+  expect(await page.locator("html").getAttribute("data-queryless-calls")).toBe("1");
+  await page.getByRole("button", { name: "Ask about this: Authored search result" }).click();
+  await page.getByLabel("What would you like to understand?").fill("Independent authored question");
+  await page.getByRole("button", { name: "Ask Newsloom", exact: true }).click();
+  await expect(page.getByLabel("Research answer")).toBeVisible();
+  const submitted = page.getByLabel("Submitted research context");
+  await expect(submitted).toContainText("Category: Agents and applications");
+  await page.getByLabel("Category", { exact: true }).selectOption("models");
+  await page.getByRole("button", { name: "Apply filters", exact: true }).click();
+  await expect(page.getByText("No news matches this search.")).toBeVisible();
+  await expect(submitted).toContainText("Category: Agents and applications");
+  await expect(page.getByLabel("Next research filters")).toContainText("Category: Models");
+  await page.getByRole("button", { name: "Reset filters", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Search results", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Clear search", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Latest news", exact: true })).toBeVisible();
+  await expect(page.getByLabel("Research answer")).toBeVisible();
+  expect(await page.locator("html").getAttribute("data-research-calls")).toBe("1");
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  const results = await new AxeBuilder({ page }).analyze();
+  if (results.violations.length)
+    throw new Error(`ui_accessibility:${results.violations.map((item) => item.id).join(",")}`);
+});
+
+test("catalogue failure is retryable and hostile category labels stay inert", async ({ page }) => {
+  await page.goto("/tests/harness.html?catalogue-error&hostile-catalogue");
+  await expect(page.getByRole("alert")).toContainText("Source/category choices unavailable");
+  await expect(page.getByLabel("Source")).toBeDisabled();
+  await page.getByRole("button", { name: "Retry catalogue" }).click();
+  await expect(page.getByLabel("Source")).toBeEnabled();
+  await page.getByLabel("Category").selectOption("agents-applications");
+  await page.getByRole("button", { name: "Apply filters", exact: true }).click();
+  await expect(page.getByLabel("Applied news filters")).toContainText("<svg onload=bad()>");
+  expect(await page.locator("svg").count()).toBe(0);
+  expect(await page.locator("html").getAttribute("data-research-calls")).toBe("0");
+  await page.getByRole("button", { name: "Sign out", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Sign in to read news", exact: true })).toBeVisible();
+  await expect(page.getByLabel("Applied news filters")).toHaveCount(0);
+});

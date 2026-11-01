@@ -20,6 +20,22 @@ class UiCase:
     consents: list[dict[str, object]] = field(default_factory=list)
 
 
+def test_ui_archive_rules_exclude_generated_directory_contents() -> None:
+    rules = set((Path(__file__).resolve().parents[1] / ".dockerignore").read_text().splitlines())
+    for directory in (
+        ".venv",
+        "__pycache__",
+        "dist",
+        "build",
+        "node_modules",
+        "test-results",
+        "playwright-report",
+    ):
+        assert f"**/{directory}/" in rules
+        assert f"**/{directory}/**" in rules
+    assert "**/.env*/**" in rules
+
+
 def test_ui_layers_use_native_distinct_secretless_state_templates() -> None:
     keys: set[str] = set()
     for name in ("ui-identity", "ui"):

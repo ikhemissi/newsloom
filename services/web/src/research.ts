@@ -3,6 +3,8 @@ import type { AgentCard } from "@a2a-js/sdk";
 import { ClientFactory, DefaultAgentCardResolver, JsonRpcTransportFactory } from "@a2a-js/sdk/client";
 import type { Client } from "@a2a-js/sdk/client";
 import { z } from "zod";
+import type { NewsFilters } from "./domain";
+import { validateFilters } from "./filters";
 import type { RuntimeConfig } from "./config";
 import type { AuthSession, ResearchClient, ResearchEvent } from "./domain";
 import { accessToken, UiFailure } from "./domain";
@@ -83,9 +85,10 @@ export class A2aResearch implements ResearchClient {
   private active: ActiveRequest | null = null;
   constructor(private config: RuntimeConfig, private auth: AuthSession, private fetchImpl: typeof fetch = fetch) {}
 
-  async *ask(value: string, signal: AbortSignal, itemIds?: readonly string[]): AsyncIterable<ResearchEvent> {
+  async *ask(value: string, signal: AbortSignal, itemIds?: readonly string[], filters: NewsFilters = {}): AsyncIterable<ResearchEvent> {
     if (this.active) throw new UiFailure("overloaded");
     const question = validateQuestion(value);
+    const filterSnapshot = validateFilters(filters);
     if (itemIds && (!itemIds.length || itemIds.length > 5
         || new Set(itemIds.map((id) => id.toLowerCase())).size !== itemIds.length
         || itemIds.some((id) => !z.uuid().safeParse(id).success)))
@@ -115,7 +118,8 @@ export class A2aResearch implements ResearchClient {
       let contextId: string | null = null;
       for await (const event of state.client.sendMessageStream(SendMessageRequest.fromJSON({
         message: { messageId: crypto.randomUUID(), role: "ROLE_USER",
-          parts: [{ data: { operation: "research", question, ...(itemIds ? { item_ids: [...itemIds] } : {}) },
+          parts: [{ data: { operation: "research", question, ...(itemIds ? { item_ids: [...itemIds] } : {}),
+            ...(Object.keys(filterSnapshot).length ? { filters: filterSnapshot } : {}) },
             mediaType: "application/json" }] },
         configuration: { acceptedOutputModes: ["text/plain"] },
       }), { signal: state.controller.signal })) {

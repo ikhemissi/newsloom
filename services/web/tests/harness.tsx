@@ -2,11 +2,16 @@ import { createRoot } from "react-dom/client";
 import { App } from "../src/App";
 import { parseAnswer } from "../src/answer";
 import type { AuthSession, ResearchClient } from "../src/domain";
-import { newsItem } from "./fixtures";
+import { UiFailure } from "../src/domain";
+import { newsItem, sourceCatalog } from "./fixtures";
+import { matchesFilters } from "../src/filters";
 import "../src/style.css";
 
 document.documentElement.dataset.researchCalls = "0";
 document.documentElement.dataset.searchCalls = "0";
+document.documentElement.dataset.querylessCalls = "0";
+const parameters = new URLSearchParams(location.search);
+let catalogueAttempts = 0;
 
 const auth: AuthSession = {
   signedIn: () => true, signIn: async () => undefined, signOut: async () => undefined,
@@ -32,10 +37,22 @@ const container = document.getElementById("root");
 if (!container) throw new Error("Missing fixture root");
 createRoot(container).render(<App auth={auth} research={research} catalog={{
   recent: async () => [newsItem],
-  search: async () => {
+  sources: async () => {
+    catalogueAttempts++;
+    if (parameters.has("catalogue-error") && catalogueAttempts === 1) throw new UiFailure("unavailable");
+    return parameters.has("hostile-catalogue") ? {
+      ...sourceCatalog, categories: sourceCatalog.categories.map((category) => ({
+        ...category, label: "<svg onload=bad()>",
+      })),
+    } : sourceCatalog;
+  },
+  search: async (_query, _signal, filters = {}) => {
     document.documentElement.dataset.searchCalls = String(
       Number(document.documentElement.dataset.searchCalls) + 1,
     );
-    return [{ ...newsItem, title: "Authored search result" }];
+    if (_query === undefined) document.documentElement.dataset.querylessCalls = String(
+      Number(document.documentElement.dataset.querylessCalls) + 1,
+    );
+    return [{ ...newsItem, title: "Authored search result" }].filter((item) => matchesFilters(item, filters));
   },
 }} />);

@@ -61,6 +61,12 @@ h1 { font-size: clamp(2.25rem, 5vw, 3.7rem); font-weight: 650; line-height: 1.1;
 .agent-panel .composer-footer { flex-direction: column; align-items: stretch; }
 .context-chip { display: flex; gap: .5rem; align-items: center; padding: .7rem; border-radius: .7rem; background: var(--color-base-100); margin-bottom: 1rem; font-size: .8rem; overflow-wrap: anywhere; }
 .context-note { font-size: .8rem; margin-bottom: 1rem; }
+.filter-bar { display: flex; gap: .75rem; flex-wrap: wrap; align-items: end; margin-bottom: 1rem; }
+.filter-bar label { display: flex; flex-direction: column; gap: .35rem; font-size: .8rem; min-width: 0; max-width: 100%; }
+.filter-bar .select, .filter-bar .input { width: 12rem; max-width: 100%; }
+.filter-help { flex-basis: 100%; font-size: .75rem; }
+.filter-chips { display: flex; gap: .5rem; flex-wrap: wrap; margin: .75rem 0 1rem; }
+.filter-chips .badge { height: auto; white-space: normal; overflow-wrap: anywhere; max-width: 100%; padding: .35rem .6rem; }
 .news-page > .alert, .news-page > .error-notice, .news-page > .page-footer { grid-column: 1 / -1; }
 @media (max-width: 1000px) {
   .site-header { flex-wrap: wrap; }

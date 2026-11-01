@@ -27,6 +27,10 @@ after current delivery closure, before a cached HTTP API and UI transport swap.
 - During implementation, update the owning phase assignments/runbook and record
   the user-approved order: delivery closure, filters, cached API, UI API adapter,
   then evaluations. Details/pagination belong with the API contract.
+- Correct the user-approved build-context issue discovered during live validation:
+  recursive exclusions must prevent Azure CLI's file-wise uploader from including
+  generated dist/cache/environment/test-output contents. Verify the actual archive
+  and a fresh UI-only image; no backend or permission change is added.
 
 ## Capabilities
 

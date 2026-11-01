@@ -60,6 +60,10 @@ See [the ADRs](adrs.md) for shared architectural decisions.
 
 ## P3-C04: Source, category, and date shortcuts
 
+**Assignment:** active [`ui-news-filters`](../openspec/changes/ui-news-filters/tasks.md),
+deployed early access with local/owning deployment checks passed and regular-browser/
+automated signed-in Azure acceptance still open; not full phase acceptance.
+
 **Outcome:** Readers can narrow their research without manually writing every constraint.
 
 **User stories**
@@ -70,8 +74,16 @@ See [the ADRs](adrs.md) for shared architectural decisions.
 
 **Acceptance criteria**
 - The UI provides basic shortcuts for source, category, and date.
-- Selected shortcuts become instructions to the agent; they do not introduce a
-  separate browser-to-database or model access path.
+- Source/category choices use exact catalogue IDs; Any time is the default.
+  Today, Last 7/30 days and custom inclusive dates use local calendar arithmetic
+  with UTC-aware inclusive lower/exclusive upper bounds.
+- Draft edits dispatch nothing. Apply retains the submitted query; Search submits
+  the draft query and filters together. Reset preserves the submitted query;
+  clearing search preserves applied filters. Query-less metadata search has no
+  inference cost.
+- Applied shortcuts become structured ResearchRequest filters, not appended prompt
+  instructions or a separate browser-to-database/model path. Each explicit
+  question and its answer retain an immutable visible context snapshot.
 - Manual Azure checks verify that selected constraints reach the agent, and
   browser tests cover the resulting interaction.
 
@@ -126,8 +138,11 @@ do not add account management, saved chat history, or news-editing features.
 
 **Status:** latest-feed/search/context slice deployed as early access in
 [`ui-news-feed`](../openspec/changes/ui-news-feed/tasks.md). The user confirmed
-the regular-browser journey; full automated acceptance/publication remains
-pending. Filters, detail routing and multi-selection remain later work.
+the regular-browser journey; implementation/status publication is verified and
+full automated acceptance remains pending. Filters belong to the active
+[`ui-news-filters`](../openspec/changes/ui-news-filters/tasks.md) slice. Detail
+routing and pagination belong to the later cached API contract; multi-selection
+remains subsequent work.
 
 **Outcome:** Readers can browse stored news and explicitly choose research context.
 

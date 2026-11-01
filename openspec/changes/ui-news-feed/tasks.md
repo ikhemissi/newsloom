@@ -28,7 +28,7 @@ remaining automated evidence or implementation/status publication gates.
 - [x] 4.2 Review the exact existing SPA/MCP/UI native azd plans: only intended MCP delegated consent and app/image/origin/config changes, no new models/resources or agent/OBO changes. Obtain required owning authorization; if admin consent is denied, preserve partial state and adopt only the user's exact grant.
 - [x] 4.3 Deploy only approved owning layers/images in the retained environment; verify independent identity/image/config/CORS/security-header readback and preservation of existing schedules, stored data, agent grants and profile. Record failures honestly; never recreate infrastructure or replay an uncertain mutation blindly.
 - [ ] 4.4 Verify the real signed-in Azure default feed, zero automatic inference, submitted MCP search, open/close right-panel behavior, explicit current-news A2A research and citation navigation, keyboard/axe and authorization failures with safe metadata-only evidence; keep user attestation separate from automated evidence and retain search-embedding/research-chat estimates without resetting previous costs.
-- [ ] 4.5 Selectively commit/push only this slice after local/Azure gates, verify exact-source implementation CI, then publish measured docs/status with separate CI. Verify unchecked filter/paging/evaluation/full-phase tasks remain open and no unrelated baseline/prompt/skill changes were staged.
+- [x] 4.5 Selectively commit/push only this slice after local/Azure gates, verify exact-source implementation CI, then publish measured docs/status with separate CI. Verify unchecked filter/paging/evaluation/full-phase tasks remain open and no unrelated baseline/prompt/skill changes were staged.
 
 ## Workflow follow-up
 
@@ -48,6 +48,14 @@ with HTTP 200, lofi stylesheet verification and preserved configuration. The
 prior feed/MCP source and agent source remain in their original private receipts.
 Publication must not retroactively replace those build-time source hashes with
 a Git commit identifier or imply all previously dirty build inputs were published.
+
+Selective publication preserved the exact lofi build source above:
+implementation `9153485d1cdffb1f7d982c239786a90369f8e316` passed CI `41329362328`;
+measured status `14e5956b36869d764040abe8298a4b31a8c5c2c4` passed CI `41330011319`.
+The isolated publication tree passed 301 evaluator, 1,577 application (67 skipped),
+31 frontend and four authored browser cases, with all other primary gates passing.
+All 52 parked paths were hash-verified unchanged. Task 4.4 and the original
+first-UI acceptance prerequisite remain open under the explicit sequencing exception.
 
 Local evidence (2026-11-01): frontend lint/typecheck/build passed, with real
 JavaScript MCP 2.4.0/Python MCP 2.3.0 modern discovery/read/search/cancellation
