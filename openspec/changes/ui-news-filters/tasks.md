@@ -66,6 +66,12 @@ Regular-browser filter acceptance and unavailable automated signed-in Azure chec
 remain open in task 4.4. Publication uses the explicit early-access exception;
 no archival or full phase acceptance is claimed.
 
+Implementation publication: `9604f3be4eaa4efdd45a0588b1296ca1007dfc53`
+passed exact-source CI `41342706269`. The committed build source matches the
+corrected deployed source above; all parked code/customization paths and the
+historical evaluation usage receipt were hash-verified unchanged. Separate
+measured-status CI remains pending before task 4.5 can be checked.
+
 - Propose the cached news API after filters: prefer the current MCP ACA app,
   delegated news.read and workload identity, with authorization before every
   cache hit and no credential/conversation caching. Define detail/cursor and
