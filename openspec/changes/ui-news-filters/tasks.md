@@ -28,7 +28,7 @@ The user approved proceeding with unavailable Azure checks explicitly open.
 - [x] 4.2a Apply the explicitly approved recursive build-context exclusions; verify the actual Azure CLI uploader includes zero generated/environment/cache files, preserve a regression guard, and rerun the source-bound local gate. Rebuild and review a fresh UI-only revision, then verify its served CSS/scripts against the pinned production build before publication.
 - [x] 4.3 Review/deploy only an approved immutable UI image/revision through retained azd state; verify exact image/configuration/origin/permission and backend/schedule preservation. No new backend route, model, grant, dependency or cache resource is admitted.
 - [ ] 4.4 Verify the real regular-browser source/category/date and combined-search journey, exact applied A2A constraints, no metadata-only inference, authorization errors and required deployed accessibility evidence; record safe metadata-only outcomes and usage estimates, leaving unavailable checks explicitly open.
-- [ ] 4.5 Selectively commit/push this explicitly approved early-access slice after passed local and owning Azure deployment/readback gates, verify exact-source implementation CI and separate measured-status CI; retain unavailable signed-in Azure acceptance in task 4.4 as open under the user's publication exception. Verify tasks/evidence match and do not archive without full acceptance and a request.
+- [x] 4.5 Selectively commit/push this explicitly approved early-access slice after passed local and owning Azure deployment/readback gates, verify exact-source implementation CI and separate measured-status CI; retain unavailable signed-in Azure acceptance in task 4.4 as open under the user's publication exception. Verify tasks/evidence match and do not archive without full acceptance and a request.
 
 ## Workflow follow-up
 
@@ -69,8 +69,9 @@ no archival or full phase acceptance is claimed.
 Implementation publication: `9604f3be4eaa4efdd45a0588b1296ca1007dfc53`
 passed exact-source CI `41342706269`. The committed build source matches the
 corrected deployed source above; all parked code/customization paths and the
-historical evaluation usage receipt were hash-verified unchanged. Separate
-measured-status CI remains pending before task 4.5 can be checked.
+historical evaluation usage receipt were hash-verified unchanged. Measured-status
+publication `0869a458f7eb57826f9700a0f1c9b45fe2767996` passed separate exact-source
+CI `41343382008`. Task 4.4 remains explicitly open; no archive is authorized.
 
 - Propose the cached news API after filters: prefer the current MCP ACA app,
   delegated news.read and workload identity, with authorization before every

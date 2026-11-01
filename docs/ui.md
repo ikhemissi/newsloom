@@ -213,8 +213,8 @@ permission readback passed; regular-browser filter confirmation and unavailable
 automated signed-in Azure acceptance remain open. Its final source is
 `87e78e9ceb6e695e6f5c3fb305df39ad12c192afbb4ad16f24767bab258ac9da`.
 Filter implementation `9604f3be4eaa4efdd45a0588b1296ca1007dfc53` passed
-exact-source CI `41342706269`; separate measured-status publication is being
-verified. This does not complete the signed-in acceptance gate or authorize archive.
+exact-source CI `41342706269`; measured-status publication `0869a45` passed separate
+CI `41343382008`. This does not complete the signed-in acceptance gate or authorize archive.
 It reuses existing MCP `news.read`, A2A `news.agent` and runtime configuration.
 NewsCatalog exposes source/category discovery and optional-query filtered search
 without leaking SDK types to components, preserving the later HTTP adapter seam.
