@@ -2,8 +2,9 @@
 
 Status: deployed early access. The user confirmed latest news, submitted search,
 contextual agent interaction and independent panel scrolling in their regular
-browser. Full automated Azure acceptance and implementation/status publication
-remain open; this is not full phase acceptance.
+browser. Full automated Azure acceptance remains open; this is not full phase acceptance.
+Implementation commit `9153485d1cdffb1f7d982c239786a90369f8e316` passed exact-source
+CI run `41329362328`; separate measured-status publication is being verified.
 On 2026-11-01 the user approved selective publication and filter implementation
 with those unavailable checks explicitly open. Automation can control the
 integrated VS Code browser, not their existing regular-browser session; another

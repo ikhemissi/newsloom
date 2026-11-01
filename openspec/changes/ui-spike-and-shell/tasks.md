@@ -34,7 +34,7 @@ The existing evaluation ledger and consumed runs stay unchanged.
 - [x] 5.2 Review scoped identity/app readiness, the UI cost/replica estimate and owning UI-identity/UI/agent plans in the retained azd environment; verify no existing MCP/model/schedule/data/evaluation change, no environment replacement and no unrelated grant. Obtain required owning-plan authorization before apply.
 - [x] 5.3 Apply/deploy only the approved owning layers and immutable UI/CORS-agent images; verify independent exact image/configuration/SPA-permission/UI-origin/agent-origin readback and HTTPS headers. Preserve prior revisions and state for rollback; deployment/health alone do not complete browser acceptance.
 - [ ] 5.4 With the user ready at the stable UI URL, run the real signed-in browser research/progress/completed-task/citation journey and deployed keyboard/axe checks; verify same-user delegated access and explicit live authorization failure without content capture. Separately label routed hostile/no-match/cancellation fixtures as UI-only checks, not real research-quality evidence; record safe outcomes and observed usage estimates without resetting existing costs.
-- [ ] 5.5 Selectively commit/push only this slice after local/Azure checks and verify passing CI for the exact implementation commit; exclude baseline implementation and unrelated prompt/skill edits, and retain the source/image/evidence association.
+- [x] 5.5 Selectively commit/push only this slice after local/Azure checks and verify passing CI for the exact implementation commit; exclude baseline implementation and unrelated prompt/skill edits, and retain the source/image/evidence association.
 - [ ] 5.6 Publish the measured UI status/runbook/README and separate exact-source status CI; verify this slice's checked tasks match actual evidence, the UI remains early access, PRD-2 evaluations stay open, and later feed/search/structured-citation/full-phase gates are not claimed complete.
 
 ## Workflow follow-up
@@ -46,6 +46,15 @@ remain open. The tools control VS Code's integrated browser, not the user's
 existing regular-browser session. Task 5.4 remains unchecked; manual confirmation
 does not establish automated parity, authorization-failure or deployed axe proof.
 No new sign-in, credential export, evaluation replay or archival is authorized.
+
+Implementation publication: commit `9153485d1cdffb1f7d982c239786a90369f8e316`
+passed exact-source CI run `41329362328`. Its isolated selective tree passed the
+primary gate: 301 evaluator tests, 1,577 application tests with 67 conditional
+skips, 31 frontend tests and four authored browser/axe checks. Types, runtime
+checks, frontend build and Terraform checks passed. Fewer tests than the broader
+dirty-worktree run reflect deliberately excluded parked evaluation implementation,
+not omitted publication-tree tests. The publication source hash matches the
+retained lofi deployment. All 52 parked paths were hash-checked unchanged.
 
 Local implementation evidence (2026-10-31): locked npm installation, frontend
 lint/typecheck/build and 21 unit/component/official-SDK tests passed. The authored
