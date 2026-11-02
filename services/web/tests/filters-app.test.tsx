@@ -45,9 +45,38 @@ test("draft edits dispatch nothing; Apply, Search, Reset and Clear preserve thei
   expect(search).toHaveBeenLastCalledWith("submitted query", expect.any(AbortSignal), {});
   change("Source", "fixture-source"); click("Apply filters");
   await screen.findByRole("heading", { name: newsItem.title });
+  change("Category", "models");
+  expect(within(screen.getByRole("form", { name: "News filters" })).getByRole("button", { name: "Clear search" }))
+    .toHaveAttribute("type", "button");
   click("Clear search");
   await waitFor(() => expect(search).toHaveBeenLastCalledWith(undefined, expect.any(AbortSignal), { source: "fixture-source" }));
+  expect(search).toHaveBeenCalledTimes(6);
   expect(recent).toHaveBeenCalledOnce(); expect(sources).toHaveBeenCalledOnce();
+  expect(agent.ask).not.toHaveBeenCalled();
+});
+
+test("compact toolbar refresh ignores unsent query, category and invalid date drafts", async () => {
+  const recent = vi.fn(async () => page([newsItem]));
+  const search = vi.fn(async () => page([newsItem]));
+  const agent = research();
+  render(<App auth={auth} catalog={{ recent, search, sources: async () => sourceCatalog, detail }} research={agent} />);
+  await choicesReady();
+  expect(screen.queryByText("STORED NEWS. CLEARER CONTEXT.")).toBeNull();
+  expect(screen.queryByText("Stored articles, newest first. Initially showing up to 20.")).toBeNull();
+  expect(screen.getByRole("heading", { name: "Latest news" })).toHaveClass("sr-only");
+  const toolbar = within(screen.getByRole("form", { name: "News filters" }));
+  const refresh = toolbar.getByRole("button", { name: "Refresh" });
+  expect(refresh).toHaveAttribute("type", "button");
+  change("Source", "fixture-source"); click("Apply filters");
+  await screen.findByRole("heading", { name: newsItem.title });
+  expect(search).toHaveBeenCalledOnce();
+  change("Search stored news", "unsent query"); change("Category", "models"); change("Date period", "custom");
+  click("Refresh");
+  await screen.findByRole("heading", { name: newsItem.title });
+  expect(search).toHaveBeenCalledTimes(2);
+  expect(search).toHaveBeenLastCalledWith(undefined, expect.any(AbortSignal), { source: "fixture-source" });
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(recent).toHaveBeenCalledOnce();
   expect(agent.ask).not.toHaveBeenCalled();
 });
 

@@ -23,6 +23,21 @@ checks. [PRD-3](prd-3.md) owns sequencing; [capabilities](prd-3-capabilities.md)
 and the [stack ADR](adrs.md#ui-stack-comparison) own behavior and decisions.
 PRD-2 evaluations remain open.
 
+## Compact news toolbar
+
+The [compact-toolbar slice](../openspec/changes/ui-compact-news-toolbar/tasks.md)
+removes the visible main news eyebrow/title/intro and puts Refresh alongside
+Apply/Reset in the filter toolbar. Search keeps a concise submitted-query/
+relevance/bounded-result line; Clear search occupies the same action position.
+The semantic news heading remains visually hidden for accessible navigation and
+Back-to-news focus. Detail-page titles are unchanged. Controls wrap on mobile.
+Refresh/Clear search do not submit draft filters; existing applied-snapshot,
+HTTP cache, paging and A2A behavior is unchanged.
+
+This refinement is implemented locally, not deployed. Owning deployment and
+actual Azure layout/acceptance remain open in its checklist; earlier exceptions
+and user confirmations are not new acceptance evidence for this slice.
+
 ## Local development
 
 The browser lives in the root npm workspace, separately from Python's uv workspace.

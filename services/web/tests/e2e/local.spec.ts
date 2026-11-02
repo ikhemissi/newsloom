@@ -3,7 +3,7 @@ import AxeBuilder from "@axe-core/playwright";
 
 test("authored browser journey renders hostile text inertly with usable citations", async ({ page }) => {
   await page.goto("/tests/harness.html");
-  await expect(page.getByRole("heading", { name: "Latest news" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Latest news" })).toHaveClass("sr-only");
   await page.getByRole("button", { name: "Ask about this: Authored news headline" }).click();
   await page.getByLabel("What would you like to understand?").fill("Authored fixture question");
   await page.getByRole("button", { name: "Ask Newsloom" }).click();
@@ -24,6 +24,55 @@ test("real MSAL SDK accepts the production redirect cache and constructs PKCE wi
   await page.goto("/tests/auth-harness.html");
   await page.getByRole("button", { name: "Test redirect preflight" }).click();
   await expect(page.getByRole("status")).toHaveText("Redirect preflight passed");
+});
+
+test("compact toolbar removes the hero gap and aligns Refresh with filters without mobile clipping", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/tests/harness.html");
+  const toolbar = page.getByRole("form", { name: "News filters" });
+  const refresh = toolbar.getByRole("button", { name: "Refresh", exact: true });
+  await expect(refresh).toBeEnabled();
+  await expect(page.getByText("STORED NEWS. CLEARER CONTEXT.", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Stored articles, newest first. Initially showing up to 20.", { exact: true })).toHaveCount(0);
+  await expect(page.locator(".news-heading")).toHaveCount(0);
+  const heading = page.getByRole("heading", { name: "Latest news", exact: true });
+  const headingBox = await heading.boundingBox();
+  expect(headingBox).not.toBeNull();
+  expect(headingBox!.height).toBeLessThanOrEqual(1);
+  expect(headingBox!.width).toBeLessThanOrEqual(1);
+  expect(await heading.evaluate((element) => getComputedStyle(element).position)).toBe("absolute");
+  const columnBox = await page.locator(".news-column").boundingBox();
+  const toolbarBox = await toolbar.boundingBox();
+  expect(columnBox && toolbarBox && Math.abs(columnBox.y - toolbarBox.y) <= 1).toBeTruthy();
+  const sourceBox = await toolbar.getByLabel("Source", { exact: true }).boundingBox();
+  for (const name of ["Apply filters", "Reset filters", "Refresh"]) {
+    const box = await toolbar.getByRole("button", { name, exact: true }).boundingBox();
+    expect(box && sourceBox && Math.abs(box.y + box.height - sourceBox.y - sourceBox.height) <= 1).toBeTruthy();
+  }
+  await refresh.focus();
+  await page.keyboard.press("Enter");
+  expect(await page.locator("html").getAttribute("data-search-calls")).toBe("0");
+  expect(await page.locator("html").getAttribute("data-research-calls")).toBe("0");
+  await page.getByLabel("Search stored news").fill("fixture query");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page.locator(".news-search-context")).toHaveText('Ranked by relevance · Up to 20 results for "fixture query"');
+  await expect(toolbar.getByRole("button", { name: "Clear search", exact: true })).toBeEnabled();
+  await expect(refresh).toHaveCount(0);
+  await toolbar.getByRole("button", { name: "Clear search", exact: true }).click();
+  await expect(page.locator(".news-search-context")).toHaveCount(0);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await toolbar.getByLabel("Date period").selectOption("custom");
+  expect(await toolbar.locator("select, input, button").evaluateAll((elements) => elements.every((element) => {
+    const bounds = element.getBoundingClientRect();
+    return bounds.left >= 0 && bounds.right <= window.innerWidth;
+  }))).toBe(true);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  const mobileRefresh = await refresh.boundingBox();
+  const mobileSource = await toolbar.getByLabel("Source", { exact: true }).boundingBox();
+  expect(mobileRefresh && mobileSource && mobileRefresh.y > mobileSource.y).toBeTruthy();
+  const results = await new AxeBuilder({ page }).analyze();
+  if (results.violations.length)
+    throw new Error(`ui_accessibility:${results.violations.map((item) => item.id).join(",")}`);
 });
 
 test("default feed and top search keep the right-side agent optional", async ({ page }) => {
@@ -88,12 +137,12 @@ test("keyboard filter/search/reset journey preserves submitted research context 
   expect(await page.locator("html").getAttribute("data-search-calls")).toBe("0");
   await page.getByRole("button", { name: "Apply filters", exact: true }).focus();
   await page.keyboard.press("Enter");
-  await expect(page.getByRole("heading", { name: "Filtered news" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Filtered news" })).toHaveClass("sr-only");
   expect(await page.locator("html").getAttribute("data-queryless-calls")).toBe("1");
   expect(await page.locator("html").getAttribute("data-research-calls")).toBe("0");
   await page.getByLabel("Search stored news").fill("fixture query");
   await page.getByRole("button", { name: "Search", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Search results", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Search results", exact: true })).toHaveClass("sr-only");
   expect(await page.locator("html").getAttribute("data-queryless-calls")).toBe("1");
   await page.getByRole("button", { name: "Ask about this: Authored search result" }).click();
   await page.getByLabel("What would you like to understand?").fill("Independent authored question");
@@ -107,9 +156,9 @@ test("keyboard filter/search/reset journey preserves submitted research context 
   await expect(submitted).toContainText("Category: Agents and applications");
   await expect(page.getByLabel("Next research filters")).toContainText("Category: Models");
   await page.getByRole("button", { name: "Reset filters", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Search results", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Search results", exact: true })).toHaveClass("sr-only");
   await page.getByRole("button", { name: "Clear search", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Latest news", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Latest news", exact: true })).toHaveClass("sr-only");
   await expect(page.getByLabel("Research answer")).toBeVisible();
   expect(await page.locator("html").getAttribute("data-research-calls")).toBe("1");
   await page.setViewportSize({ width: 390, height: 844 });
@@ -158,10 +207,12 @@ test("shareable detail routes reload, support browser history and retain accessi
   await page.getByRole("link", { name: "Authored news headline", exact: true }).click();
   const detail = page.getByRole("region", { name: "News detail" });
   await expect(detail.getByText("Authored publisher", { exact: true })).toBeVisible();
+  await expect(detail.getByRole("heading", { name: "Authored news headline", exact: true })).toBeVisible();
   expect(new URL(page.url()).pathname).toMatch(/^\/news\/[a-f0-9-]+$/);
   expect(await page.locator("html").getAttribute("data-research-calls")).toBe("0");
   await page.getByRole("button", { name: "Back to news", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Latest news", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Latest news", exact: true })).toHaveClass("sr-only");
+  await expect(page.getByRole("link", { name: "Authored news headline", exact: true })).toBeFocused();
   await page.goForward();
   await expect(detail).toBeVisible();
   await page.reload();

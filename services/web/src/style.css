@@ -45,10 +45,7 @@ h1 { font-size: clamp(2.25rem, 5vw, 3.7rem); font-weight: 650; line-height: 1.1;
 .news-page.with-agent { grid-template-columns: minmax(0, 1fr) 400px; }
 .news-column { min-width: 0; }
 .news-column h1 { overflow-wrap: anywhere; }
-.news-heading { display: flex; justify-content: space-between; gap: 1rem; align-items: center; margin-bottom: 1.5rem; }
-.news-heading h1 { font-size: 2.4rem; margin-bottom: .6rem; }
-.news-heading .eyebrow { margin-bottom: .6rem; }
-.news-heading .intro { font-size: .9rem; overflow-wrap: anywhere; }
+.news-search-context { font-size: .85rem; margin-bottom: 1rem; overflow-wrap: anywhere; }
 .news-list { display: grid; gap: 1rem; }
 .news-card { background: var(--color-base-200); border: 1px solid var(--color-base-300); padding: 1.5rem; }
 .news-card h2 { font-size: 1.25rem; line-height: 1.4; font-weight: 650; margin: .75rem 0; overflow-wrap: anywhere; }

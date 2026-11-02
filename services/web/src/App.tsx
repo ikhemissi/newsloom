@@ -398,21 +398,7 @@ export function App({ auth, research, catalog }: {
         </>}
       </section>}
       <div hidden={signedIn && route.kind !== "news"}>
-      <div className="news-heading">
-        <div>
-          <div className="eyebrow">STORED NEWS. CLEARER CONTEXT.</div>
-          <h1 ref={newsHeading} tabIndex={-1}>{submittedQuery ? "Search results" : Object.keys(applied.filters).length ? "Filtered news" : "Latest news"}</h1>
-          <p className="intro">{submittedQuery
-            ? `Ranked by relevance · Up to 20 results for "${submittedQuery}"`
-            : Object.keys(applied.filters).length ? "Up to 20 matching stored articles, newest first."
-              : "Stored articles, newest first. Initially showing up to 20."}</p>
-        </div>
-        {signedIn && (submittedQuery
-          ? <button className="btn btn-outline btn-sm" disabled={loading} onClick={() => {
-            setQuery(""); void loadNews("");
-          }}>Clear search</button>
-          : <button className="btn btn-outline btn-sm" disabled={loading} onClick={() => void loadNews("")}>Refresh</button>)}
-      </div>
+      <h1 className="sr-only" ref={newsHeading} tabIndex={-1}>{submittedQuery ? "Search results" : Object.keys(applied.filters).length ? "Filtered news" : "Latest news"}</h1>
       {!signedIn ? <section className="card signin-card">
         <h2>Your news, with context</h2><p>Sign in with your organization account to browse stored news and optionally ask the agent for more detail.</p>
         <button className="btn btn-primary" onClick={() => void signIn()}>Sign in to read news</button>
@@ -453,8 +439,14 @@ export function App({ auth, research, catalog }: {
           <button type="button" className="btn btn-ghost btn-sm" disabled={loading} onClick={() => {
             setDraft({ ...emptyDraft }); void loadNews(submittedQuery, emptySnapshot);
           }}>Reset filters</button>
+          {submittedQuery
+            ? <button type="button" className="btn btn-outline btn-sm" disabled={loading} onClick={() => {
+              setQuery(""); void loadNews("");
+            }}>Clear search</button>
+            : <button type="button" className="btn btn-outline btn-sm" disabled={loading} onClick={() => void loadNews("")}>Refresh</button>}
           <p className="filter-help">Dates are inclusive calendar dates in your local timezone. Changes apply only on Apply or Search.</p>
         </form>
+        {submittedQuery && <p className="news-search-context">Ranked by relevance · Up to 20 results for "{submittedQuery}"</p>}
         {choicesLoading && <p role="status">Loading source/category choices...</p>}
         {choicesError && <div role="alert" className="alert">
           <span>Source/category choices unavailable. {choicesError} Applied filters remain unchanged.</span>
