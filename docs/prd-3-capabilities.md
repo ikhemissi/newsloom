@@ -169,5 +169,7 @@ remains subsequent work.
   and multi-user capacity checks before deployment.
 - The slice explicitly resolves bounded-result/paging behavior; timestamp ties
   must not be silently skipped while claiming complete pagination.
-- A cached HTTP API, richer structured citations and persistent history remain
-  separate future work.
+- The active [`cached-news-api`](../openspec/changes/cached-news-api/tasks.md)
+  backend slice owns 60-second process-local response caching and browse-only
+  keysets; semantic search stays bounded to 50. It does not deliver browser paging
+  or switch the NewsCatalog adapter. Richer citations/history remain future work.

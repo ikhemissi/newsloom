@@ -2,9 +2,7 @@
 
 import asyncio
 import time
-from collections.abc import Awaitable, Callable
-from contextlib import AbstractAsyncContextManager
-from dataclasses import dataclass
+from collections.abc import Callable
 from uuid import uuid4
 
 import psycopg
@@ -33,7 +31,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from newsloom_mcp.auth import EntraVerifier
 from newsloom_mcp.cors import McpBrowserCors
-from newsloom_mcp.embedding import QueryEmbedding
+from newsloom_mcp.http_api import NewsApi
 from newsloom_mcp.models import (
     Contract,
     DetailInput,
@@ -45,16 +43,7 @@ from newsloom_mcp.models import (
     SearchResults,
     SourcesResult,
 )
-from newsloom_mcp.repository import NewsRepository
-
-
-@dataclass(frozen=True)
-class Services:
-    repositories: Callable[[], AbstractAsyncContextManager[NewsRepository]]
-    embeddings: QueryEmbedding
-    ready: Callable[[], Awaitable[bool]]
-    observe: Callable[[str, str, float], None] | None = None
-    observe_http: Callable[[str, str, float], None] | None = None
+from newsloom_mcp.services import Services as Services
 
 
 class HttpTelemetry:
@@ -134,6 +123,7 @@ def create_app(
     resource_url: str,
     allowed_hosts: list[str],
     allowed_origins: list[str],
+    news_api_enabled: bool = False,
 ) -> Starlette:
     semaphore = asyncio.Semaphore(4)
     tools = [
@@ -288,6 +278,15 @@ def create_app(
     if services.observe_http is not None:
         app.add_middleware(HttpTelemetry, observer=services.observe_http)
     app.add_middleware(McpBrowserCors, allowed_origins=tuple(allowed_origins))
+    app.add_middleware(
+        NewsApi,
+        services=services,
+        verifier=verifier,
+        semaphore=semaphore,
+        enabled=news_api_enabled,
+        allowed_hosts=tuple(allowed_hosts),
+        allowed_origins=tuple(allowed_origins),
+    )
     return app
 
 

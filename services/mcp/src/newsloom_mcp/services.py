@@ -1,0 +1,19 @@
+"""Shared workload services; neither protocol surface owns separate capacity."""
+
+from collections.abc import Awaitable, Callable
+from contextlib import AbstractAsyncContextManager
+from dataclasses import dataclass
+
+from newsloom_mcp.embedding import QueryEmbedding
+from newsloom_mcp.repository import NewsRepository
+
+
+@dataclass(frozen=True)
+class Services:
+    repositories: Callable[[], AbstractAsyncContextManager[NewsRepository]]
+    embeddings: QueryEmbedding
+    ready: Callable[[], Awaitable[bool]]
+    observe: Callable[[str, str, float], None] | None = None
+    observe_http: Callable[[str, str, float], None] | None = None
+    observe_api: Callable[[str, str, str, float], None] | None = None
+    model_revision: str = ""

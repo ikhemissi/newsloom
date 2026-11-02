@@ -260,6 +260,12 @@ Publish selective implementation and measured-status commits with exact-source C
 only after their actual gates or a newly explicit user exception; archive only
 with complete evidence and an explicit request.
 
+On 2026-11-02 the user explicitly approved API early-access deployment/publication
+after local checks and a reviewed owning plan, while authenticated live API/cache
+checks remain open because available tools cannot control their regular-browser
+session. This is a new sequencing exception, not evidence of those checks or
+permission to export credentials, request another sign-in or archive.
+
 Rollback disables only the API and/or restores the retained immutable MCP image
 through a fresh reviewed owning plan, preserving `/mcp`, origins, identity and
 all data. This slice changes no database schema or persistent cache state.

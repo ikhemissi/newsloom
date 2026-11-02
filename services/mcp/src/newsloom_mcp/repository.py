@@ -6,6 +6,7 @@ from newsloom_core.categories import load_categories
 from psycopg import AsyncConnection, sql
 from psycopg.rows import dict_row
 
+from newsloom_mcp.http_models import Position
 from newsloom_mcp.models import (
     CategoryInfo,
     DetailInput,
@@ -41,6 +42,7 @@ PROJECTION = sql.SQL(",").join(
 
 
 class NewsRepository(Protocol):
+    async def browse(self, args: SearchInput, after: Position | None) -> NewsResults: ...
     async def recent(self, args: RecentInput) -> NewsResults: ...
     async def detail(self, args: DetailInput) -> ItemResult: ...
     async def sources(self) -> SourcesResult: ...
@@ -70,6 +72,23 @@ class Repository:
         self, connection: AsyncConnection[tuple[object, ...]], model: str, version: str
     ) -> None:
         self.connection, self.model, self.version = connection, model, version
+
+    async def browse(self, args: SearchInput, after: Position | None) -> NewsResults:
+        where, values = predicates(args)
+        continuation = sql.SQL("")
+        if after is not None:
+            continuation = sql.SQL(" AND (published_at<%s OR (published_at=%s AND id>%s))")
+            values.extend((after.published_at, after.published_at, after.id))
+        async with self.connection.cursor(row_factory=dict_row) as cursor:
+            await cursor.execute(
+                sql.SQL("SELECT {} FROM public.news WHERE ({})").format(PROJECTION, where)
+                + continuation
+                + sql.SQL(" ORDER BY published_at DESC,id ASC LIMIT %s"),
+                [*values, args.limit + 1],
+            )
+            return NewsResults(
+                items=tuple(NewsItem.model_validate(row) for row in await cursor.fetchall())
+            )
 
     async def recent(self, args: RecentInput) -> NewsResults:
         async with self.connection.cursor(row_factory=dict_row) as cursor:

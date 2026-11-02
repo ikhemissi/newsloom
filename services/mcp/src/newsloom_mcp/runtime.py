@@ -18,6 +18,7 @@ from starlette.applications import Starlette
 from newsloom_mcp.app import Services, create_app
 from newsloom_mcp.auth import EntraVerifier
 from newsloom_mcp.embedding import FoundryQueryEmbedding
+from newsloom_mcp.http_models import digest
 from newsloom_mcp.repository import NewsRepository, Repository
 from newsloom_mcp.telemetry import Telemetry
 
@@ -36,6 +37,7 @@ class Config(BaseModel):
     embedding_version: str
     telemetry_routing: str
     allowed_origins: tuple[str, ...] = ()
+    news_api_enabled: bool = Field(default=False, strict=True)
 
     @field_validator("allowed_origins")
     @classmethod
@@ -72,6 +74,7 @@ class Config(BaseModel):
                 "embedding_model": env["EMBEDDINGS_MODEL"],
                 "embedding_version": env["EMBEDDINGS_VERSION"],
                 "telemetry_routing": env["APPLICATIONINSIGHTS_CONNECTION_STRING"],
+                "news_api_enabled": parse_api_enabled(env.get("NEWS_API_ENABLED", "false")),
                 "allowed_origins": tuple(env["MCP_ALLOWED_ORIGINS"].split(","))
                 if env.get("MCP_ALLOWED_ORIGINS")
                 else (),
@@ -138,6 +141,14 @@ async def resources(
                     ready,
                     telemetry.record if telemetry else None,
                     telemetry.record_http if telemetry else None,
+                    telemetry.record_api if telemetry else None,
+                    digest(
+                        [
+                            config.embedding_deployment,
+                            config.embedding_model,
+                            config.embedding_version,
+                        ]
+                    ),
                 ),
                 verifier,
             )
@@ -156,4 +167,11 @@ async def application(config: Config) -> AsyncIterator[Starlette]:
             config.resource_url,
             [host, host + ":443"],
             list(config.allowed_origins),
+            config.news_api_enabled,
         )
+
+
+def parse_api_enabled(value: str) -> bool:
+    if value not in ("true", "false"):
+        raise ValueError("invalid_news_api_enabled")
+    return value == "true"

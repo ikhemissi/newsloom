@@ -13,6 +13,7 @@ from newsloom_core.categories import Category
 from newsloom_core.model_transport import Vector
 from newsloom_mcp.app import Services, create_app
 from newsloom_mcp.auth import EntraVerifier
+from newsloom_mcp.http_models import Position
 from newsloom_mcp.models import (
     DetailInput,
     ItemResult,
@@ -35,6 +36,7 @@ class Reader:
         self.calls: list[object] = []
         self.observations: list[tuple[str, str, float]] = []
         self.http_observations: list[tuple[str, str, float]] = []
+        self.api_observations: list[tuple[str, str, str, float]] = []
         self.item = NewsItem(
             id=uuid4(),
             title="NEWSLOOM_CONTENT_CANARY",
@@ -50,11 +52,18 @@ class Reader:
         self.calls.append(args)
         return NewsResults(items=(self.item,))
 
+    async def browse(self, args: SearchInput, after: Position | None) -> NewsResults:
+        self.calls.append(args)
+        return NewsResults(items=() if after else (self.item,))
+
     def observe(self, tool: str, outcome: str, elapsed: float) -> None:
         self.observations.append((tool, outcome, elapsed))
 
     def observe_http(self, surface: str, outcome: str, elapsed: float) -> None:
         self.http_observations.append((surface, outcome, elapsed))
+
+    def observe_api(self, route: str, outcome: str, cache: str, elapsed: float) -> None:
+        self.api_observations.append((route, outcome, cache, elapsed))
 
     async def detail(self, args: DetailInput) -> ItemResult:
         self.calls.append(args)
@@ -99,6 +108,7 @@ Endpoint = tuple[httpx.AsyncClient, Reader, Embeddings, str, EntraVerifier, rsa.
 @pytest.fixture
 async def endpoint(
     signing_key: rsa.RSAPrivateKey,
+    request: pytest.FixtureRequest,
 ) -> AsyncIterator[Endpoint]:
     reader, embeddings = Reader(), Embeddings()
     tenant, audience = uuid4(), uuid4()
@@ -129,11 +139,19 @@ async def endpoint(
             claims, signing_key, algorithm="RS256", headers={"kid": "local-test-key"}
         )
         app = create_app(
-            Services(repository, embeddings, ready, reader.observe, reader.observe_http),
+            Services(
+                repository,
+                embeddings,
+                ready,
+                reader.observe,
+                reader.observe_http,
+                reader.observe_api,
+            ),
             verifier,
             "https://newsloom.test/mcp",
             ["newsloom.test"],
             ["https://vscode.dev"],
+            news_api_enabled=getattr(request, "param", False) is True,
         )
         started, stop = asyncio.Event(), asyncio.Event()
 

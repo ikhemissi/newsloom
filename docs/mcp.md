@@ -1,5 +1,10 @@
 # MCP serving operations
 
+The additive [news HTTP API](news-api.md) shares this app only when explicitly
+enabled. Its authorization-before-cache, route policy and bounded cache are
+independent of MCP protocol authentication; the existing UI remains on MCP until
+the separate adapter slice. Follow that runbook and ledger for API delivery status.
+
 The [feed UI runbook](ui.md#latest-news-search-and-optional-research) owns the
 pending browser delivery. MCP has locally tested exact-origin browser CORS
 for modern POST `/mcp`; native/agent clients remain unchanged. Configure

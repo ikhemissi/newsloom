@@ -73,6 +73,7 @@ def mcp_case(ui_case: UiCase, monkeypatch: pytest.MonkeyPatch) -> UiCase:
         "fqdn": "mcp.test",
     }
     keys = (
+        "NEWS_API_ENABLED",
         "MCP_TENANT_ID",
         "MCP_API_CLIENT_ID",
         "MCP_RESOURCE_URL",
@@ -85,6 +86,7 @@ def mcp_case(ui_case: UiCase, monkeypatch: pytest.MonkeyPatch) -> UiCase:
         "EMBEDDINGS_VERSION",
         "APPLICATIONINSIGHTS_CONNECTION_STRING",
     )
+    env["NEWS_API_ENABLED"] = "false"
     properties["template"] = {
         "scale": {"minReplicas": 1, "maxReplicas": 1},
         "containers": [
@@ -144,3 +146,13 @@ def test_mcp_preparation_preserves_source_bound_encoded_origins(
     ]
     with pytest.raises(PlatformFailure, match="invalid_mcp_allowed_origins"):
         mcp_control.prepare({**mcp_case.env, "MCP_ALLOWED_ORIGINS": "https://ui.test,"}, "local")
+
+
+def test_api_flag_is_exact_default_off_and_readback_rejects_drift(mcp_case: UiCase) -> None:
+    assert mcp_control.api_enabled({}) == "false"
+    assert mcp_control.api_enabled({"NEWS_API_ENABLED": "true"}) == "true"
+    for bad in ("1", "yes", "TRUE", ""):
+        with pytest.raises(PlatformFailure, match="invalid_news_api_enabled"):
+            mcp_control.api_enabled({"NEWS_API_ENABLED": bad})
+    with pytest.raises(PlatformFailure, match="mcp_deployment_readback_mismatch"):
+        mcp_control.verify({**mcp_case.env, "NEWS_API_ENABLED": "true"}, "local")

@@ -42,6 +42,7 @@ run "bounded_always_on_app_with_owned_identity" {
       azurerm_container_app.mcp.ingress[0].target_port == 8000 &&
       length(azurerm_container_app.mcp.identity[0].identity_ids) == 1 &&
       azurerm_container_app.mcp.registry[0].password_secret_name == null
+      && local.environment.NEWS_API_ENABLED == "false"
     )
     error_message = "Use one small HTTPS app, immutable image and only its existing managed identity."
   }
@@ -63,6 +64,21 @@ run "no_mutable_image" {
     image = "test.azurecr.io/newsloom-mcp:latest"
   }
   expect_failures = [var.image]
+}
+run "api_is_explicit_opt_in_without_capacity_or_identity_change" {
+  command = plan
+  variables {
+    news_api_enabled = true
+  }
+  assert {
+    condition = (
+      local.environment.NEWS_API_ENABLED == "true" &&
+      azurerm_container_app.mcp.template[0].min_replicas == 1 &&
+      azurerm_container_app.mcp.template[0].max_replicas == 1 &&
+      length(azurerm_container_app.mcp.identity[0].identity_ids) == 1
+    )
+    error_message = "API enablement must preserve the retained workload authority and capacity."
+  }
 }
 run "no_wildcard_origin" {
   command = plan

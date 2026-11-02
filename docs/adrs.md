@@ -71,6 +71,13 @@ Credentials and conversations are not cached. Detail/cursor contracts, cache
 freshness/invalidation, authorization partitioning and replica behavior belong
 there, not in filters. No cache resource has been selected.
 
+The user selected a process-local 60-second cache, avoiding a shared cache resource.
+The `cached-news-api` slice uses per-caller authorization partitions and absolute
+read-start expiry; every hit still validates the delegated user. Browse-only
+keysets order publication descending and UUID ascending, without durable snapshot
+claims. Semantic search remains top-k (maximum 50), not a paginated session.
+The [API runbook](news-api.md) owns route/error/cache/rollout details.
+
 The later UI slice swaps the transport-neutral NewsCatalog adapter to HTTP;
 agent interaction stays A2A and agent tools stay MCP. Versioned evaluations resume
 after that migration, preserving historical attempts, receipts and accounting.

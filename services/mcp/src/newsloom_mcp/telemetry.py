@@ -96,6 +96,8 @@ class Telemetry:
         self.latency = meter.create_histogram("newsloom.mcp.duration", unit="s")
         self.http_calls = meter.create_counter("newsloom.mcp.http_calls")
         self.http_latency = meter.create_histogram("newsloom.mcp.http_duration", unit="s")
+        self.api_calls = meter.create_counter("newsloom.api.calls")
+        self.api_latency = meter.create_histogram("newsloom.api.duration", unit="s")
 
         def tokens(options: CallbackOptions) -> Sequence[Observation]:
             return [Observation(model.observations.input_tokens)]
@@ -139,3 +141,14 @@ class Telemetry:
             self.metrics.shutdown()
             self.traces.shutdown()
             self.credential.close()
+
+    def record_api(self, route: str, outcome: str, cache: str, elapsed: float) -> None:
+        if (
+            route not in ("news", "detail", "sources", "search", "other")
+            or outcome not in OUTCOMES
+            or cache not in ("none", "miss", "hit", "bypass")
+        ):
+            raise McpFailure("invalid_telemetry_category")
+        attributes = {"route": route, "outcome": outcome, "cache": cache}
+        self.api_calls.add(1, attributes)
+        self.api_latency.record(elapsed, attributes)

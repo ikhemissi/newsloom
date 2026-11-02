@@ -1,3 +1,7 @@
+variable "news_api_enabled" {
+  type    = bool
+  default = false
+}
 variable "allowed_origins_base64" {
   type    = string
   default = ""

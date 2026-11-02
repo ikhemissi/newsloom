@@ -32,6 +32,7 @@ def image(env: dict[str, str]) -> tuple[str, str]:
 
 def prepare(env: dict[str, str], correlation: str) -> None:
     allowed = origins(env)
+    flag = api_enabled(env)
     _, revision = image(env)
     root = Path(control.run(["git", "rev-parse", "--show-toplevel"], "project_root"))
     if control.source_hash(root) != revision:
@@ -40,6 +41,7 @@ def prepare(env: dict[str, str], correlation: str) -> None:
         "MCP_ALLOWED_ORIGINS_BASE64",
         base64.b64encode(json.dumps(allowed).encode()).decode(),
     )
+    control.set_environment("NEWS_API_ENABLED", flag)
     event("mcp_layer", "prepared", correlation, category=revision)
 
 
@@ -85,6 +87,7 @@ def verify(env: dict[str, str], correlation: str) -> None:
         text_field(json_object(row), "name"): text_field(json_object(row), "value") for row in rows
     }
     expected = {
+        "NEWS_API_ENABLED": api_enabled(env),
         "AZURE_CLIENT_ID": identity["client_id"],
         "MCP_TENANT_ID": env["MCP_TENANT_ID"],
         "MCP_API_CLIENT_ID": env["MCP_API_CLIENT_ID"],
@@ -144,3 +147,10 @@ def verify(env: dict[str, str], correlation: str) -> None:
     ):
         raise PlatformFailure("mcp_deployment_readback_mismatch")
     event("mcp_deployment_readback", "success", correlation, category=revision, checks=1)
+
+
+def api_enabled(env: dict[str, str]) -> str:
+    value = env.get("NEWS_API_ENABLED", "false")
+    if value not in ("true", "false"):
+        raise PlatformFailure("invalid_news_api_enabled")
+    return value
