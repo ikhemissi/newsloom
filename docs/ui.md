@@ -273,6 +273,8 @@ no automatic or manual sign-in evidence is invented.
 Implementation `8f6ebf70e9921cbc7f3bbc0626e4515a2a1a7fb6` passed exact-source CI
 `41465462841`. The subsequent README/runbook status publication is documentation
 only; the deployed image retains its original implementation/source association.
+Measured-status commit `51740af` passed separate CI `41466535819`; the remaining
+regular-browser/API-cache/deployed accessibility gate stays open.
 Runtime fields become tenantId/clientId/agentUrl/agentScope/newsApiUrl/newsScope.
 The same delegated news.read audience and retained SPA consent are used;
 UI_MCP_PERMISSION_ENABLED remains enabled because that registration is the shared

@@ -23,7 +23,7 @@ API/UI signed-in acceptance and versioned evaluations remain explicitly open.
 - [x] 3.2 Run focused HTTP/route/auth/component/static-container/browser checks, then bash scripts/check.sh and package builds on the exact selective publication tree. Record source/npm/configuration hashes and actual outcomes, verify deep-link SPA/security-header behavior and preserved backend MCP contracts, and hash-check unrelated baseline/customization files and historical evaluation receipts before cloud work; do not broaden scope to repair unrelated failures silently.
 - [x] 3.3 Build the immutable UI image and preview only the retained UI layer; verify image/config/transport-mode changes with zero new resources, grants or backend/model/schedule changes, and obtain fresh owning approval before native azd apply. Verify exact deployed UI config/CSP/image/origin, retained API readiness/consent and unchanged MCP/A2A images, identities and schedules; retain matching prior image/config mode for reviewed rollback.
 - [ ] 3.4 Verify actual regular-browser HTTP-only news/filter/search, Load more/exhaustion/cap/restart, direct detail/Back/Forward and explicit item A2A context, plus available authorization/cache-age/miss-hit evidence and deployed accessibility. Record safe outcomes/counts/provenance and cost estimates versus unknowns, distinguishing authored tests/manual checks/unavailable automation. If required tooling cannot operate in the regular browser, report the limitation, leave missing tasks open and seek a new explicit exception before publication; do not export credentials, request another sign-in or replay evaluations.
-- [ ] 3.5 After actual gates or a newly explicit publication exception, selectively commit/push this slice and verify exact-source implementation CI, then separate measured-status CI. Confirm all UI/API ledgers match actual evidence, unavailable acceptance remains unchecked and no unrelated files were staged; do not archive without complete acceptance and an explicit request.
+- [x] 3.5 After actual gates or a newly explicit publication exception, selectively commit/push this slice and verify exact-source implementation CI, then separate measured-status CI. Confirm all UI/API ledgers match actual evidence, unavailable acceptance remains unchecked and no unrelated files were staged; do not archive without complete acceptance and an explicit request.
 
 ## Workflow follow-up
 
@@ -88,7 +88,9 @@ deployment text/diagram and current runbook status; it does not rebuild or relab
 the immutable image. README is part of the global build-input hash, so that later
 documentation-only head is not represented as the original image's source tree.
 All runtime inputs and historical receipts remain associated with the actual
-implementation commit. Separate measured-status CI is pending.
+implementation commit. Measured-status commit
+`51740af093e61821b8a8ec184f5af6f3f2e67384` passed separate exact-source CI
+`41466535819`. Task 3.4 remains explicitly open; no archive is authorized.
 
 - Return to versioned evaluations after this migration's owning delivery is
   addressed, preserving failed attempts, receipts, budgets and source associations.
