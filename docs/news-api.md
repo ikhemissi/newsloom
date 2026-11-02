@@ -8,6 +8,9 @@ and usage acceptance remain open under an explicit user-approved publication
 exception. The existing UI still uses MCP and agent interactions still use A2A.
 Deployed source:
 `a5588eaebe31132919b22e4b3f2b9d044cd85e66dbfa3b4f5d2087e5e6568ecd`.
+Implementation `3c798ae8b5fac8c5323d15ea7357fff72f96c0f4` passed exact-source CI
+`41449774908`. Measured-status publication is being verified separately; no full
+API acceptance, UI migration or archival is claimed.
 
 ## Contract
 

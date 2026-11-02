@@ -78,6 +78,12 @@ open under the explicit publication exception. No API verification embedding/
 generation request, browser credential export or evaluation replay was dispatched.
 Build/hosting costs remain separate and unmeasured.
 
+Implementation publication: commit `3c798ae8b5fac8c5323d15ea7357fff72f96c0f4`
+passed exact-source CI `41449774908`. Its build source matches the deployed MCP
+revision. All 52 parked baseline/customization paths and the historical evaluation
+usage receipt were hash-verified unchanged. The disposable local database/check
+tree were removed. Separate measured-status CI is pending; task 4.3 remains open.
+
 - Propose the separate NewsCatalog HTTP adapter migration after API delivery.
   Keep A2A agent interactions and MCP agent tools; own browser detail/pagination
   UX there rather than silently adding it to this backend slice.
