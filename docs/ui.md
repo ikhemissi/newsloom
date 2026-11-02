@@ -34,9 +34,19 @@ Back-to-news focus. Detail-page titles are unchanged. Controls wrap on mobile.
 Refresh/Clear search do not submit draft filters; existing applied-snapshot,
 HTTP cache, paging and A2A behavior is unchanged.
 
-This refinement is implemented locally, not deployed. Owning deployment and
-actual Azure layout/acceptance remain open in its checklist; earlier exceptions
-and user confirmations are not new acceptance evidence for this slice.
+This refinement is deployed early access. Implementation `1c44c0a` passed
+exact-source CI `41493885878`. Its immutable UI source is
+`1842f4750ffc15f43bc802017e6167d1f6b23148d3d17dea339787418052b684`.
+On 2026-11-02 the user approved the fresh image/runtime-revision-only plan and
+publication with signed-in Azure toolbar/accessibility acceptance open.
+Native azd applied one existing UI update with no creates/deletes; owning
+image/configuration/identity/consent/API readback passed. The served scripts/CSS
+matched the pinned production build byte-for-byte. UI health, detail SPA
+fallback, CSP/cache headers and six unchanged backend/job fingerprints passed.
+Anonymous Azure checks at 1440px and 390px confirmed the removed hero gap,
+no overflow and zero axe violations, without sign-in or protected requests.
+These checks do not prove signed-in Refresh/Clear search behavior or toolbar
+alignment in Azure; that acceptance remains explicit in the checklist.
 
 ## Local development
 
@@ -280,8 +290,9 @@ environment data is admitted to the source archive.
 ## HTTP catalogue migration
 
 The deployed browser consumes the [news API](news-api.md), not MCP protocol.
-Its immutable source is
+The original HTTP-migration image's immutable source was
 `076fc03305ab57f5f6ee91381bc9cc49d38a05d91bc8a9e873626c5f61f05005`.
+The current image source is recorded under [Compact news toolbar](#compact-news-toolbar).
 Public config, both script chunks, stylesheet, detail SPA fallback and exact
 owning ARM readback were verified. The regular-browser/cache gate remains open;
 no automatic or manual sign-in evidence is invented.
