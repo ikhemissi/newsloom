@@ -35,7 +35,7 @@ Refresh/Clear search do not submit draft filters; existing applied-snapshot,
 HTTP cache, paging and A2A behavior is unchanged.
 
 This refinement is deployed early access. Implementation `1c44c0a` passed
-exact-source CI `41493885878`. Its immutable UI source is
+exact-source CI `41493885878`. Its original immutable UI source was
 `1842f4750ffc15f43bc802017e6167d1f6b23148d3d17dea339787418052b684`.
 On 2026-11-02 the user approved the fresh image/runtime-revision-only plan and
 publication with signed-in Azure toolbar/accessibility acceptance open.
@@ -51,7 +51,9 @@ alignment in Azure; that acceptance remains explicit in the checklist.
 ## Browser-local timestamps
 
 The [timestamp slice](../openspec/changes/ui-browser-local-timestamps/tasks.md)
-is implemented locally; rollout and signed-in Azure acceptance are pending.
+is deployed early access. Implementation `a6d65f2` passed exact-source CI
+`41502389782`. Its immutable UI source is
+`3743b4c6bf715650e2517de2ebfc51b8eb3f4222b9d0f5bae431ea9348f251c8`.
 Cards, detail and latest-page-read metadata use the browser's locale/timezone
 with an explicit instant-specific UTC offset, including daylight-saving and
 fractional-hour offsets. Raw timestamp values and server result order stay intact.
@@ -63,6 +65,18 @@ once per minute and on focus/visibility resumption, without refreshing data,
 reapplying filters, changing server-reported cache age or invoking the agent.
 An inaccurate device clock can affect the indication. Existing local-calendar
 filter semantics are unchanged.
+
+On 2026-11-02 the user approved the fresh image/runtime-revision-only rollout
+and publication with signed-in timestamp/accessibility acceptance open.
+Native azd applied one existing UI update with no creates/deletes; owning
+ready-image/configuration/identity/consent/API readback passed. All three served
+script/CSS assets matched the pinned production build's filenames and bytes.
+UI/API health, detail SPA fallback and six unchanged backend/job fingerprints
+passed. Anonymous Azure shell checks at 1440px and 390px found no overflow,
+script errors or axe violations and made no protected requests.
+The 13 authored browser journeys verify the timestamp behavior locally;
+these anonymous Azure checks are not signed-in timestamp proof. That acceptance
+remains open in the checklist, and earlier phase/API acceptance is unchanged.
 
 ## Local development
 
@@ -308,7 +322,7 @@ environment data is admitted to the source archive.
 The deployed browser consumes the [news API](news-api.md), not MCP protocol.
 The original HTTP-migration image's immutable source was
 `076fc03305ab57f5f6ee91381bc9cc49d38a05d91bc8a9e873626c5f61f05005`.
-The current image source is recorded under [Compact news toolbar](#compact-news-toolbar).
+The current image source is recorded under [Browser-local timestamps](#browser-local-timestamps).
 Public config, both script chunks, stylesheet, detail SPA fallback and exact
 owning ARM readback were verified. The regular-browser/cache gate remains open;
 no automatic or manual sign-in evidence is invented.
