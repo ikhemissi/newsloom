@@ -1,5 +1,5 @@
 import { expect, test, vi } from "vitest";
-import { McpCatalog } from "../src/catalog";
+import { HttpCatalog } from "../src/catalog";
 import { runtimeConfig } from "./fixtures";
 
 test("the 90-second load deadline includes stalled token acquisition", async () => {
@@ -8,7 +8,7 @@ test("the 90-second load deadline includes stalled token acquisition", async () 
   const clearTimer = vi.spyOn(globalThis, "clearTimeout");
   try {
     const fetchImpl = vi.fn(async () => new Response("{}"));
-    const catalog = new McpCatalog(runtimeConfig, {
+    const catalog = new HttpCatalog(runtimeConfig, {
       signedIn: () => true, signIn: async () => undefined, signOut: async () => undefined,
       token: () => new Promise<string>(() => undefined),
     }, fetchImpl);

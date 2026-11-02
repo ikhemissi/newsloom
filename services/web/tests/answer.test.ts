@@ -35,6 +35,10 @@ test("configuration and HTTPS links do not accept caller-selected or unsafe valu
   expect(parseConfig(config)).toEqual(config);
   for (const value of [{}, { ...config, agentUrl: "http://agent.test/a2a" },
     { ...config, agentUrl: "https://user@agent.test/a2a" }, { ...config, extra: true },
+    { ...config, newsApiUrl: "https://mcp.test/mcp" },
+    { ...config, newsApiUrl: "https://mcp.test/api/v1?redirect=untrusted" },
+    { ...config, mcpUrl: "https://mcp.test/mcp" },
+    { ...config, newsScope: config.agentScope.replace("news.agent", "news.read") },
     { ...config, agentScope: `api://${config.clientId}/news.agent` }])
     expect(() => parseConfig(value)).toThrow("configuration");
   expect(safeHttps("javascript:alert(1)")).toBeNull();

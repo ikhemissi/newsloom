@@ -198,6 +198,12 @@ before publishing around them; prior API/UI exceptions are not automatic approva
 Preserve all evaluation receipts and defer evaluation execution until this UI
 migration's owning delivery is addressed.
 
+On 2026-11-02, after the exact prepared UI-only preview was reviewed, the user
+explicitly approved rollout and early-access publication with unavailable
+authenticated regular-browser/API-cache checks still open. Keep those checks
+unchecked; this new exception permits publication, not evidence substitution or
+archival. No credential export or separate sign-in was approved.
+
 ## Risks / Trade-offs
 
 - More navigation state -> typed browse epochs/detail IDs, independent cancellation

@@ -7,7 +7,7 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
-from newsloom_platform import agent_identity, control, mcp_identity, ui
+from newsloom_platform import agent_identity, control, mcp_control, mcp_identity, ui
 from newsloom_platform.config import PlatformFailure
 
 
@@ -377,9 +377,94 @@ def test_disabled_ui_has_no_inventory_or_image_build(
     ui.prepare({}, "local")
     assert updates == {
         "UI_ENABLED": "false",
+        "UI_HTTP_API_ENABLED": "false",
         "WEB_IMAGE": "",
         "WEB_IMAGE_REVISION": "",
         "UI_CONFIG_BASE64": "",
     }
     with pytest.raises(PlatformFailure, match="ui_layer_not_enabled"):
         ui.build({}, "local")
+
+
+def test_http_ui_config_and_readback_preserve_legacy_rollback(
+    ui_case: UiCase,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    env = ui_case.env
+    env.update(
+        {
+            "UI_NEWS_ENABLED": "true",
+            "UI_MCP_PERMISSION_ENABLED": "true",
+            "MCP_API_CLIENT_ID": str(uuid4()),
+            "MCP_RESOURCE_URL": "https://mcp.test/mcp",
+            "NEWS_API_ENABLED": "true",
+            "UI_HTTP_API_ENABLED": "true",
+            "MCP_ALLOWED_ORIGINS": env["UI_ORIGIN"],
+        }
+    )
+    config = ui.public_config(env)
+    assert set(config) == {
+        "tenantId",
+        "clientId",
+        "agentUrl",
+        "agentScope",
+        "newsApiUrl",
+        "newsScope",
+    }
+    assert config["newsApiUrl"] == "https://mcp.test/api/v1"
+    assert "mcpUrl" in ui.public_config({**env, "UI_HTTP_API_ENABLED": "false"})
+    calls: list[str] = []
+    monkeypatch.setattr(mcp_control, "verify", lambda e, correlation: calls.append(correlation))
+    monkeypatch.setattr(
+        ui,
+        "identity_inventory",
+        lambda e: {
+            "UI_EXISTING_CLIENT_CLIENT_ID": env["UI_CLIENT_ID"],
+            "UI_AGENT_API_PRINCIPAL_ID": env["UI_AGENT_API_PRINCIPAL_ID"],
+            "UI_AGENT_SCOPE_ID": env["UI_AGENT_SCOPE_ID"],
+            "UI_EXISTING_CONSENT_ID": "fixture",
+            "UI_EXISTING_MCP_CONSENT_ID": "fixture-news",
+            "UI_NEWS_PERMISSION_PRESENT": "true",
+        },
+    )
+    properties = json.loads(json.dumps(ui_case.app["properties"]))
+    properties["template"]["containers"][0]["env"] = [
+        {"name": key, "value": value}
+        for key, value in {
+            "UI_CONFIG_BASE64": ui.encoded_config(env),
+            "AGENT_ORIGIN": "https://agent.test",
+            "NEWS_ORIGIN": "https://mcp.test",
+            "UI_RUNTIME_REVISION": env["WEB_IMAGE_REVISION"],
+        }.items()
+    ]
+    ui_case.app["properties"] = properties
+    ui.verify(env, "http-readback")
+    assert calls == ["http-readback"]
+    with pytest.raises(PlatformFailure, match="ui_http_api_prerequisite_missing"):
+        ui.public_config({**env, "NEWS_API_ENABLED": "false"})
+    with pytest.raises(PlatformFailure, match="invalid_ui_http_api_setting"):
+        ui.public_config({**env, "UI_HTTP_API_ENABLED": "yes"})
+
+
+def test_http_ui_preparation_requires_independent_backend_readiness(
+    ui_case: UiCase,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    env = {
+        **ui_case.env,
+        "UI_NEWS_ENABLED": "true",
+        "UI_MCP_PERMISSION_ENABLED": "true",
+        "MCP_API_CLIENT_ID": str(uuid4()),
+        "MCP_RESOURCE_URL": "https://mcp.test/mcp",
+        "UI_HTTP_API_ENABLED": "true",
+        "NEWS_API_ENABLED": "true",
+    }
+    monkeypatch.setattr(control, "run", lambda *_: "/tmp/ui-test-source")
+    monkeypatch.setattr(control, "source_hash", lambda _: "2" * 64)
+
+    def denied(e: dict[str, str], correlation: str) -> None:
+        raise PlatformFailure("mcp_deployment_readback_mismatch")
+
+    monkeypatch.setattr(mcp_control, "verify", denied)
+    with pytest.raises(PlatformFailure, match="mcp_deployment_readback_mismatch"):
+        ui.prepare(env, "local")

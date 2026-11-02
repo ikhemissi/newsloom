@@ -5,6 +5,7 @@ import type { Configuration } from "@azure/msal-browser";
 import type { AuthSession } from "./domain";
 import { UiFailure } from "./domain";
 import type { RuntimeConfig } from "./config";
+import { returnPath } from "./navigation";
 
 export function authConfiguration(config: RuntimeConfig, origin: string): Configuration {
   return {
@@ -39,8 +40,8 @@ export async function createAuth(config: RuntimeConfig, origin: string): Promise
       signIn: async (resource = "news") => {
         try {
           await instance.loginRedirect({
-            scopes: [resource === "news" ? config.mcpScope : config.agentScope],
-            redirectStartPage: `${origin}/`,
+            scopes: [resource === "news" ? config.newsScope : config.agentScope],
+            redirectStartPage: `${origin}${returnPath(window.location.pathname)}`,
           });
         } catch { throw new UiFailure("authorization"); }
       },
@@ -53,7 +54,7 @@ export async function createAuth(config: RuntimeConfig, origin: string): Promise
         if (!selected) throw new UiFailure("authorization");
         try {
           const result = await instance.acquireTokenSilent({
-            account: selected, scopes: [resource === "news" ? config.mcpScope : config.agentScope],
+            account: selected, scopes: [resource === "news" ? config.newsScope : config.agentScope],
           });
           if (!result.accessToken) throw new UiFailure("authorization");
           return result.accessToken;

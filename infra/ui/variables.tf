@@ -70,10 +70,13 @@ variable "config_base64" {
       can(regex("^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$", jsondecode(base64decode(var.config_base64)).tenantId)) &&
       can(regex("^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$", jsondecode(base64decode(var.config_base64)).clientId)) &&
       can(regex("^api://[a-f0-9-]+/news.agent$", jsondecode(base64decode(var.config_base64)).agentScope)) &&
-      (!var.news_enabled || (
+      (!var.news_enabled || (var.http_api_enabled ? (
+        can(regex("^https://[a-z0-9]+([.-][a-z0-9]+)*/api/v1$", jsondecode(base64decode(var.config_base64)).newsApiUrl)) &&
+        can(regex("^api://[a-f0-9-]+/news.read$", jsondecode(base64decode(var.config_base64)).newsScope))
+        ) : (
         can(regex("^https://[a-z0-9]+([.-][a-z0-9]+)*/mcp$", jsondecode(base64decode(var.config_base64)).mcpUrl)) &&
         can(regex("^api://[a-f0-9-]+/news.read$", jsondecode(base64decode(var.config_base64)).mcpScope))
-      )),
+      ))),
       false
     )
     error_message = "Use the prepared public audience-separated UI configuration, never credentials."
@@ -82,4 +85,12 @@ variable "config_base64" {
 variable "tags" {
   type    = map(string)
   default = {}
+}
+variable "http_api_enabled" {
+  type    = bool
+  default = false
+  validation {
+    condition     = !var.http_api_enabled || (var.enabled && var.news_enabled)
+    error_message = "HTTP UI requires enabled news; retain the existing news consent."
+  }
 }

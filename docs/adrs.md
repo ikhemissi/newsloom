@@ -81,3 +81,18 @@ The [API runbook](news-api.md) owns route/error/cache/rollout details.
 The later UI slice swaps the transport-neutral NewsCatalog adapter to HTTP;
 agent interaction stays A2A and agent tools stay MCP. Versioned evaluations resume
 after that migration, preserving historical attempts, receipts and accounting.
+
+## HTTP-backed reader navigation
+
+The `ui-http-news-catalog` slice replaces browser MCP with the deployed HTTP API,
+without replacing the agent's A2A interface or agent-side MCP tools. The user
+selected shareable native-history item pages and explicit Load more, 20 per
+request with a 200-item display cap; no new router, query cache or virtual list
+dependency is needed. Search stays bounded, and details expose only stored public
+summary/metadata, never a fetched/rendered publisher article.
+
+An owning app-only config mode pairs the new strict newsApiUrl/newsScope fields
+with the matching UI image. Preserve old config/image bindings for reviewed
+rollback; do not retain runtime MCP fallback or remove the existing news consent.
+Historical UI deltas retain their old transport evidence; this migration owns
+the current transition, not retroactive completion of those acceptance ledgers.

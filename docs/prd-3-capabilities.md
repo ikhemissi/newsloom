@@ -141,8 +141,9 @@ do not add account management, saved chat history, or news-editing features.
 the regular-browser journey; implementation/status publication is verified and
 full automated acceptance remains pending. Filters belong to the active
 [`ui-news-filters`](../openspec/changes/ui-news-filters/tasks.md) slice. Detail
-routing and pagination belong to the later cached API contract; multi-selection
-remains subsequent work.
+routing and capped browsing pagination belong to the active
+[`ui-http-news-catalog`](../openspec/changes/ui-http-news-catalog/tasks.md)
+migration over the deployed API contract; multi-selection remains subsequent work.
 
 **Outcome:** Readers can browse stored news and explicitly choose research context.
 
@@ -155,20 +156,24 @@ remains subsequent work.
 **Acceptance criteria**
 - Browser news access uses a typed NewsCatalog boundary, initially backed by
   read-only MCP with the user's separate delegated `news.read` token.
-- Recent news uses `get_recent_news`; semantic search uses `search_news` only
-  on explicit submit. Errors remain distinct from empty results.
+- The HTTP migration uses GET news/sources/detail and explicit POST semantic
+  search while retaining delegated `news.read`. Errors remain distinct from
+  empty results; browser MCP fallback is not permitted.
 - The default page shows the latest 20 stored items without a hidden date cutoff.
   A top search box shows bounded relevance-ranked results and clears to latest news.
 - Agent interactions use A2A in a closable right-side panel, closed by default.
   Selecting news supplies visible removable context; opening/searching alone
   never submits research. Closing/reopening does not replay work.
-- Item detail uses `get_news_item`; source/category choices use `list_sources`.
+- Shareable `/news/<uuid>` pages show stored summary/metadata, safe original
+  links and explicit item context, not fetched full articles. Browser history and
+  Back to news preserve transient browsing without research replay.
 - Item context and up to five selected distinct IDs reach the existing agent
   request contract; no browser database/model access is added.
 - Direct MCP requires its own exact-origin CORS, consent, protocol compatibility
   and multi-user capacity checks before deployment.
-- The slice explicitly resolves bounded-result/paging behavior; timestamp ties
-  must not be silently skipped while claiming complete pagination.
+- Browse/metadata Load more requests 20 per click, capped at 200 displayed items
+  with an explicit restart. Semantic search remains top 20 without paging.
+  The display cap is not server exhaustion, and live keysets are not a snapshot.
 - The active [`cached-news-api`](../openspec/changes/cached-news-api/tasks.md)
   backend slice owns 60-second process-local response caching and browse-only
   keysets; semantic search stays bounded to 50. It does not deliver browser paging

@@ -28,8 +28,8 @@ def main() -> None:
         "clientId": str(uuid4()),
         "agentUrl": "https://agent.test/a2a",
         "agentScope": f"api://{uuid4()}/news.agent",
-        "mcpUrl": "https://mcp.test/mcp",
-        "mcpScope": f"api://{uuid4()}/news.read",
+        "newsApiUrl": "https://mcp.test/api/v1",
+        "newsScope": f"api://{uuid4()}/news.read",
     }
     encoded = base64.b64encode(json.dumps(config).encode()).decode()
     container = command(
@@ -45,7 +45,7 @@ def main() -> None:
             "-e",
             "AGENT_ORIGIN=https://agent.test",
             "-e",
-            "MCP_ORIGIN=https://mcp.test",
+            "NEWS_ORIGIN=https://mcp.test",
             args.image,
         ]
     )
@@ -85,6 +85,8 @@ def main() -> None:
             assert "immutable" in bundle.headers["cache-control"]
             assert "/tests/harness" not in bundle.text
             assert client.get(origin + "/auth/callback?code=UI_CONTENT_CANARY").status_code == 200
+            detail_page = client.get(origin + "/news/" + str(uuid4()))
+            assert detail_page.status_code == 200 and detail_page.text == html.text
         assert command([args.engine, "exec", container, "id", "-u"]) == "101"
         assert "UI_CONTENT_CANARY" not in command([args.engine, "logs", container])
         print(

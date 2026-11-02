@@ -1,5 +1,13 @@
 # Browser UI runbook
 
+The [HTTP catalogue migration](../openspec/changes/ui-http-news-catalog/tasks.md)
+is deployed early access with stored-item pages and capped browse continuation.
+Local checks and owning image/config/asset/identity/backend preservation passed;
+new authenticated regular-browser/cache/deployed accessibility acceptance remains
+open. Use [HTTP catalogue migration](#http-catalogue-migration) for current behavior
+and commands. The initial-UI/MCP sections below retain historical deployment/
+rollback context; their old user confirmations are not new HTTP acceptance.
+
 Status: deployed early access. The user confirmed latest news, submitted search,
 contextual agent interaction and independent panel scrolling in their regular
 browser. Full automated Azure acceptance remains open; this is not full phase acceptance.
@@ -253,3 +261,60 @@ local Docker/Podman build exercises the Azure uploader.
 The corrected deployed stylesheet and both script chunks matched the pinned
 production build's filenames and bytes exactly. No generated output or cached
 environment data is admitted to the source archive.
+
+## HTTP catalogue migration
+
+The deployed browser consumes the [news API](news-api.md), not MCP protocol.
+Its immutable source is
+`076fc03305ab57f5f6ee91381bc9cc49d38a05d91bc8a9e873626c5f61f05005`.
+Public config, both script chunks, stylesheet, detail SPA fallback and exact
+owning ARM readback were verified. The regular-browser/cache gate remains open;
+no automatic or manual sign-in evidence is invented.
+Runtime fields become tenantId/clientId/agentUrl/agentScope/newsApiUrl/newsScope.
+The same delegated news.read audience and retained SPA consent are used;
+UI_MCP_PERMISSION_ENABLED remains enabled because that registration is the shared
+news API. The browser MCP SDK is removed; agent interaction/tools remain A2A/MCP.
+
+UI_HTTP_API_ENABLED is an owning app-only preparation/Terraform/readback switch.
+Its default-off branch preserves matching legacy config for old images. The new
+image accepts HTTP config only, not automatic MCP fallback. HTTP mode requires
+news enablement, retained permission and independent backend API readiness.
+NEWS_ORIGIN/CSP and the static smoke checker must match the new configuration.
+Never provision ui-identity or remove consent for this transport migration.
+
+Browse pages contain up to 20 items. Load more is explicit, uses applied filters
+and stops at 200 distinct displayed items; the cap is not server exhaustion.
+Restart begins again with the same applied filters. Semantic search is bounded
+to 20 without paging. Append errors retain existing cards and offer explicit
+retry; Refresh/restart need not bypass the server's 60-second response cache.
+Live pages can overlap/change membership and are not a durable snapshot.
+
+`/news/<uuid>` shows stored summary, author/date origin/publisher categories/tags
+and safe original links. Back/Forward restores transient browse state; direct
+links work through the existing SPA fallback. Only a validated same-origin item
+path is restored through explicit MSAL sign-in. URLs/history state never carry
+questions, filters, tokens or article bodies; no app-managed persistent browse
+store is added. Ordinary visited item URLs are intentional.
+
+Ask about this opens the composer with the displayed ID and applied filters,
+never submits automatically. Each running/completed answer keeps its submitted
+context despite navigation. Sign-out aborts all reads and clears transient state.
+
+After local checks, review only the immutable UI image/config/mode plan:
+
+```bash
+uv run --locked newsloom-platform build-ui
+azd env set UI_HTTP_API_ENABLED true
+uv run --locked newsloom-platform prepare-ui-layer
+azd provision ui --preview
+# Apply only after fresh owning-plan approval.
+azd provision ui
+uv run --locked newsloom-platform verify-ui
+```
+
+Keep actual image/config/permission/HTTP versus A2A evidence separate from authored
+API fixtures and browser/axe tests. Missing regular-browser/API-cache/deployed
+accessibility evidence stays open; never export credentials or request another
+test-browser sign-in. A publication exception must be explicit for this slice.
+Rollback restores the reviewed prior image and matching config mode, without
+disabling the backend API or changing identities, grants, models or schedules.

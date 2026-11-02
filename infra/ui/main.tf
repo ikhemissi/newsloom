@@ -5,7 +5,9 @@ locals {
     UI_CONFIG_BASE64    = var.config_base64
     AGENT_ORIGIN        = trimsuffix(jsondecode(base64decode(var.config_base64)).agentUrl, "/a2a")
     UI_RUNTIME_REVISION = var.image_revision
-    }, var.news_enabled ? {
+    }, var.news_enabled && var.http_api_enabled ? {
+    NEWS_ORIGIN = trimsuffix(jsondecode(base64decode(var.config_base64)).newsApiUrl, "/api/v1")
+    } : {}, var.news_enabled && !var.http_api_enabled ? {
     MCP_ORIGIN = trimsuffix(jsondecode(base64decode(var.config_base64)).mcpUrl, "/mcp")
   } : {}) : {}
 }

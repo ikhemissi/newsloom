@@ -42,6 +42,7 @@ function validateCard(card: AgentCard, config: RuntimeConfig): void {
 
 export function guardedFetch(
   endpoint: string, token: string | null, signal: AbortSignal, fetchImpl: typeof fetch = fetch,
+  acceptedStatuses: readonly number[] = [],
 ): typeof fetch {
   let total = 0;
   return async (input, options) => {
@@ -54,7 +55,7 @@ export function guardedFetch(
     try {
       response = await fetchImpl(input, { ...options, headers, signal, credentials: "omit", redirect: "error" });
     } catch { throw new UiFailure(signal.aborted ? "timeout" : "unavailable"); }
-    if (!response.ok) {
+    if (!response.ok && !acceptedStatuses.includes(response.status)) {
       await response.body?.cancel();
       throw new UiFailure(response.status === 401 || response.status === 403 ? "authorization"
         : response.status === 429 ? "overloaded" : response.status === 504 ? "timeout" : "unavailable");

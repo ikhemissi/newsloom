@@ -5,7 +5,8 @@ Status: deployed early access in
 checks, owning deployment readback, live API denials/preflight/health and existing
 authenticated native MCP discovery passed. Authenticated live HTTP/cache parity
 and usage acceptance remain open under an explicit user-approved publication
-exception. The existing UI still uses MCP and agent interactions still use A2A.
+exception. The [UI migration](ui.md#http-catalogue-migration) now uses HTTP;
+agent interactions/tools remain A2A/MCP. Its own signed-in acceptance remains open.
 Deployed source:
 `a5588eaebe31132919b22e4b3f2b9d044cd85e66dbfa3b4f5d2087e5e6568ecd`.
 Implementation `3c798ae8b5fac8c5323d15ea7357fff72f96c0f4` passed exact-source CI
@@ -116,5 +117,8 @@ workflow is unavailable, leave its acceptance task open and report the limitatio
 
 Rollback uses a freshly reviewed retained MCP image/flag plan, not environment
 recreation. Preserve identity, consent, origins, schemas and all existing jobs.
-No new resource or permission is part of this slice. The UI migration remains
-a later change; versioned evaluations resume only after it, with old receipts intact.
+No new resource or permission is part of this slice. UI migration delivery is
+tracked separately; evaluations resume only after it, with old receipts intact.
+The active [UI migration](../openspec/changes/ui-http-news-catalog/tasks.md) owns
+HTTP browser composition, shareable detail pages and a 200-item display cap.
+It does not change this API's TTL, cursor, permissions or semantic-result contract.

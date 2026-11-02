@@ -7,7 +7,7 @@ from pathlib import Path
 
 from newsloom_core.origins import normalize_origins
 
-from newsloom_platform import agent_identity, control, mcp_identity
+from newsloom_platform import agent_identity, control, mcp_control, mcp_identity
 from newsloom_platform.config import PlatformFailure, json_object, text_field
 from newsloom_platform.events import event
 
@@ -36,6 +36,19 @@ def mcp_permission_enabled(env: dict[str, str]) -> bool:
         raise PlatformFailure("invalid_ui_mcp_permission_setting")
     if news_enabled(env) and value != "true":
         raise PlatformFailure("ui_news_requires_delegated_mcp_permission")
+    return value == "true"
+
+
+def http_enabled(env: dict[str, str]) -> bool:
+    value = env.get("UI_HTTP_API_ENABLED", "false")
+    if value not in ("true", "false"):
+        raise PlatformFailure("invalid_ui_http_api_setting")
+    if value == "true" and (
+        not news_enabled(env)
+        or not mcp_permission_enabled(env)
+        or mcp_control.api_enabled(env) != "true"
+    ):
+        raise PlatformFailure("ui_http_api_prerequisite_missing")
     return value == "true"
 
 
@@ -265,7 +278,15 @@ def public_config(env: dict[str, str]) -> dict[str, str]:
             raise PlatformFailure("invalid_ui_mcp_interface") from None
         if not mcp_url.endswith("/mcp"):
             raise PlatformFailure("invalid_ui_mcp_interface")
-        result.update(mcpUrl=mcp_url, mcpScope=f"api://{mcp_audience}/news.read")
+        if http_enabled(env):
+            result.update(
+                newsApiUrl=mcp_url.removesuffix("/mcp") + "/api/v1",
+                newsScope=f"api://{mcp_audience}/news.read",
+            )
+        else:
+            result.update(mcpUrl=mcp_url, mcpScope=f"api://{mcp_audience}/news.read")
+    elif http_enabled(env):
+        raise PlatformFailure("ui_http_api_prerequisite_missing")
     return result
 
 
@@ -287,6 +308,7 @@ def prepare(env: dict[str, str], correlation: str) -> None:
     if not enabled(env):
         for key, value in (
             ("UI_ENABLED", "false"),
+            ("UI_HTTP_API_ENABLED", "false"),
             ("WEB_IMAGE", ""),
             ("WEB_IMAGE_REVISION", ""),
             ("UI_CONFIG_BASE64", ""),
@@ -301,6 +323,12 @@ def prepare(env: dict[str, str], correlation: str) -> None:
         raise PlatformFailure("ui_image_source_mismatch")
     if env.get("UI_ORIGIN") != origin(env):
         raise PlatformFailure("ui_origin_readback_mismatch")
+    mode = http_enabled(env)
+    if mode:
+        mcp_control.verify(env, correlation)
+        if origin(env) not in mcp_control.origins(env):
+            raise PlatformFailure("ui_api_origin_not_allowed")
+    control.set_environment("UI_HTTP_API_ENABLED", str(mode).lower())
     control.set_environment("UI_CONFIG_BASE64", encoded_config(env))
     event("ui_layer", "prepared", correlation, category=revision)
 
@@ -315,6 +343,8 @@ def verify(env: dict[str, str], correlation: str) -> None:
     if not enabled(env):
         raise PlatformFailure("ui_layer_not_enabled")
     reference, revision = image(env)
+    if http_enabled(env):
+        mcp_control.verify(env, correlation)
     inventory = identity_inventory(env)
     if (
         inventory["UI_EXISTING_CLIENT_CLIENT_ID"] != env.get("UI_CLIENT_ID")
@@ -388,7 +418,11 @@ def verify(env: dict[str, str], correlation: str) -> None:
             "AGENT_ORIGIN": env["AGENT_RESOURCE_URL"].removesuffix("/a2a"),
             "UI_RUNTIME_REVISION": revision,
             **(
-                {"MCP_ORIGIN": env["MCP_RESOURCE_URL"].removesuffix("/mcp")}
+                {
+                    ("NEWS_ORIGIN" if http_enabled(env) else "MCP_ORIGIN"): env[
+                        "MCP_RESOURCE_URL"
+                    ].removesuffix("/mcp")
+                }
                 if news_enabled(env)
                 else {}
             ),

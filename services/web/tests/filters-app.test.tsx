@@ -5,7 +5,7 @@ import { parseAnswer } from "../src/answer";
 import type { AuthSession, NewsFilters, ResearchClient, SourceCatalog } from "../src/domain";
 import { UiFailure } from "../src/domain";
 import { buildFilters, emptyDraft } from "../src/filters";
-import { newsItem, sourceCatalog } from "./fixtures";
+import { detail, newsItem, sourceCatalog, page } from "./fixtures";
 
 const auth: AuthSession = {
   signedIn: () => true, signIn: async () => undefined, signOut: async () => undefined,
@@ -17,12 +17,12 @@ const change = (label: string, value: string) => fireEvent.change(screen.getByLa
 const click = (name: string) => fireEvent.click(screen.getByRole("button", { name }));
 
 test("draft edits dispatch nothing; Apply, Search, Reset and Clear preserve their distinct snapshots", async () => {
-  const recent = vi.fn(async () => [newsItem]);
+  const recent = vi.fn(async () => page([newsItem]));
   const search = vi.fn(async (_query: string | undefined, _signal: AbortSignal, filters: NewsFilters = {}) =>
-    filters.category === "models" ? [] : [newsItem]);
+    page(filters.category === "models" ? [] : [newsItem]));
   const sources = vi.fn(async () => sourceCatalog);
   const agent = research();
-  render(<App auth={auth} catalog={{ recent, search, sources }} research={agent} />);
+  render(<App auth={auth} catalog={{ recent, search, sources, detail }} research={agent} />);
   await choicesReady();
   change("Source", "fixture-source"); change("Category", "agents-applications");
   change("Search stored news", "unsent text");
@@ -52,9 +52,9 @@ test("draft edits dispatch nothing; Apply, Search, Reset and Clear preserve thei
 });
 
 test("invalid custom dates are visible before dispatch and valid one-day ranges use shared mapping", async () => {
-  const search = vi.fn(async () => [newsItem]);
-  render(<App auth={auth} catalog={{ recent: async () => [newsItem], search,
-    sources: async () => sourceCatalog }} research={research()} />);
+  const search = vi.fn(async () => page([newsItem]));
+  render(<App auth={auth} catalog={{ recent: async () => page([newsItem]), search,
+    sources: async () => sourceCatalog, detail }} research={research()} />);
   await choicesReady();
   change("Date period", "custom"); click("Apply filters");
   expect(await screen.findByRole("alert")).toHaveTextContent("valid, complete dates");
@@ -72,8 +72,8 @@ test("catalogue failure disables choices, permits dates, and retry does not rela
     .mockRejectedValueOnce(new UiFailure("unavailable"))
     .mockRejectedValueOnce(new UiFailure("unavailable"))
     .mockResolvedValue(sourceCatalog);
-  const search = vi.fn(async () => []);
-  render(<App auth={auth} catalog={{ recent: async () => [newsItem], search, sources }} research={research()} />);
+  const search = vi.fn(async () => page([]));
+  render(<App auth={auth} catalog={{ recent: async () => page([newsItem]), search, sources, detail }} research={research()} />);
   expect(await screen.findByRole("alert")).toHaveTextContent("Source/category choices unavailable");
   expect(screen.getByLabelText("Source")).toBeDisabled();
   change("Date period", "today"); click("Apply filters");
@@ -98,8 +98,8 @@ test("in-flight and completed research retain exact context despite subsequent b
     yield { kind: "answer" as const, answer: parseAnswer("Original scoped fixture answer.") };
   });
   const agent: ResearchClient = { ask, stop: async () => false };
-  render(<App auth={auth} catalog={{ recent: async () => [newsItem], sources: async () => sourceCatalog,
-    search: async (_query, _signal, filters) => filters?.category === "models" ? [] : [newsItem] }} research={agent} />);
+  render(<App auth={auth} catalog={{ recent: async () => page([newsItem]), sources: async () => sourceCatalog, detail,
+    search: async (_query, _signal, filters) => page(filters?.category === "models" ? [] : [newsItem]) }} research={agent} />);
   await choicesReady();
   change("Source", "fixture-source"); click("Apply filters");
   await screen.findByRole("heading", { name: newsItem.title });
@@ -129,7 +129,7 @@ test("sign-out aborts catalogue discovery and discards its late result", async (
     expect(signal.aborted).toBe(false);
     return pending;
   });
-  render(<App auth={auth} catalog={{ recent: async () => [], search: async () => [], sources }} research={research()} />);
+  render(<App auth={auth} catalog={{ recent: async () => page([]), search: async () => page([]), sources, detail }} research={research()} />);
   click("Sign out"); release?.(sourceCatalog);
   await screen.findByRole("button", { name: "Sign in to read news" });
   expect(sources.mock.calls[0]?.[0].aborted).toBe(true);

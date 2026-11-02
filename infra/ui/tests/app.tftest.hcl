@@ -85,3 +85,36 @@ run "news_config_has_separate_audiences_without_new_resources" {
     error_message = "The retained UI must only add its trusted MCP configuration."
   }
 }
+run "http_news_config_uses_existing_origin_without_new_authority" {
+  command = plan
+  variables {
+    news_enabled     = true
+    http_api_enabled = true
+    config_base64 = base64encode(jsonencode({
+      tenantId   = uuidv5("dns", "test/tenant")
+      clientId   = uuidv5("dns", "test/ui")
+      agentUrl   = "https://agent.test/a2a"
+      agentScope = "api://${uuidv5("dns", "test/agent")}/news.agent"
+      newsApiUrl = "https://mcp.test/api/v1"
+      newsScope  = "api://${uuidv5("dns", "test/mcp")}/news.read"
+    }))
+  }
+  assert {
+    condition = (
+      length(local.environment) == 4 &&
+      local.environment.NEWS_ORIGIN == "https://mcp.test" &&
+      !contains(keys(local.environment), "MCP_ORIGIN") &&
+      azurerm_container_app.ui[0].template[0].min_replicas == 0 &&
+      azurerm_role_assignment.registry[0].role_definition_name == "AcrPull"
+    )
+    error_message = "HTTP UI changes only its owning configuration, not workload authority."
+  }
+}
+run "http_mode_rejects_legacy_config" {
+  command = plan
+  variables {
+    news_enabled     = true
+    http_api_enabled = true
+  }
+  expect_failures = [var.config_base64]
+}

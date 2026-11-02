@@ -23,11 +23,11 @@ const scope = (name: string) => z.string().refine((value) => {
 const configSchema = z.object({
   tenantId: z.uuid(), clientId: z.uuid(),
   agentUrl: interfaceUrl("/a2a"), agentScope: scope("news.agent"),
-  mcpUrl: interfaceUrl("/mcp"), mcpScope: scope("news.read"),
+  newsApiUrl: interfaceUrl("/api/v1"), newsScope: scope("news.read"),
 }).strict().refine((value) =>
   value.agentScope !== `api://${value.clientId}/news.agent`
-  && value.mcpScope !== `api://${value.clientId}/news.read`
-  && value.agentScope.split("/news.")[0] !== value.mcpScope.split("/news.")[0]);
+  && value.newsScope !== `api://${value.clientId}/news.read`
+  && value.agentScope.split("/news.")[0] !== value.newsScope.split("/news.")[0]);
 
 export type RuntimeConfig = z.infer<typeof configSchema>;
 

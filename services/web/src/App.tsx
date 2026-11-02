@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
-import type { Answer, AuthSession, NewsCatalog, NewsItem, Phase, ResearchClient, SourceCatalog } from "./domain";
+import type { Answer, AuthSession, NewsCatalog, NewsDetail, NewsItem, Phase, ResearchClient, SourceCatalog } from "./domain";
 import { failureMessage, messages, UiFailure } from "./domain";
 import { safeHttps } from "./config";
 import { buildFilters, emptyDraft, emptySnapshot } from "./filters";
 import type { DatePeriod, FilterDraft, FilterSnapshot } from "./filters";
+import { newsRoute } from "./navigation";
+import type { NewsRoute } from "./navigation";
 
 const phases: Phase[] = ["retrieving", "planning", "synthesizing", "validating"];
 const periods: { value: DatePeriod; label: string }[] = [
@@ -65,6 +67,16 @@ export function App({ auth, research, catalog }: {
   const [submittedContext, setSubmittedContext] = useState<{ item: NewsItem | null; snapshot: FilterSnapshot } | null>(null);
   const [items, setItems] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [appending, setAppending] = useState(false);
+  const [appendError, setAppendError] = useState("");
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [readAt, setReadAt] = useState("");
+  const [readAge, setReadAge] = useState(0);
+  const [route, setRoute] = useState<NewsRoute>(() => newsRoute(window.location.pathname));
+  const [detail, setDetail] = useState<NewsDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState("");
+  const [detailLoaded, setDetailLoaded] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [newsError, setNewsError] = useState("");
   const [authRequired, setAuthRequired] = useState<"news" | "agent" | null>(null);
@@ -77,6 +89,14 @@ export function App({ auth, research, catalog }: {
   const newsController = useRef<AbortController | null>(null);
   const choicesRun = useRef(0);
   const choicesController = useRef<AbortController | null>(null);
+  const detailRun = useRef(0);
+  const detailController = useRef<AbortController | null>(null);
+  const acceptedCursors = useRef(new Set<string>());
+  const browseStarted = useRef(false);
+  const browseScroll = useRef(0);
+  const detailOpener = useRef<HTMLElement | null>(null);
+  const newsHeading = useRef<HTMLHeadingElement>(null);
+  const detailHeading = useRef<HTMLHeadingElement>(null);
   const composer = useRef<HTMLTextAreaElement>(null);
   const agentToggle = useRef<HTMLButtonElement>(null);
   const panelOpener = useRef<HTMLButtonElement | null>(null);
@@ -87,17 +107,76 @@ export function App({ auth, research, catalog }: {
     run.current++; current.current?.abort();
     newsRun.current++; newsController.current?.abort();
     choicesRun.current++; choicesController.current?.abort();
+    detailRun.current++; detailController.current?.abort();
+  }, []);
+  useEffect(() => {
+    const changed = () => setRoute(newsRoute(window.location.pathname));
+    window.addEventListener("popstate", changed);
+    return () => window.removeEventListener("popstate", changed);
   }, []);
   useEffect(() => {
     if (panelOpen) composer.current?.focus();
   }, [panelOpen]);
   useEffect(() => {
-    if (signedIn) { void loadNews("", emptySnapshot); void loadSources(); }
+    if (signedIn) { browseStarted.current = false; void loadSources(); }
     return () => {
       newsRun.current++; newsController.current?.abort(); newsController.current = null;
       choicesRun.current++; choicesController.current?.abort(); choicesController.current = null;
     };
   }, [signedIn, catalog]);
+  useEffect(() => {
+    if (!signedIn) return;
+    if (route.kind === "news") {
+      if (!browseStarted.current) void loadNews("", emptySnapshot);
+      else {
+        (detailOpener.current?.isConnected ? detailOpener.current : newsHeading.current)?.focus({ preventScroll: true });
+        window.scrollTo({ top: browseScroll.current, behavior: "instant" });
+      }
+    } else if (route.kind === "detail") {
+      void loadDetail(route.id);
+      window.scrollTo({ top: 0, behavior: "instant" });
+    }
+    return () => { detailRun.current++; detailController.current?.abort(); detailController.current = null; };
+  }, [route, signedIn, catalog]);
+  useEffect(() => {
+    if (route.kind === "detail" && !detailLoading) detailHeading.current?.focus({ preventScroll: true });
+  }, [route, detailLoading]);
+
+  function navigateHome(replace = false) {
+    window.history[replace ? "replaceState" : "pushState"](null, "", "/");
+    setRoute({ kind: "news" });
+  }
+  function openDetail(event: React.MouseEvent<HTMLAnchorElement>, id: string) {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    browseScroll.current = window.scrollY;
+    detailOpener.current = event.currentTarget;
+    window.history.pushState({ newsloomDetail: true }, "", `/news/${id}`);
+    setRoute({ kind: "detail", id });
+  }
+  function backToNews() {
+    if (browseStarted.current && window.history.state?.newsloomDetail === true) window.history.back();
+    else navigateHome(true);
+  }
+  async function loadDetail(id: string) {
+    const runId = ++detailRun.current;
+    detailController.current?.abort();
+    const controller = new AbortController();
+    detailController.current = controller;
+    setDetail(null); setDetailLoaded(false); setDetailError(""); setDetailLoading(true);
+    try {
+      const result = await catalog.detail(id, controller.signal);
+      if (runId === detailRun.current && !controller.signal.aborted) { setDetail(result); setDetailLoaded(true); }
+    } catch (failure) {
+      if (runId === detailRun.current && !controller.signal.aborted) {
+        setDetailError(failureMessage(failure));
+        if (failure instanceof UiFailure && ["authorization", "interaction"].includes(failure.category))
+          setAuthRequired("news");
+      }
+    } finally {
+      if (runId === detailRun.current) { setDetailLoading(false); detailController.current = null; }
+    }
+  }
 
   async function loadSources() {
     const id = ++choicesRun.current;
@@ -119,21 +198,25 @@ export function App({ auth, research, catalog }: {
     }
   }
   async function loadNews(search: string, snapshot: FilterSnapshot = applied) {
+    browseStarted.current = true;
+    browseScroll.current = 0;
+    if (route.kind !== "news") navigateHome();
     const researchWasActive = current.current !== null;
     const id = ++newsRun.current;
     newsController.current?.abort();
     const controller = new AbortController();
     newsController.current = controller;
-    setLoading(true); setLoaded(false); setNewsError(""); setItems([]);
+    setLoading(true); setAppendedReset();
+    setLoaded(false); setNewsError(""); setItems([]);
     setSubmittedQuery(search);
     setApplied(snapshot);
     try {
       const result = await (search || Object.keys(snapshot.filters).length
         ? catalog.search(search || undefined, controller.signal, snapshot.filters) : catalog.recent(controller.signal));
       if (id !== newsRun.current || controller.signal.aborted) return;
-      setItems(result); setLoaded(true);
+      setItems(result.items); setNextCursor(result.nextCursor); setReadAt(result.readAt); setReadAge(result.cacheAgeSeconds); setLoaded(true);
       if (!current.current && !researchWasActive) setSelected((previous) =>
-        previous && result.some((item) => item.id === previous.id) ? previous : null);
+        previous && result.items.some((item) => item.id === previous.id) ? previous : null);
     } catch (failure) {
       if (id !== newsRun.current || controller.signal.aborted) return;
       setNewsError(failureMessage(failure));
@@ -144,8 +227,39 @@ export function App({ auth, research, catalog }: {
       if (id === newsRun.current) { setLoading(false); newsController.current = null; }
     }
   }
+  function setAppendedReset() {
+    setAppending(false); setAppendError(""); setNextCursor(null); setReadAt(""); setReadAge(0);
+    acceptedCursors.current.clear();
+  }
+  async function loadMore() {
+    if (newsController.current || submittedQuery || !nextCursor || items.length >= 200) return;
+    const id = ++newsRun.current, cursor = nextCursor;
+    const controller = new AbortController();
+    newsController.current = controller;
+    setAppending(true); setAppendError("");
+    try {
+      const result = await catalog.search(undefined, controller.signal, applied.filters, cursor);
+      if (id !== newsRun.current || controller.signal.aborted) return;
+      if (result.nextCursor === cursor || (result.nextCursor && acceptedCursors.current.has(result.nextCursor)))
+        throw new UiFailure("invalid_response");
+      acceptedCursors.current.add(cursor);
+      setItems((previous) => {
+        const ids = new Set(previous.map((item) => item.id));
+        return [...previous, ...result.items.filter((item) => !ids.has(item.id))].slice(0, 200);
+      });
+      setNextCursor(result.nextCursor); setReadAt(result.readAt); setReadAge(result.cacheAgeSeconds);
+    } catch (failure) {
+      if (id === newsRun.current && !controller.signal.aborted) {
+        setAppendError(failureMessage(failure));
+        if (failure instanceof UiFailure && ["authorization", "interaction"].includes(failure.category))
+          setAuthRequired("news");
+      }
+    } finally {
+      if (id === newsRun.current) { setAppending(false); newsController.current = null; }
+    }
+  }
   function applyFilters(search: string) {
-    if (newsController.current) return;
+    if (newsController.current && !appending) return;
     try { void loadNews(search, buildFilters(draft, choices)); }
     catch (failure) { setNewsError(failureMessage(failure)); }
   }
@@ -159,6 +273,10 @@ export function App({ auth, research, catalog }: {
     newsRun.current++; newsController.current?.abort(); newsController.current = null;
     setItems([]); setSelected(null); setQuery(""); setSubmittedQuery("");
     choicesRun.current++; choicesController.current?.abort(); choicesController.current = null;
+    detailRun.current++; detailController.current?.abort(); detailController.current = null;
+    setDetail(null); setDetailError(""); setDetailLoading(false); setDetailLoaded(false);
+    setAppendedReset(); browseStarted.current = false; browseScroll.current = 0;
+    detailOpener.current = null; navigateHome(true);
     setChoices(null); setChoicesError(""); setChoicesLoading(false);
     setDraft({ ...emptyDraft }); setApplied(emptySnapshot); setSubmittedContext(null);
     setNewsError(""); setLoaded(false); setLoading(false); setPanelOpen(false); setAuthRequired(null);
@@ -217,7 +335,7 @@ export function App({ auth, research, catalog }: {
   function closePanel() {
     setPanelOpen(false);
     const opener = panelOpener.current;
-    (opener && !opener.disabled ? opener : agentToggle.current)?.focus();
+    (opener?.isConnected && !opener.disabled ? opener : agentToggle.current)?.focus();
   }
   return <>
     <a href="#main" className="skip-link">Skip to news</a>
@@ -247,14 +365,47 @@ export function App({ auth, research, catalog }: {
     </header>
     <main id="main" className={`news-page ${panelOpen ? "with-agent" : ""}`}>
       <section className="news-column">
+      {signedIn && route.kind === "invalid" && <section>
+        <h1>Invalid news link</h1><p>This page does not identify a stored news item.</p>
+        <button className="btn btn-outline" onClick={() => navigateHome(true)}>Back to news</button>
+      </section>}
+      {signedIn && route.kind === "detail" && <section aria-label="News detail">
+        <button className="btn btn-outline btn-sm" onClick={backToNews}>Back to news</button>
+        <h1 ref={detailHeading} tabIndex={-1}>{detail?.title ?? "News detail"}</h1>
+        {detailLoading && <p role="status">Loading stored news detail...</p>}
+        {detailError && <div role="alert" className="alert alert-error">
+          <span>{detailError}</span><button className="btn btn-outline btn-sm" onClick={() => void loadDetail(route.id)}>Retry detail</button>
+        </div>}
+        {detailLoaded && !detail && <p role="status">This stored news item was not found.</p>}
+        {detail && <>
+          <p>{detail.source} · {detail.category}</p>
+          <time dateTime={detail.publishedAt}>{new Date(detail.publishedAt).toLocaleString()}</time>
+          <p className="news-summary">{detail.summary}</p>
+          <dl className="detail-metadata">
+            <dt>Author</dt><dd>{detail.author || "Not supplied"}</dd>
+            <dt>Date origin</dt><dd>{detail.dateOrigin}</dd>
+            <dt>Publisher categories</dt><dd>{detail.publisherCategories.join(", ") || "Not supplied"}</dd>
+            <dt>Tags</dt><dd>{detail.tags.join(", ")}</dd>
+          </dl>
+          <p className="notice">Stored summary and metadata only. The full article is available at its original source.</p>
+          <div className="news-actions">
+            {safeHttps(detail.url) ? <a href={detail.url} target="_blank" rel="noopener noreferrer" className="link">Open original</a>
+              : <span>Original link unavailable</span>}
+            <button className="btn btn-outline btn-sm" disabled={busy}
+              onClick={(event) => openPanel(event.currentTarget, detail)}
+              aria-label={`Ask about this: ${detail.title}`}>Ask about this</button>
+          </div>
+        </>}
+      </section>}
+      <div hidden={signedIn && route.kind !== "news"}>
       <div className="news-heading">
         <div>
           <div className="eyebrow">STORED NEWS. CLEARER CONTEXT.</div>
-          <h1>{submittedQuery ? "Search results" : Object.keys(applied.filters).length ? "Filtered news" : "Latest news"}</h1>
+          <h1 ref={newsHeading} tabIndex={-1}>{submittedQuery ? "Search results" : Object.keys(applied.filters).length ? "Filtered news" : "Latest news"}</h1>
           <p className="intro">{submittedQuery
             ? `Ranked by relevance · Up to 20 results for "${submittedQuery}"`
             : Object.keys(applied.filters).length ? "Up to 20 matching stored articles, newest first."
-              : "The latest 20 stored articles, newest first."}</p>
+              : "Stored articles, newest first. Initially showing up to 20."}</p>
         </div>
         {signedIn && (submittedQuery
           ? <button className="btn btn-outline btn-sm" disabled={loading} onClick={() => {
@@ -320,7 +471,7 @@ export function App({ auth, research, catalog }: {
             return <article className="card news-card" key={item.id}>
               <div className="news-meta"><span>{item.source} · {item.category}</span>
                 <time dateTime={item.publishedAt}>{new Date(item.publishedAt).toLocaleString()}</time></div>
-              <h2>{item.title}</h2><p className="news-summary">{item.summary}</p>
+              <h2><a href={`/news/${item.id}`} className="link" onClick={(event) => openDetail(event, item.id)}>{item.title}</a></h2><p className="news-summary">{item.summary}</p>
               <div className="news-actions">
                 {link ? <a href={link.href} className="link" target="_blank" rel="noopener noreferrer">
                   Open original · {link.hostname}<span className="sr-only"> (opens in a new tab)</span>
@@ -332,7 +483,21 @@ export function App({ auth, research, catalog }: {
             </article>;
           })}
         </div>
+        {loaded && <section aria-label="Browse continuation" className="browse-continuation">
+          <p role="status">{items.length} {submittedQuery ? "bounded search results" : "stored items"} displayed.</p>
+          {readAt && <p className="filter-help">Latest page read: {new Date(readAt).toLocaleString()}. Server read age at response: {readAge.toFixed(1)} seconds. The API may reuse data for up to 60 seconds; live pages are not a fixed snapshot.</p>}
+          {appendError && <div role="alert" className="alert alert-error">{appendError}</div>}
+          {appending && <p role="status">Loading more stored news...</p>}
+          {!submittedQuery && nextCursor && items.length < 200 &&
+            <button className="btn btn-outline" disabled={appending} onClick={() => void loadMore()}>{appendError ? "Retry Load more" : "Load more"}</button>}
+          {!submittedQuery && items.length >= 200 && nextCursor && <>
+            <p>Display limit reached: 200 items. More news may exist.</p>
+            <button className="btn btn-outline" onClick={() => void loadNews("", applied)}>Restart browsing</button>
+          </>}
+          {!submittedQuery && !nextCursor && items.length > 0 && <p>No more pages are currently available.</p>}
+        </section>}
       </>}
+      </div>
       </section>
       {signedIn && <aside id="agent-panel" className="agent-panel" aria-label="Agent interactions"
         tabIndex={0} hidden={!panelOpen}>

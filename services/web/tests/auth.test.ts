@@ -38,12 +38,28 @@ test("MSAL uses trusted authority, tab session cache, stable bridge and one audi
   expect(mock.acquireTokenSilent).toHaveBeenCalledWith({
     account: { homeAccountId: "fixture" }, scopes: [config.agentScope],
   });
+
   await session.signIn();
   expect(mock.loginRedirect).toHaveBeenCalledWith({
-    scopes: [config.mcpScope], redirectStartPage: "https://ui.test/",
+    scopes: [config.newsScope], redirectStartPage: "https://ui.test/",
   });
   await session.token("news");
   expect(mock.acquireTokenSilent).toHaveBeenLastCalledWith({
-    account: { homeAccountId: "fixture" }, scopes: [config.mcpScope],
+    account: { homeAccountId: "fixture" }, scopes: [config.newsScope],
+  });
+});
+
+test("redirect restoration accepts only a same-origin validated item path", async () => {
+  const id = crypto.randomUUID();
+  window.history.replaceState(null, "", `/news/${id}?question=private#untrusted`);
+  const { session } = await createAuth(runtimeConfig, "https://ui.test");
+  await session.signIn("news");
+  expect(mock.loginRedirect).toHaveBeenLastCalledWith({
+    scopes: [runtimeConfig.newsScope], redirectStartPage: `https://ui.test/news/${id}`,
+  });
+  window.history.replaceState(null, "", "/news/not-a-uuid");
+  await session.signIn("news");
+  expect(mock.loginRedirect).toHaveBeenLastCalledWith({
+    scopes: [runtimeConfig.newsScope], redirectStartPage: "https://ui.test/",
   });
 });

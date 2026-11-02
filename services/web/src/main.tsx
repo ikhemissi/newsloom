@@ -4,7 +4,7 @@ import { App } from "./App";
 import { loadConfig } from "./config";
 import { createAuth } from "./auth";
 import { A2aResearch } from "./research";
-import { McpCatalog } from "./catalog";
+import { HttpCatalog } from "./catalog";
 import { failureMessage } from "./domain";
 import "./style.css";
 
@@ -24,7 +24,7 @@ async function start() {
     const config = await loadConfig();
     const { instance, session } = await createAuth(config, window.location.origin);
     root.render(<MsalProvider instance={instance}>
-      <App auth={session} research={new A2aResearch(config, session)} catalog={new McpCatalog(config, session)} />
+      <App auth={session} research={new A2aResearch(config, session)} catalog={new HttpCatalog(config, session)} />
     </MsalProvider>);
   } catch (error) {
     root.render(<main className="startup"><h1>Newsloom</h1><p role="alert">{failureMessage(error)}</p><a href="/">Return to Newsloom</a></main>);

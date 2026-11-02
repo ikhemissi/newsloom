@@ -134,3 +134,47 @@ test("catalogue failure is retryable and hostile category labels stay inert", as
   await expect(page.getByRole("button", { name: "Sign in to read news", exact: true })).toBeVisible();
   await expect(page.getByLabel("Applied news filters")).toHaveCount(0);
 });
+
+test("explicit paging reaches its 200-item cap without research and can restart", async ({ page }) => {
+  await page.goto("/tests/harness.html?paged");
+  await expect(page.getByText("20 stored items displayed.")).toBeVisible();
+  for (let count = 40; count <= 200; count += 20) {
+    await page.getByRole("button", { name: "Load more", exact: true }).click();
+    await expect(page.getByText(`${count} stored items displayed.`)).toBeVisible();
+  }
+  await expect(page.getByRole("button", { name: "Load more", exact: true })).toHaveCount(0);
+  await expect(page.getByText("Display limit reached: 200 items. More news may exist.")).toBeVisible();
+  expect(await page.locator("html").getAttribute("data-research-calls")).toBe("0");
+  await page.getByRole("button", { name: "Restart browsing" }).click();
+  await expect(page.getByText("20 stored items displayed.")).toBeVisible();
+});
+
+test("shareable detail routes reload, support browser history and retain accessible A2A context", async ({ page }) => {
+  await page.route("**/news/*", async (route) => {
+    const response = await route.fetch({ url: new URL("/tests/harness.html", route.request().url()).href });
+    await route.fulfill({ response });
+  });
+  await page.goto("/tests/harness.html");
+  await page.getByRole("link", { name: "Authored news headline", exact: true }).click();
+  const detail = page.getByRole("region", { name: "News detail" });
+  await expect(detail.getByText("Authored publisher", { exact: true })).toBeVisible();
+  expect(new URL(page.url()).pathname).toMatch(/^\/news\/[a-f0-9-]+$/);
+  expect(await page.locator("html").getAttribute("data-research-calls")).toBe("0");
+  await page.getByRole("button", { name: "Back to news", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Latest news", exact: true })).toBeVisible();
+  await page.goForward();
+  await expect(detail).toBeVisible();
+  await page.reload();
+  await expect(detail.getByText("Authored publisher", { exact: true })).toBeVisible();
+  await detail.getByRole("button", { name: "Ask about this: Authored news headline", exact: true }).click();
+  await expect(page.getByLabel("What would you like to understand?")).toBeFocused();
+  expect(await page.locator("html").getAttribute("data-research-calls")).toBe("0");
+  await page.getByLabel("What would you like to understand?").fill("Independent detail question");
+  await page.getByRole("button", { name: "Ask Newsloom", exact: true }).click();
+  await expect(page.getByLabel("Submitted research context")).toContainText("Submitted news: Authored news headline");
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  const results = await new AxeBuilder({ page }).analyze();
+  if (results.violations.length)
+    throw new Error(`ui_accessibility:${results.violations.map((item) => item.id).join(",")}`);
+});
