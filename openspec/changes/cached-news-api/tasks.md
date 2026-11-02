@@ -27,7 +27,7 @@ Existing signed-in UI/filter acceptance and parked evaluation work remain open.
 - [x] 4.1 Run focused tests plus bash scripts/check.sh and all package builds on the exact selective publication tree before cloud work; exercise the real local database paging tests and authored HTTP/MCP/browser regression checks, binding source/npm/configuration hashes and outcomes. Verify recursive source exclusions if build inputs changed, and hash-check preservation of unrelated baseline/customization files and historical evaluation receipts; document actual skips/failures separately.
 - [x] 4.2 Build the immutable MCP image, preview only the retained MCP layer and review exact image/API-enablement changes with zero resource additions/deletions or identity/model/profile/other-app changes; obtain fresh owning approval before native azd apply. Verify independent image/flag/identity/host/origin/DB/model readback, public health, unchanged UI/A2A apps and job schedules, and retain prior image/flag state for reviewed rollback.
 - [ ] 4.3 Verify deployed authorized HTTP/MCP field/filter/ranking parity, detail/discovery, timestamp ties/cursor behavior, warm-cache auth denial, TTL freshness and measured semantic miss/hit versus metadata-only embedding counts through approved existing delegated workflows. Separately verify actual workload read-only authority and native/current-browser MCP compatibility. Record safe outcomes/counts/provenance and usage estimates only; if regular-browser tooling or authorization cannot provide a required check, report the concrete limitation and leave this task open without exporting credentials, another test-browser sign-in or evaluation replay.
-- [ ] 4.4 After passed local and owning Azure rollout/readback gates, selectively commit/push only this slice, verify exact-source implementation CI, then publish measured status/runbooks with separate exact-source CI. Use the user's explicit 2026-11-02 early-access publication exception while authenticated live API/cache checks remain open in 4.3; verify API/UI/evaluation ledgers stay honest and unrelated work is unstaged. Do not archive without complete acceptance and an explicit request.
+- [x] 4.4 After passed local and owning Azure rollout/readback gates, selectively commit/push only this slice, verify exact-source implementation CI, then publish measured status/runbooks with separate exact-source CI. Use the user's explicit 2026-11-02 early-access publication exception while authenticated live API/cache checks remain open in 4.3; verify API/UI/evaluation ledgers stay honest and unrelated work is unstaged. Do not archive without complete acceptance and an explicit request.
 
 ## Workflow follow-up
 
@@ -82,7 +82,9 @@ Implementation publication: commit `3c798ae8b5fac8c5323d15ea7357fff72f96c0f4`
 passed exact-source CI `41449774908`. Its build source matches the deployed MCP
 revision. All 52 parked baseline/customization paths and the historical evaluation
 usage receipt were hash-verified unchanged. The disposable local database/check
-tree were removed. Separate measured-status CI is pending; task 4.3 remains open.
+tree were removed. Measured-status commit
+`bfe535483d9a985429f6b8e2c7a8f4ffd1e05cbb` passed separate exact-source CI
+`41450605684`. Task 4.3 remains open; no archive or full acceptance is claimed.
 
 - Propose the separate NewsCatalog HTTP adapter migration after API delivery.
   Keep A2A agent interactions and MCP agent tools; own browser detail/pagination
