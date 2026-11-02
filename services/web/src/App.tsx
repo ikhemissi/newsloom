@@ -7,6 +7,7 @@ import { buildFilters, emptyDraft, emptySnapshot } from "./filters";
 import type { DatePeriod, FilterDraft, FilterSnapshot } from "./filters";
 import { newsRoute } from "./navigation";
 import type { NewsRoute } from "./navigation";
+import { LocalTimestamp, localDateTimeFormat, useDisplayClock } from "./timestamps";
 
 const phases: Phase[] = ["retrieving", "planning", "synthesizing", "validating"];
 const periods: { value: DatePeriod; label: string }[] = [
@@ -57,6 +58,8 @@ export function App({ auth, research, catalog }: {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [signedIn, setSignedIn] = useState(auth.signedIn());
+  const now = useDisplayClock(signedIn);
+  const dateTimeFormatter = localDateTimeFormat();
   const [query, setQuery] = useState("");
   const [submittedQuery, setSubmittedQuery] = useState("");
   const [draft, setDraft] = useState<FilterDraft>({ ...emptyDraft });
@@ -379,7 +382,7 @@ export function App({ auth, research, catalog }: {
         {detailLoaded && !detail && <p role="status">This stored news item was not found.</p>}
         {detail && <>
           <p>{detail.source} · {detail.category}</p>
-          <time dateTime={detail.publishedAt}>{new Date(detail.publishedAt).toLocaleString()}</time>
+          <LocalTimestamp value={detail.publishedAt} formatter={dateTimeFormatter} now={now} />
           <p className="news-summary">{detail.summary}</p>
           <dl className="detail-metadata">
             <dt>Author</dt><dd>{detail.author || "Not supplied"}</dd>
@@ -462,7 +465,7 @@ export function App({ auth, research, catalog }: {
             const link = safeHttps(item.url);
             return <article className="card news-card" key={item.id}>
               <div className="news-meta"><span>{item.source} · {item.category}</span>
-                <time dateTime={item.publishedAt}>{new Date(item.publishedAt).toLocaleString()}</time></div>
+                <LocalTimestamp value={item.publishedAt} formatter={dateTimeFormatter} now={now} /></div>
               <h2><a href={`/news/${item.id}`} className="link" onClick={(event) => openDetail(event, item.id)}>{item.title}</a></h2><p className="news-summary">{item.summary}</p>
               <div className="news-actions">
                 {link ? <a href={link.href} className="link" target="_blank" rel="noopener noreferrer">
@@ -477,7 +480,7 @@ export function App({ auth, research, catalog }: {
         </div>
         {loaded && <section aria-label="Browse continuation" className="browse-continuation">
           <p role="status">{items.length} {submittedQuery ? "bounded search results" : "stored items"} displayed.</p>
-          {readAt && <p className="filter-help">Latest page read: {new Date(readAt).toLocaleString()}. Server read age at response: {readAge.toFixed(1)} seconds. The API may reuse data for up to 60 seconds; live pages are not a fixed snapshot.</p>}
+          {readAt && <p className="filter-help">Latest page read: <LocalTimestamp value={readAt} formatter={dateTimeFormatter} />. Server read age at response: {readAge.toFixed(1)} seconds. The API may reuse data for up to 60 seconds; live pages are not a fixed snapshot.</p>}
           {appendError && <div role="alert" className="alert alert-error">{appendError}</div>}
           {appending && <p role="status">Loading more stored news...</p>}
           {!submittedQuery && nextCursor && items.length < 200 &&

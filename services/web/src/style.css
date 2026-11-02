@@ -50,6 +50,7 @@ h1 { font-size: clamp(2.25rem, 5vw, 3.7rem); font-weight: 650; line-height: 1.1;
 .news-card { background: var(--color-base-200); border: 1px solid var(--color-base-300); padding: 1.5rem; }
 .news-card h2 { font-size: 1.25rem; line-height: 1.4; font-weight: 650; margin: .75rem 0; overflow-wrap: anywhere; }
 .news-meta { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; font-size: .75rem; }
+.local-timestamp { display: inline-flex; gap: .5rem; flex-wrap: wrap; align-items: center; max-width: 100%; }
 .news-summary { line-height: 1.7; overflow-wrap: anywhere; }
 .news-actions { display: flex; justify-content: space-between; gap: 1rem; align-items: center; margin-top: 1rem; font-size: .8rem; }
 .agent-panel { padding: 1.25rem; border: 1px solid var(--color-base-300); background: var(--color-base-200); border-radius: 1rem; align-self: start; position: sticky; top: 1.5rem; min-width: 0; max-height: calc(100dvh - 8rem); overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }

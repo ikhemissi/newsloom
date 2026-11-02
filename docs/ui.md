@@ -48,6 +48,22 @@ no overflow and zero axe violations, without sign-in or protected requests.
 These checks do not prove signed-in Refresh/Clear search behavior or toolbar
 alignment in Azure; that acceptance remains explicit in the checklist.
 
+## Browser-local timestamps
+
+The [timestamp slice](../openspec/changes/ui-browser-local-timestamps/tasks.md)
+is implemented locally; rollout and signed-in Azure acceptance are pending.
+Cards, detail and latest-page-read metadata use the browser's locale/timezone
+with an explicit instant-specific UTC offset, including daylight-saving and
+fractional-hour offsets. Raw timestamp values and server result order stay intact.
+
+Article dates later than the device clock show "Future-dated". This describes
+the stored instant, not a scheduled publication or a confirmed publisher error;
+dates are not clamped, hidden or corrected. The shared display clock refreshes
+once per minute and on focus/visibility resumption, without refreshing data,
+reapplying filters, changing server-reported cache age or invoking the agent.
+An inaccurate device clock can affect the indication. Existing local-calendar
+filter semantics are unchanged.
+
 ## Local development
 
 The browser lives in the root npm workspace, separately from Python's uv workspace.

@@ -80,6 +80,10 @@ test("malformed API envelopes, cursor authority and out-of-scope records fail ex
     { items: [{ ...wireItem, source: "other-source" }], next_cursor: null, meta },
     { items: [wireItem], next_cursor: null, meta: { ...meta, result_scope: "bounded" } },
     { items: [wireItem], next_cursor: null, meta: { ...meta, cache_age_seconds: -1 } },
+    { items: [wireItem], next_cursor: null, meta: { ...meta, read_at: "2026-11-03T00:00:00" } },
+    ...["not-a-date", "2026-11-03T00:00:00"].map((published_at) => ({
+      items: [{ ...wireItem, published_at }], next_cursor: null, meta,
+    })),
     { items: Array.from({ length: 21 }, () => ({ ...wireItem, id: crypto.randomUUID() })), next_cursor: null, meta },
   ]) {
     await expect(catalog(async () => Response.json(body)).search(undefined, signal(), { source: "fixture-source" }))

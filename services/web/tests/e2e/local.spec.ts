@@ -1,6 +1,81 @@
 import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
+for (const [zone, localDate, localTime, offset] of [
+  ["Europe/Paris", "03/11/2026", "01:00:00", "UTC+1"],
+  ["America/New_York", "02/11/2026", "19:00:00", "UTC\u22125"],
+  ["Asia/Kathmandu", "03/11/2026", "05:45:00", "UTC+5:45"],
+] as const) {
+  test.describe(`browser-local timestamps in ${zone}`, () => {
+    test.use({ timezoneId: zone, locale: "fr-FR", viewport: { width: 1440, height: 900 } });
+    test("cards, details and metadata preserve instants, offsets and display-only clock updates", async ({ page }) => {
+      await page.clock.install({ time: new Date("2026-11-02T23:59:30Z") });
+      await page.goto("/tests/harness.html?future-date");
+      const card = page.getByRole("article");
+      const time = card.locator("time");
+      await expect(time).toHaveAttribute("datetime", "2026-11-03T00:00:00Z");
+      await expect(time).toContainText(localDate);
+      await expect(time).toContainText(localTime);
+      await expect(time).toContainText(offset);
+      await expect(card.locator(".future-date")).toBeVisible();
+      await expect(card.locator(".future-date")).toContainText("Future-dated");
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      const metadata = page.getByRole("region", { name: "Browse continuation" });
+      await expect(metadata.locator("time")).toHaveAttribute("datetime", "2026-11-01T08:00:00Z");
+      await expect(metadata.locator("time")).toContainText(offset);
+      await expect(metadata.locator(".future-date")).toHaveCount(0);
+      await page.setViewportSize({ width: 390, height: 844 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      const results = await new AxeBuilder({ page }).analyze();
+      if (results.violations.length)
+        throw new Error(`ui_accessibility:${results.violations.map((item) => item.id).join(",")}`);
+      await page.clock.fastForward(60_000);
+      await expect(card.locator(".future-date")).toHaveCount(0);
+      await expect(time).toHaveAttribute("datetime", "2026-11-03T00:00:00Z");
+      for (const [name, count] of [["recentCalls", "1"], ["sourceCalls", "1"], ["searchCalls", "0"], ["researchCalls", "0"]] as const)
+        expect(await page.locator("html").getAttribute(`data-${name.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)}`)).toBe(count);
+      await page.getByRole("link", { name: "Authored news headline", exact: true }).click();
+      const detail = page.getByRole("region", { name: "News detail" });
+      await expect(detail.locator("time")).toHaveAttribute("datetime", "2026-11-03T00:00:00Z");
+      await expect(detail.locator("time")).toContainText(localDate);
+      await expect(detail.locator("time")).toContainText(localTime);
+      await expect(detail.locator("time")).toContainText(offset);
+      await expect(detail.locator(".future-date")).toHaveCount(0);
+    });
+  });
+}
+
+test.describe("runtime timezone changes", () => {
+  test.use({ locale: "fr-FR" });
+  test("minute and focus refresh the zone without changing instants or sending requests", async ({ page, context }) => {
+    const session = await context.newCDPSession(page);
+    await session.send("Emulation.setTimezoneOverride", { timezoneId: "Europe/Paris" });
+    await page.clock.install({ time: new Date("2026-11-02T23:59:30Z") });
+    await page.goto("/tests/harness.html?future-date");
+    const time = page.getByRole("article").locator("time");
+    await expect(time).toContainText("03/11/2026");
+    await expect(time).toContainText("UTC+1");
+    await session.send("Emulation.setTimezoneOverride", { timezoneId: "" });
+    await session.send("Emulation.setTimezoneOverride", { timezoneId: "America/New_York" });
+    await page.clock.fastForward(60_000);
+    await expect(time).toContainText("02/11/2026");
+    await expect(time).toContainText("19:00:00");
+    await expect(time).toContainText("UTC\u22125");
+    await page.clock.setFixedTime(new Date("2026-11-03T00:02:00Z"));
+    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await session.send("Emulation.setTimezoneOverride", { timezoneId: "" });
+    await session.send("Emulation.setTimezoneOverride", { timezoneId: "Europe/Paris" });
+    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await expect(time).toContainText("03/11/2026");
+    await expect(time).toContainText("UTC+1");
+    await expect(time).toHaveAttribute("datetime", "2026-11-03T00:00:00Z");
+    expect(await page.locator("html").getAttribute("data-recent-calls")).toBe("1");
+    expect(await page.locator("html").getAttribute("data-source-calls")).toBe("1");
+    expect(await page.locator("html").getAttribute("data-search-calls")).toBe("0");
+    expect(await page.locator("html").getAttribute("data-research-calls")).toBe("0");
+  });
+});
+
 test("authored browser journey renders hostile text inertly with usable citations", async ({ page }) => {
   await page.goto("/tests/harness.html");
   await expect(page.getByRole("heading", { name: "Latest news" })).toHaveClass("sr-only");

@@ -10,7 +10,11 @@ import "../src/style.css";
 document.documentElement.dataset.researchCalls = "0";
 document.documentElement.dataset.searchCalls = "0";
 document.documentElement.dataset.querylessCalls = "0";
+document.documentElement.dataset.recentCalls = "0";
+document.documentElement.dataset.sourceCalls = "0";
 const parameters = new URLSearchParams(location.search);
+const displayedItem = parameters.has("future-date")
+  ? { ...newsItem, publishedAt: "2026-11-03T00:00:00Z" } : newsItem;
 window.history.replaceState(null, "", parameters.get("route")
   ?? (location.pathname.startsWith("/news/") ? location.pathname : "/"));
 let catalogueAttempts = 0;
@@ -45,10 +49,16 @@ function batch(cursor?: string) {
   })), start + 20 < 240 ? `page_${start + 20}` : null);
 }
 createRoot(container).render(<App auth={auth} research={research} catalog={{
-  recent: async () => parameters.has("paged") ? batch() : page([newsItem]),
-  detail: async (id) => parameters.has("missing") ? null : ({ ...newsDetail, id }),
+  recent: async () => {
+    document.documentElement.dataset.recentCalls = String(
+      Number(document.documentElement.dataset.recentCalls) + 1,
+    );
+    return parameters.has("paged") ? batch() : page([displayedItem]);
+  },
+  detail: async (id) => parameters.has("missing") ? null : ({ ...newsDetail, ...displayedItem, id }),
   sources: async () => {
     catalogueAttempts++;
+    document.documentElement.dataset.sourceCalls = String(catalogueAttempts);
     if (parameters.has("catalogue-error") && catalogueAttempts === 1) throw new UiFailure("unavailable");
     return parameters.has("hostile-catalogue") ? {
       ...sourceCatalog, categories: sourceCatalog.categories.map((category) => ({
@@ -64,6 +74,6 @@ createRoot(container).render(<App auth={auth} research={research} catalog={{
       Number(document.documentElement.dataset.querylessCalls) + 1,
     );
     if (parameters.has("paged") && _query === undefined) return batch(cursor);
-    return page([{ ...newsItem, title: "Authored search result" }].filter((item) => matchesFilters(item, filters)));
+    return page([{ ...displayedItem, title: "Authored search result" }].filter((item) => matchesFilters(item, filters)));
   },
 }} />);
