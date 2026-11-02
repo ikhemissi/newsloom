@@ -81,6 +81,15 @@ and no credential/browser state was exported. Regular-browser interaction/cache/
 deployed accessibility evidence remains open in task 3.4 under the user's explicit
 publication exception. No evaluation replay or archive is claimed.
 
+Implementation publication: `8f6ebf70e9921cbc7f3bbc0626e4515a2a1a7fb6`
+passed exact-source CI `41465462841`. Its build-input tree matches the deployed
+source above. The separate measured-status publication updates README's stale
+deployment text/diagram and current runbook status; it does not rebuild or relabel
+the immutable image. README is part of the global build-input hash, so that later
+documentation-only head is not represented as the original image's source tree.
+All runtime inputs and historical receipts remain associated with the actual
+implementation commit. Separate measured-status CI is pending.
+
 - Return to versioned evaluations after this migration's owning delivery is
   addressed, preserving failed attempts, receipts, budgets and source associations.
 - Before future archival, reconcile current browser transport requirements with

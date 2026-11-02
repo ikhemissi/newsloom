@@ -4,9 +4,9 @@ Curated AI news for MCP clients, research agents, and people.
 
 **Status: Phase 1 and Phase 2 Steps 2.1-2.2 verified; evaluation interoperability foundation verified; Step 2.3 quality baseline remains pending.**
 - Available: Python workspace, 41-feed catalogue, local/CI checks, azd-managed Azure infrastructure, managed-identity migrations, RSS/Atom ingestion with real Decision-model screening, and durable queue/quarantine storage. Enrichment produces validated summaries, one of 11 categories, tags, and 1536-dimensional embeddings in PostgreSQL. The deployed MCP service provides four read-only browsing/search tools with verified Entra browser sign-in. The authenticated A2A research agent deepens or compares stored news with cited, preference-aware answers, secretless user delegation and Foundry streaming.
-- The [phase acceptance matrix](docs/phase1-acceptance.md#verified-phase-acceptance-matrix) and [agent runbook](docs/agent.md) record measured acceptance, runtime provenance, preservation and passing implementation/status CI. Phase 1 and [Phase 2 Steps 2.1-2.2](docs/prd-2.md) are archived with delivered contracts in the [main specs](openspec/specs/). Frozen phase-wide evaluations, optional external web research and persistent preferences remain future work. The early-access browser UI is being implemented; deployed acceptance remains pending.
+- The [phase acceptance matrix](docs/phase1-acceptance.md#verified-phase-acceptance-matrix) and [agent runbook](docs/agent.md) record measured acceptance, runtime provenance, preservation and passing implementation/status CI. Phase 1 and [Phase 2 Steps 2.1-2.2](docs/prd-2.md) are archived with delivered contracts in the [main specs](openspec/specs/). Frozen phase-wide evaluations, optional external web research and persistent preferences remain future work. The early-access browser UI is deployed with HTTP news access, shareable detail pages and capped browsing; full signed-in Azure acceptance remains pending.
 - The [evaluation foundation](docs/agent-evaluation.md#foundation-completion-ledger) verifies real DeepEval scoring, exact imported-score API/user-attested UI parity, fractional replay and disposable deletion. The two authored cases were scored once (`1.0`, `0.0`) in eight judge calls, with complete usage and estimated chat cost USD 0.004516875. Working storage, its connection and approved operator/project permissions are Terraform-owned; two unused diagnostic grants and 16 failed experiment pairs were cleaned up, with accepted reports retained. All 2,116 baseline row fingerprints were preserved, with 23 additions observed. The [scoped preservation receipt](docs/agent-evaluation.md#final-audited-preservation-acceptance) retains historical failures and excludes verified policy-managed scanning side resources without changing Defender or claiming broader effective-access preservation. Implementation, separate evidence/status and completion-ledger CI passed; the [26-task ledger](openspec/changes/archive/2026-10-30-agent-evaluation-foundation/tasks.md) retains exact-source evidence. This synthetic pilot is not the frozen deployed-agent quality baseline; its delivered contract is synchronized and the verified change is archived.
-- The user approved [PRD-2's early-access exception](docs/prd-2.md#delivery-plan) for the minimal browser journey. The [UI runbook](docs/ui.md) records implementation and acceptance; deployment is still pending. This does not complete evaluations or full PRD-3 acceptance.
+- The user approved [PRD-2's early-access exception](docs/prd-2.md#delivery-plan) for the browser journey. The [UI runbook](docs/ui.md#http-catalogue-migration) records the deployed HTTP catalogue, explicit 20-item Load more capped at 200, stored-item pages and preserved A2A agent context. The [news API](docs/news-api.md) shares MCP hosting and permissions with a bounded 60-second response cache. Missing regular-browser/API-cache/deployed accessibility checks remain open; this does not complete evaluations or full PRD-3 acceptance.
 
 ## Architecture
 
@@ -20,7 +20,9 @@ flowchart LR
     News --> MCP["MCP server"]
     MCP --> Clients["MCP clients"]
     MCP --> Agent["A2A research agent"]
-    Agent --> UI["Browser UI - Phase 3"]
+    Agent -->|A2A| UI["Browser UI - early access"]
+    News --> API["HTTP news API - co-hosted with MCP"]
+    API --> UI
 ```
 
 ## Local development

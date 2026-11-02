@@ -270,6 +270,9 @@ Its immutable source is
 Public config, both script chunks, stylesheet, detail SPA fallback and exact
 owning ARM readback were verified. The regular-browser/cache gate remains open;
 no automatic or manual sign-in evidence is invented.
+Implementation `8f6ebf70e9921cbc7f3bbc0626e4515a2a1a7fb6` passed exact-source CI
+`41465462841`. The subsequent README/runbook status publication is documentation
+only; the deployed image retains its original implementation/source association.
 Runtime fields become tenantId/clientId/agentUrl/agentScope/newsApiUrl/newsScope.
 The same delegated news.read audience and retained SPA consent are used;
 UI_MCP_PERMISSION_ENABLED remains enabled because that registration is the shared
