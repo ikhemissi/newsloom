@@ -17,8 +17,8 @@
 
 ## 4. Integration and delivery
 
-- [ ] 4.1 Run focused worker/Core/API/UI tests, strict types/lint/build, real database/permission checks where affected, the primary repository gate and strict OpenSpec validation. Verify unchanged schedule/models/resources/identity/consent/accounting and selectively commit the refinement with exact-source CI, preserving parked work.
-- [ ] 4.2 Prepare fresh compatible immutable images and review owning native azd previews; deploy consumers before the architect-policy worker. Verify exact assets/configuration/geometry, old-artifact read compatibility and unchanged backend/job/grant fingerprints; record actual Azure evidence and passing publication CI.
+- [x] 4.1 Run focused worker/Core/API/UI tests, strict types/lint/build, real database/permission checks where affected, the primary repository gate and strict OpenSpec validation. Verify unchanged schedule/models/resources/identity/consent/accounting and selectively commit the refinement with exact-source CI, preserving parked work.
+- [x] 4.2 Prepare fresh compatible immutable images and review owning native azd previews; deploy consumers before the architect-policy worker. Verify exact assets/configuration/geometry, old-artifact read compatibility and unchanged backend/job/grant fingerprints; record actual Azure evidence and passing publication CI.
 - [ ] 4.3 Observe the next valid daily slot and review its actual TL;DR/briefing against the architectural rubric and reading ceiling in the permitted regular browser. Verify named supported changes, materiality, factual caveats/citations and no padding; preserve prior successful/failed attempts and measured usage, keeping unavailable semantic/scheduled/signed-in acceptance open.
 
 ## Workflow follow-up

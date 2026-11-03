@@ -201,6 +201,9 @@ model calls with no unknown usage. No new generation was dispatched. This proves
 legacy read compatibility, not new editorial quality. The next valid daily slot,
 actual specificity/materiality/citation review and permitted signed-in browser
 acceptance remain open; neither this change nor its parent is archived.
+Implementation commit `a99a411` passed exact-source
+[CI 41730799877](https://github.com/ikhemissi/newsloom/actions/runs/41730799877).
+All 52 unrelated parked paths remained byte-preserved through publication.
 
 ## Recovery and acceptance
 
