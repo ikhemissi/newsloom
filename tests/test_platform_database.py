@@ -146,7 +146,7 @@ async def test_briefing_additive_migration_and_real_role_boundaries(
     )
     async with ManagedIdentityCredential() as credential:
         assert await database.migrate(platform_database, credential) == 5
-        assert await database.migrate(config, credential) == 2
+        assert await database.migrate(config, credential) == 3
         assert await database.migrate(config, credential) == 0
         # Optional omission must leave all historical checksums and additive tables intact.
         assert await database.migrate(platform_database, credential) == 0
@@ -235,7 +235,7 @@ async def test_briefing_schema_checks_and_historical_checksum_preservation(
         }
     )
     async with ManagedIdentityCredential() as credential:
-        assert await database.migrate(config, credential) == 7
+        assert await database.migrate(config, credential) == 8
         async with await database.connect(config, credential, "newsloom", "postgres") as connection:
             await connection.execute("SET ROLE newsloom_briefing")
             for query in (

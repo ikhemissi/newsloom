@@ -3,10 +3,10 @@
 The [daily briefing](briefing.md) panel extension is deployed early access.
 It displays a shared TL;DR above a collapsed full summary when an artifact is
 available, without generation on reads/expansion or changes to research context.
-The first attempted generation was rejected for a foreign citation; its
-corrected scheduled worker will use the next valid 05:00 UTC slot. No artifact
-is currently published, and successful generation/signed-in acceptance remain
-open rather than showing invented placeholder reporting.
+The first full artifact is now published after an explicitly authorized,
+audited same-day retry: a 1,026-word summary with an 82-word TL;DR. Earlier
+rejected/incomplete attempts were retained, not hidden or reset. Actual
+scheduled execution and signed-in qualitative acceptance remain open.
 
 The [HTTP catalogue migration](../openspec/changes/ui-http-news-catalog/tasks.md)
 is deployed early access with stored-item pages and capped browse continuation.

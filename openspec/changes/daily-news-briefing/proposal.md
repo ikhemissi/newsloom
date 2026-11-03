@@ -16,6 +16,9 @@ the full summary collapsed by default at the top of the Agent panel.
   Validate and atomically publish both as one versioned briefing.
 - Publish one validated shared artifact per daily slot, with an atomic update
   and durable once-only generation/accounting. Reads never trigger generation.
+- Permit an explicitly authorized operator retry after a known validation failure,
+  preserving immutable failed-attempt metadata and all original call/cost rows.
+  Successful slots and uncertain usage remain protected from retries.
 - Provide an authenticated read-only HTTP endpoint under the existing news API,
   retaining delegated `news.read` and authorization before any cache access.
 - Show the TL;DR below the panel heading/Close action and above research

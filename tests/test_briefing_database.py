@@ -1,5 +1,6 @@
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from uuid import uuid4
 
 import psycopg
 import pytest
@@ -121,3 +122,79 @@ async def test_real_snapshot_roles_once_only_publication_and_recovery(
                 )
             ).fetchone()
             assert unknown == ("unknown", None, None)
+
+
+async def test_controlled_retry_archives_failure_without_resetting_calls_or_allowing_unknown_usage(
+    platform_database: RuntimeConfig,
+) -> None:
+    cutoff = datetime(2026, 11, 3, 5, tzinfo=UTC)
+    async with ManagedIdentityCredential() as credential:
+        await database.migrate(platform_database, credential)
+        async with await database.connect(
+            platform_database, credential, "newsloom", "postgres"
+        ) as connection:
+            await connection.execute(
+                "DO $$ BEGIN IF NOT EXISTS(SELECT FROM pg_roles WHERE rolname='newsloom_briefing') "
+                "THEN CREATE ROLE newsloom_briefing LOGIN; END IF; END $$"
+            )
+            await connection.execute(database.migration_sql("005_briefing.sql"))
+            await connection.execute(database.migration_sql("006_briefing_retry.sql"))
+            await connection.execute("SET SESSION AUTHORIZATION newsloom_briefing")
+            writer = Repository(connection)
+            assert await writer.claim(cutoff, PROMPT_REVISION, "authored", "1")
+            await writer.intent(cutoff, 1, "notes", "authored")
+            await writer.usage(cutoff, 1, "completed", 50, 20, 1.0, Decimal("0.00009"))
+            await writer.fail(cutoff, "briefing_foreign_citation")
+            assert not await writer.claim(cutoff, PROMPT_REVISION, "authored", "1")
+            assert await writer.retry_claim(cutoff, PROMPT_REVISION, "authored", "1") == 1
+            assert await writer.retry_claim(cutoff, PROMPT_REVISION, "authored", "1") is None
+            history = await (
+                await connection.execute(
+                    "SELECT failed_run->>'status',failed_run->>'error_category',last_call_ordinal "
+                    "FROM briefing_attempts WHERE cutoff=%s",
+                    (cutoff,),
+                )
+            ).fetchone()
+            assert history == ("failed", "briefing_foreign_citation", 1)
+            prior = await (
+                await connection.execute(
+                    "SELECT input_tokens,output_tokens,estimated_cost_usd "
+                    "FROM briefing_calls WHERE cutoff=%s AND ordinal=1",
+                    (cutoff,),
+                )
+            ).fetchone()
+            assert prior == (50, 20, Decimal("0.00009"))
+            with pytest.raises(psycopg.errors.InsufficientPrivilege):
+                await connection.execute("DELETE FROM briefing_attempts")
+            with pytest.raises(psycopg.errors.InsufficientPrivilege):
+                await connection.execute("UPDATE briefing_attempts SET last_call_ordinal=0")
+            await writer.intent(cutoff, 2, "notes", "authored")
+            await writer.fail(cutoff, "briefing_foreign_citation")
+            assert await writer.retry_claim(cutoff, PROMPT_REVISION, "authored", "1") is None
+            unknown = await (
+                await connection.execute(
+                    "SELECT status FROM briefing_calls WHERE cutoff=%s AND ordinal=2",
+                    (cutoff,),
+                )
+            ).fetchone()
+            assert unknown == ("unknown",)
+            assert await (
+                await connection.execute("SELECT count(*) FROM briefing_attempts")
+            ).fetchone() == (1,)
+            earlier = cutoff - timedelta(days=1)
+            assert await writer.claim(earlier, PROMPT_REVISION, "authored", "1")
+            await writer.publish(
+                Briefing(
+                    version=uuid4(),
+                    window_start=earlier - timedelta(days=7),
+                    window_end=earlier,
+                    generated_at=datetime.now(UTC),
+                    coverage="empty",
+                    evidence_count=0,
+                    tldr=None,
+                    sections=(),
+                    citations=(),
+                )
+            )
+            assert await writer.retry_claim(earlier, PROMPT_REVISION, "authored", "1") is None
+            assert not await writer.claim(earlier, PROMPT_REVISION, "authored", "1")

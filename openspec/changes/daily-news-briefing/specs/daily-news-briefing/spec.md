@@ -67,6 +67,15 @@ remain. Hosting/build costs MUST be reported separately.
 - **AND** consumed/uncertain operations remain accounted for without a success
   claim, hidden inference retry or reset
 
+#### Scenario: An operator explicitly retries a known validation failure
+- **WHEN** a failed slot has fully observed usage, no published artifact and an
+  explicitly authorized retry
+- **THEN** its failed metadata is archived immutably and its existing call/cost
+  rows remain unchanged
+- **AND** new calls continue the ordinal sequence and use a new consistent
+  snapshot of the same scheduled evidence window
+- **AND** normal triggers, successful slots and unknown usage cannot enable this retry
+
 ### Requirement: Authorized read-only access
 The latest briefing and freshness status SHALL be available through the
 existing HTTP news authorization boundary using delegated news.read.

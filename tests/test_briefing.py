@@ -422,7 +422,7 @@ async def test_incomplete_or_tool_responses_preserve_observed_usage(
             Decimal("2"),
             "authored",
         )
-        with pytest.raises(Failure, match="refused_or_incomplete"):
+        with pytest.raises(Failure, match=r"refused_or_incomplete|generation_truncated"):
             await generator.generate("notes", "Summarize", "[]", Notes, time.monotonic() + 100)
     assert len(accounting.intents) == 1
     assert accounting.records[0][1:4] == ("completed", 25, 5)

@@ -73,6 +73,15 @@ prevent overlapping slots. Record intent before inference. A crashed/uncertain
 slot becomes failed/unknown, never automatically regenerated; recovery may
 reconcile publication state read-only. The next daily slot can proceed.
 
+The user subsequently authorized a controlled same-day retry of a known
+validation failure. Add `retry-failed` as an operator-only CLI command, never a
+read/API/panel action. An additive migration creates append-only failed-attempt
+metadata; keep the original call rows and monotonically continue their ordinals.
+Retry only failed validation with fully observed usage and no artifact for the
+slot. Preserve the fixed window while taking a new consistent input snapshot.
+Archive before changing the active status, under the same advisory lock and
+transaction. Normal scheduled claims and unknown/lost usage remain non-retryable.
+
 Validate the entire artifact before atomically replacing the current row and
 completing its run. A partial write cannot pair different summary/TL;DR versions.
 Keep only current published content; retain metadata-only run accounting, not

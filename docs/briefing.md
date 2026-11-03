@@ -2,9 +2,10 @@
 
 Status: worker, protected API and panel UI deployed as early access in the
 [owning change](../openspec/changes/daily-news-briefing/tasks.md). The corrected
-job is scheduled for 05:00 UTC daily; its first successful artifact, real
-scheduled execution and signed-in Azure acceptance remain open. Today's failed
-generation was withheld, not regenerated or presented as a valid briefing.
+job is scheduled for 05:00 UTC daily. A first full artifact was published by an
+explicitly authorized controlled retry on 2026-11-03; actual scheduled execution
+and signed-in qualitative acceptance remain open. Earlier failed attempts and
+their costs remain in append-only history and the original call rows.
 [PRD-3](prd-3.md) owns sequencing; [capabilities](prd-3-capabilities.md) own
 product behavior. The [news API](news-api.md) and [UI runbook](ui.md) own their
 existing transport and browser boundaries.
@@ -107,6 +108,23 @@ filters, selected news, answer context or server-reported cache age.
 
 ## Measurement, not a spending cap
 
+The first successful controlled retry considered 90 stored articles and published
+a 1,026-word summary plus an 82-word TL;DR with 42 citations. Across the two
+retained failed attempts and the successful attempt, actual accounting records
+12 physical model calls, 44,700 input tokens and 11,595 output tokens, with
+estimated model cost USD 0.09427275 and zero unknown operations. The successful
+attempt alone accounts for USD 0.072625575; hosting/build costs remain separate.
+Numeric/provenance validation is not a semantic faithfulness or user-review score.
+The deployed controlled-retry worker source is
+`abce35e2d3a7421f7ce83780bb54b4376fc81f40cc4fad7100fc4a94c4f76de1`;
+the existing UI/API images remain at their actual earlier source associations.
+
+The notes stage had produced incomplete output at its earlier 1,400-token
+allowance. It now has a 4,096-token allowance with smaller input batches and
+exact schema/input-token admission to stay within the deployment's verified
+rate envelope. Truncation is explicitly categorized, and known failed attempts
+can be retried only by the guarded operator command.
+
 There is no daily dollar cap in this slice. Measure actual physical calls,
 input/output tokens, latency and estimated model cost using a dated price
 basis. Missing usage remains unknown, not zero. Hosting, registry/build and
@@ -124,9 +142,18 @@ and record actual usage rather than interpreting these as incurred costs.
 
 ## Recovery and acceptance
 
-Do not delete a failed daily run or relaunch generation to repair missing
+After explicit user authorization, `newsloom-briefing retry-failed` can retry a
+known validation failure in the same day. It archives the failed run metadata in
+an append-only table, leaves original call/cost rows intact and continues their
+ordinals. It refuses running/successful slots, existing same-slot artifacts and
+unknown usage. The fixed publication window remains; a new consistent snapshot
+is recorded for the retry. This is an operator action, never a read/expand/API
+side effect. Original scheduled duplicate protection remains unchanged.
+
+Do not delete failed history or relaunch uncertain generation to repair missing
 answers. Reconcile current artifact/run status read-only; preserve unknown
-usage. A subsequent daily slot is independent.
+usage. Known validation failures require the explicitly authorized guarded
+operator retry; a subsequent daily slot remains independent.
 
 Provision only owning native azd layers after local/real-role checks and
 reviewed previews. Bootstrap one manual slot before enabling `0 5 * * *`.
@@ -157,7 +184,7 @@ run/accounting records. Original workloads, identities, models and schema are
 not destroyed or recreated. Preserve job-execution metadata before transition;
 the database ledger remains authoritative for once-only dispatch and usage.
 
-Final worker/UI source:
+Original worker/UI rollout source:
 `6ea37bee8a0564eeef5d4cd3a7c8e38f2411afc0577c8244fe71072943443c17`.
 The deployed API retains its independently verified image/source association:
 `a063f364dcfdbe6fb82433f3689f00834d3ecba34bfe58afae99df5239758551`.

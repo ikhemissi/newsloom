@@ -24,6 +24,7 @@
 
 ## 5. Deployment and acceptance
 
+- [x] 5.0 Implement/deploy the explicitly authorized controlled same-day retry, with additive immutable attempt history and uninterrupted call/cost accounting; verify real-role archive immutability, unknown/successful/in-flight denial, ordinal continuation, migrations and actual publication without resetting the rejected first attempt.
 - [ ] 5.1 Apply the scoped identity/model/migration and manual-disabled job through native azd, deploy the matching API then UI and run one bootstrap daily slot. Verify ready images/configuration, actual model and DB permissions/denials, full-window provenance, summary/TL;DR citation quality, word count, exact public assets and measured model usage/cost; preserve unrelated workloads/data/evaluation ledgers.
 - [ ] 5.2 Verify the corrected 05:00 UTC schedule and observe an actual successful scheduled execution separately, under the recorded 2026-11-03 next-slot recovery exception. Verify once-only slot behavior, published fresh/stale states and safe job diagnostics; keep this task open until that execution is observed.
 - [ ] 5.3 Verify the real signed-in regular-browser TL;DR/collapsible/status/citation/accessibility journey and API authorization without additional test-browser sign-in or credential export. Record unavailable checks as open, not as authored-fixture or anonymous-Azure substitutes.
@@ -63,6 +64,28 @@
   acceptance is verified; do not synchronize or archive automatically.
 - Use observed production volume, quality, latency and cost to decide any future
   spending policy in a separate reviewed change.
+
+## Authorized same-day recovery
+
+- The user explicitly selected "Allow a controlled retry and generate today’s
+  briefing now". Additive migration 006 preserves immutable failed-run metadata,
+  while original call/cost rows remain in place and new ordinals continue.
+  Normal scheduled duplicates, successful/in-flight slots and unknown usage
+  cannot enable this operator retry.
+- Actual real-role/migration/retry tests passed (24 focused tests); strict types
+  and lint passed. Native migration/worker gates passed, with image-only plans
+  and the existing daily schedule unchanged.
+- An initial controlled retry returned incomplete notes at 1,400 output tokens.
+  That attempt and its usage were also archived. The repaired notes allowance
+  is 4,096 tokens with smaller input batches and exact token admission.
+- The subsequent authorized execution succeeded and atomically published full
+  coverage: 90 eligible records, 1,026 summary words, 82 TL;DR words and 42
+  structurally validated citations. Actual accounting retains both failed
+  histories and all 12 call rows: 44,700 input/11,595 output tokens, estimated
+  total model cost USD 0.09427275, zero unknown operations.
+- The successful attempt alone costs an estimated USD 0.072625575. Structural
+  publication/provenance checks are not semantic quality or signed-in browser
+  acceptance; those remaining checks stay open.
 
 ## Resumed rollout: 2026-11-03
 

@@ -70,6 +70,65 @@ class Repository:
                 async for row in cursor:
                     yield Evidence.model_validate(row)
 
+    async def retry_claim(
+        self, cutoff: datetime, prompt_revision: str, model: str, version: str
+    ) -> int | None:
+        lock = await self.connection.execute("SELECT pg_try_advisory_lock(%s)", (LOCK_ID,))
+        if await lock.fetchone() != (True,):
+            return None
+        async with self.connection.transaction():
+            row = await (
+                await self.connection.execute(
+                    "SELECT status,error_category FROM public.briefing_runs "
+                    "WHERE cutoff=%s FOR UPDATE",
+                    (cutoff,),
+                )
+            ).fetchone()
+            if (
+                row is None
+                or row[0] != "failed"
+                or row[1]
+                not in (
+                    "briefing_foreign_citation",
+                    "briefing_summary_word_count",
+                    "briefing_invalid_generation",
+                    "briefing_refused_or_incomplete",
+                    "briefing_generation_truncated",
+                )
+            ):
+                return None
+            current = await (
+                await self.connection.execute(
+                    "SELECT cutoff FROM public.briefing_current WHERE cutoff=%s", (cutoff,)
+                )
+            ).fetchone()
+            if current is not None:
+                return None
+            usage = await (
+                await self.connection.execute(
+                    "SELECT coalesce(max(ordinal),0),count(*) FILTER("
+                    "WHERE status<>'completed' OR input_tokens IS NULL OR output_tokens IS NULL) "
+                    "FROM public.briefing_calls WHERE cutoff=%s",
+                    (cutoff,),
+                )
+            ).fetchone()
+            if usage is None or usage[1] != 0 or not isinstance(usage[0], int):
+                return None
+            ordinal = usage[0]
+            await self.connection.execute(
+                "INSERT INTO public.briefing_attempts(cutoff,last_call_ordinal,failed_run) "
+                "SELECT cutoff,%s,to_jsonb(briefing_runs) "
+                "FROM public.briefing_runs WHERE cutoff=%s",
+                (ordinal, cutoff),
+            )
+            await self.connection.execute(
+                "UPDATE public.briefing_runs SET status='running',started_at=clock_timestamp(),"
+                "finished_at=NULL,error_category=NULL,evidence_count=NULL,evidence_sha256=NULL,"
+                "prompt_revision=%s,model=%s,model_version=%s WHERE cutoff=%s",
+                (prompt_revision, model, version, cutoff),
+            )
+            return ordinal
+
     async def evidence(self, cutoff: datetime, items: list[Evidence]) -> None:
         digest = hashlib.sha256()
         for item in items:

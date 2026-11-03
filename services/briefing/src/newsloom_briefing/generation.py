@@ -153,7 +153,7 @@ class FoundryGenerator:
     async def generate(
         self, stage: str, task: str, value: str, schema: type[T], deadline: float
     ) -> T:
-        completion_limit = 4096 if stage == "summary" else 768 if stage == "tldr" else 1400
+        completion_limit = 768 if stage == "tldr" else 4096
         messages = request_messages(task, value)
         output_schema = evidence_schema(schema, stage, value)
         input_bound = request_input_tokens(task, value, output_schema)
@@ -204,6 +204,8 @@ class FoundryGenerator:
                     cost,
                 )
                 message = response.choices[0].message
+                if response.choices[0].finish_reason == "length":
+                    raise Failure("briefing_generation_truncated")
                 if (
                     response.choices[0].finish_reason != "stop"
                     or message.refusal
@@ -235,7 +237,7 @@ def serialized(value: object) -> str:
     return json.dumps(value, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
 
 
-def batches(values: list[dict[str, object]], maximum: int = 4800) -> list[str]:
+def batches(values: list[dict[str, object]], maximum: int = 3000) -> list[str]:
     result: list[str] = []
     current: list[dict[str, object]] = []
     for value in values:
@@ -281,7 +283,8 @@ async def synthesize(
             "notes",
             "Summarize the events and themes in this batch in concise notes, aiming for "
             "150 words total. Each note cites original UUIDs in sources. Consider every entry. "
-            "Do not repeat long titles or URLs. Preserve dates and factual distinctions.",
+            "Group related entries into themes, with at most three representative source IDs "
+            "per note. Do not repeat long titles or URLs. Preserve dates and factual distinctions.",
             batch,
             Notes,
             deadline,

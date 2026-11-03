@@ -31,10 +31,20 @@ class Parser(argparse.ArgumentParser):
 
 
 async def execute(
-    repository: Repository, generator: FoundryGenerator, model: str, version: str
+    repository: Repository,
+    generator: FoundryGenerator,
+    model: str,
+    version: str,
+    *,
+    retry_failed: bool = False,
 ) -> bool:
     cutoff = generator.cutoff
-    if not await repository.claim(cutoff, PROMPT_REVISION, model, version):
+    if retry_failed:
+        ordinal = await repository.retry_claim(cutoff, PROMPT_REVISION, model, version)
+        if ordinal is None:
+            raise Failure("briefing_retry_not_permitted")
+        generator.ordinal = ordinal
+    elif not await repository.claim(cutoff, PROMPT_REVISION, model, version):
         return False
     deadline = time.monotonic() + 3540
     try:
@@ -188,13 +198,20 @@ async def runtime(correlation: str, command: str = "run") -> None:
                 env["BRIEFING_PRICE_BASIS"],
             )
             published = await execute(
-                repository, generator, env["BRIEFING_MODEL"], env["BRIEFING_MODEL_VERSION"]
+                repository,
+                generator,
+                env["BRIEFING_MODEL"],
+                env["BRIEFING_MODEL_VERSION"],
+                retry_failed=command == "retry-failed",
             )
             event(
                 "briefing_run",
                 correlation,
                 outcome="published" if published else "already_claimed",
-                counts={"generation_calls": generator.ordinal},
+                counts={
+                    "generation_calls": transport.observations.generation_calls,
+                    "daily_call_intents": generator.ordinal,
+                },
             )
 
 
@@ -204,7 +221,10 @@ def main() -> None:
     try:
         parser = Parser(description=__doc__)
         parser.add_argument(
-            "command", choices=["run", "inspect", "verify-access"], nargs="?", default="run"
+            "command",
+            choices=["run", "retry-failed", "inspect", "verify-access"],
+            nargs="?",
+            default="run",
         )
         arguments = parser.parse_args()
         asyncio.run(runtime(correlation, arguments.command))
