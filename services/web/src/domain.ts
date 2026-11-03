@@ -66,7 +66,8 @@ export type NewsDetail = NewsItem & {
 export type BriefingParagraph = { text: string; references: number[] };
 export type Briefing = {
   version: string; window_start: string; window_end: string; generated_at: string;
-  coverage: "full" | "limited" | "empty"; evidence_count: number;
+  coverage: "full" | "limited" | "empty" | "no_material_changes"; evidence_count: number;
+  editorial_policy?: "architect-v1" | null | undefined;
   tldr: BriefingParagraph | null;
   sections: { heading: string; paragraphs: BriefingParagraph[] }[];
   citations: { number: number; url: string; title: string }[];

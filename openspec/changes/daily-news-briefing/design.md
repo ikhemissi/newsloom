@@ -25,6 +25,13 @@ operation without a speculative dollar budget.
 **Non-Goals:** A new chat agent, user impersonation, personalization, web search,
 public regeneration, a briefing-history UI or changes to parked evaluations.
 
+The [architect-focused refinement](../architect-focused-briefing/design.md)
+supersedes the initial thematic compression and forced 900-1,100-word policy
+below for new architect-v1 artifacts. It introduces factual signal selection,
+no prose minimum, a combined five-minute ceiling and concise reader metadata.
+Historical artifacts retain their legacy read policy; earlier measured values
+and open scheduled/semantic/signed-in acceptance are not rewritten.
+
 ## Decisions
 
 ### 1. Dedicated scheduled workload, not an interactive-agent call
@@ -87,7 +94,7 @@ completing its run. A partial write cannot pair different summary/TL;DR versions
 Keep only current published content; retain metadata-only run accounting, not
 historical answer bodies.
 
-### 3. Complete stored-week input with bounded hierarchical synthesis
+### 3. Initial stored-week synthesis (superseded for architect-policy output)
 
 At claim time freeze `[cutoff - 7 days, cutoff)` and take a repeatable-read
 read-only snapshot of eligible committed public news. Stream stable
@@ -168,9 +175,10 @@ the interactive-answer 16-KiB parser onto a larger briefing response.
 Expansion, refresh and version changes never modify question, filters, selected
 items, submitted A2A snapshots or focus. Preserve independent panel scrolling.
 
-Show actual seven-day bounds, generated-at, roughly five-minute reading cue,
-all-news scope and pending/stale/failed/no-news states compactly. Clearly
-identify it as a generated overview of stored reporting, not the user's answer.
+For architect-policy presentation, show generation time before the TL;DR and
+actual reading-time estimates on the collapsed content, with short exceptional
+state notices. Do not display healthy scope/window/cutoff/count/read/cache
+diagnostics. Retain the protected metadata and distinct no-material/no-news states.
 
 ### 7. Measure before budgeting
 

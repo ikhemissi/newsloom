@@ -3,7 +3,7 @@ import { App } from "../src/App";
 import { parseAnswer } from "../src/answer";
 import type { AuthSession, ResearchClient } from "../src/domain";
 import { UiFailure } from "../src/domain";
-import { briefing, newsItem, sourceCatalog, newsDetail, page, runtimeConfig } from "./fixtures";
+import { architectBriefing, briefing, legacyBriefing, noMaterialBriefing, newsItem, sourceCatalog, newsDetail, page, runtimeConfig } from "./fixtures";
 import { matchesFilters } from "../src/filters";
 import { HttpCatalog } from "../src/catalog";
 import "../src/style.css";
@@ -59,7 +59,9 @@ createRoot(container).render(<App auth={auth} research={research} catalog={{
     document.documentElement.dataset.briefingCalls = String(calls);
     if (parameters.has("http-briefing")) return briefingHttp.briefing(signal);
     if (parameters.has("briefing-error") && calls === 1) throw new UiFailure("unavailable");
-    const result = await briefing();
+    const result = parameters.has("briefing-architect") ? architectBriefing()
+      : parameters.has("briefing-legacy") ? legacyBriefing()
+        : parameters.has("briefing-no-material") ? noMaterialBriefing() : await briefing();
     if (parameters.has("briefing-pending")) result.briefing = null;
     if (parameters.has("briefing-empty") && result.briefing) result.briefing = {
       ...result.briefing, coverage: "empty", evidence_count: 0, tldr: null, sections: [], citations: [],

@@ -196,14 +196,19 @@ implementation and acceptance tracked there, not a completed phase.
 **Acceptance criteria**
 - Generate once daily at 05:00 UTC from the preceding seven-day stored-news
   snapshot, independent of filters or selected articles; exclude the cutoff.
-- Normal summary length is 900-1,100 words, with honest sparse/empty handling.
+- The [architect-focused refinement](../openspec/changes/architect-focused-briefing/tasks.md)
+  prioritizes concrete architecture-relevant changes, excludes routine news and
+  permits shorter output without padding. Combined TL;DR/narrative is at most
+  1,000 words (estimated five-minute ceiling); no-material/empty states differ.
+  Legacy published artifacts remain readable under their historical policy.
   Derive the TL;DR from the completed summary in the same run and atomically
   publish one version with safe original-source citations.
 - Place the TL;DR above a full-summary collapsible closed by default at the top
   of the Agent panel. Preserve composer/answer context and independent scrolling.
 - Read through existing delegated news.read without generating on reads or
   expansion. MCP stays read-only; the scheduler uses a dedicated writer identity.
-- Show actual window/generation time and pending/stale/failure states. Measure
+- Show generation time before the TL;DR, with concise exceptional state notices.
+  Retain actual window/cutoff metadata in the protected operational contract. Measure
   model usage/cost without an initial daily spending cap.
 - Verify actual scheduled execution separately from bootstrap and record
   real signed-in Azure accessibility/behavior, leaving unavailable checks open.

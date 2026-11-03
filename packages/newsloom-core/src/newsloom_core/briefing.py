@@ -67,7 +67,10 @@ class Briefing(BriefingContract):
     window_start: datetime
     window_end: datetime
     generated_at: datetime
-    coverage: Literal["full", "limited", "empty"]
+    coverage: Literal["full", "limited", "empty", "no_material_changes"]
+    editorial_policy: Literal["architect-v1"] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     evidence_count: Count
     tldr: Paragraph | None = Field(repr=False)
     sections: Annotated[tuple[Section, ...], Field(max_length=16)] = Field(repr=False)
@@ -92,6 +95,16 @@ class Briefing(BriefingContract):
             if self.evidence_count or self.tldr is not None or self.sections or self.citations:
                 raise ValueError("invalid_empty_briefing")
             return self
+        if self.coverage == "no_material_changes":
+            if (
+                self.editorial_policy != "architect-v1"
+                or not self.evidence_count
+                or self.tldr is not None
+                or self.sections
+                or self.citations
+            ):
+                raise ValueError("invalid_no_material_briefing")
+            return self
         if not self.evidence_count or self.tldr is None or not self.sections or not self.citations:
             raise ValueError("incomplete_briefing")
         if "\n" in self.tldr.text or not 1 <= len(self.tldr.text.split()) <= 120:
@@ -104,7 +117,11 @@ class Briefing(BriefingContract):
         ).issubset(references):
             raise ValueError("invalid_briefing_references")
         words = sum(len(p.text.split()) for s in self.sections for p in s.paragraphs)
-        if not 1 <= words <= 1100 or (self.coverage == "full" and words < 900):
+        if self.editorial_policy == "architect-v1":
+            invalid_length = not words or words + len(self.tldr.text.split()) > 1000
+        else:
+            invalid_length = not 1 <= words <= 1100 or (self.coverage == "full" and words < 900)
+        if invalid_length:
             raise ValueError("invalid_briefing_length")
         return self
 

@@ -4,7 +4,7 @@ import { once } from "node:events";
 import { afterAll, beforeAll, expect, test, vi } from "vitest";
 import { HttpCatalog } from "../src/catalog";
 import { parseBriefing } from "../src/briefing";
-import { briefingResponse, runtimeConfig } from "./fixtures";
+import { architectBriefing, briefingResponse, legacyBriefing, noMaterialBriefing, runtimeConfig } from "./fixtures";
 
 const auth = {
   signedIn: () => true, signIn: async () => undefined, signOut: async () => undefined,
@@ -113,6 +113,46 @@ test("briefing lane is independent, permits cancellation and rejects concurrent 
   const fetchImpl = vi.fn<typeof fetch>(async (_input, options) => {
     await new Promise<void>((_, reject) => {
       options?.signal?.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")), { once: true });
+    });
+
+    test("architect policy accepts short full paragraphs and exactly 1000 combined words, not 1001", () => {
+      const short = architectBriefing();
+      short.briefing!.sections[0]!.paragraphs = [
+        { text: "The SDK changes its authentication interface.", references: [1] },
+        { text: "Architects should review migration requirements before upgrading.", references: [] },
+      ];
+      expect(parseBriefing(short)).toEqual(short);
+      for (const coverage of ["full", "limited"] as const) {
+        const exact = architectBriefing(920, 80);
+        exact.briefing!.coverage = coverage;
+        exact.briefing!.sections[0]!.heading = "heading ".repeat(1200);
+        expect(parseBriefing(exact)).toEqual(exact);
+        exact.briefing!.tldr!.text += " extra";
+        expect(() => parseBriefing(exact)).toThrow("invalid_response");
+      }
+      for (const editorial_policy of [undefined, null] as const) {
+        const legacy = legacyBriefing();
+        if (editorial_policy === null) legacy.briefing!.editorial_policy = null;
+        expect(parseBriefing(legacy)).toEqual(legacy);
+        const shortLegacy = architectBriefing();
+        if (editorial_policy === null) shortLegacy.briefing!.editorial_policy = null;
+        else delete shortLegacy.briefing!.editorial_policy;
+        expect(() => parseBriefing(shortLegacy)).toThrow("invalid_response");
+      }
+      const unknown = architectBriefing();
+      expect(() => parseBriefing({ ...unknown, briefing: { ...unknown.briefing, editorial_policy: "architect-v2" } }))
+        .toThrow("invalid_response");
+    });
+
+    test("no-material result requires architect policy, reviewed evidence and no generated content", () => {
+      const result = noMaterialBriefing();
+      expect(parseBriefing(result)).toEqual(result);
+      for (const patch of [
+        { editorial_policy: undefined }, { editorial_policy: null }, { evidence_count: 0 },
+        { tldr: briefingResponse.briefing!.tldr }, { sections: briefingResponse.briefing!.sections },
+        { citations: briefingResponse.briefing!.citations },
+      ]) expect(() => parseBriefing({ ...result, briefing: { ...result.briefing, ...patch } }))
+        .toThrow("invalid_response");
     });
     return Response.json({});
   });

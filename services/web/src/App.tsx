@@ -456,7 +456,6 @@ export function App({ auth, research, catalog }: {
           <span>Source/category choices unavailable. {choicesError} Applied filters remain unchanged.</span>
           <button type="button" className="btn btn-outline btn-sm" onClick={() => void loadSources()}>Retry catalogue</button>
         </div>}
-        <section aria-label="Applied news filters"><FilterChips snapshot={applied} /></section>
         {loading && <p role="status" aria-live="polite">Loading stored news...</p>}
         {newsError && <div className="alert alert-error" role="alert">{newsError}</div>}
         {loaded && !items.length && <p role="status">{submittedQuery ? "No news matches this search."

@@ -4,13 +4,18 @@
 
 Readers want a roughly five-minute overview of the preceding week without asking
 the agent a question. The user selected one shared written briefing of roughly
-1,000 words, scheduled daily at 05:00 UTC, with a visible TL;DR paragraph and
+up to five minutes of specific architect-relevant reporting, scheduled daily at
+05:00 UTC, with a visible TL;DR paragraph and
 the full summary collapsed by default at the top of the Agent panel.
 
 ## What Changes
 
-- Generate a cited, thematic briefing from committed news in the seven days
+- Generate a cited, selective architect-focused briefing from committed news in the seven days
   ending at the scheduled 05:00 UTC cutoff, independent of browsing filters.
+- The architect-focused refinement replaces the initial fixed 1,000-word target
+  and verbose reader metadata with selective material changes, a combined
+  five-minute reading ceiling and generation time only for healthy presentation.
+  Historical publication evidence and outstanding quality acceptance remain.
 - Derive the TL;DR paragraph from the completed summary in the same daily
   generation workflow, without introducing claims absent from the summary.
   Validate and atomically publish both as one versioned briefing.
@@ -22,10 +27,10 @@ the full summary collapsed by default at the top of the Agent panel.
 - Provide an authenticated read-only HTTP endpoint under the existing news API,
   retaining delegated `news.read` and authorization before any cache access.
 - Show the TL;DR below the panel heading/Close action and above research
-  context/composer. Put the entire roughly 1,000-word summary and safe
+  context/composer. Put the selected up-to-five-minute summary and safe
   original-source citations in an accessible collapsible, closed by default.
-  Expanding/collapsing never generates content. Show actual window, generation
-  time and freshness.
+  Expanding/collapsing never generates content. Show generation time and concise
+  exceptional freshness warnings; keep window/cutoff in protected metadata.
 - Retain the last good briefing with explicit pending/stale/failure states.
   Empty or insufficient evidence is not padded into invented reporting.
 - Isolate the scheduled worker's identity, database writes and chat deployment;

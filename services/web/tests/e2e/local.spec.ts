@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
-import { briefingResponse } from "../fixtures";
+import { architectBriefing, briefingResponse, legacyBriefing, noMaterialBriefing } from "../fixtures";
 
 test.describe("daily shared briefing", () => {
   test.use({ timezoneId: "Asia/Kathmandu", locale: "fr-FR" });
@@ -29,6 +29,15 @@ test.describe("daily shared briefing", () => {
       expect(order[2]).toBe("notice");
       await expect(region.locator("time[datetime='2026-11-02T05:10:00+00:00']")).toContainText("10:55:00");
       await expect(region.locator("time[datetime='2026-11-02T05:10:00+00:00']")).toContainText("UTC+5:45");
+      await expect(region.locator("time")).toHaveCount(1);
+      await expect(region).not.toContainText(/Daily refresh|Expected daily cutoff|Evidence window|stored records|Last read|cache age|Generated overview/);
+      const generation = region.locator(".briefing-note");
+      const tldr = region.locator(".briefing-tldr");
+      expect(await tldr.evaluate((element) => element.previousElementSibling?.textContent?.startsWith("Generated:"))).toBe(true);
+      const generationBox = await generation.boundingBox();
+      const tldrBox = await tldr.boundingBox();
+      expect(generationBox && tldrBox && tldrBox.y >= generationBox.y + generationBox.height
+        && tldrBox.y - generationBox.y - generationBox.height < 20).toBeTruthy();
       const details = region.locator("details");
       await expect(details).not.toHaveAttribute("open");
       const question = page.getByLabel("What would you like to understand?");
@@ -84,11 +93,11 @@ test.describe("daily shared briefing", () => {
     await page.goto("/tests/harness.html?briefing-version&briefing-stale");
     await page.getByRole("button", { name: "Agent", exact: true }).click();
     const region = page.getByRole("region", { name: "Daily news briefing" });
-    await expect(region.getByText(/Daily refresh: running/)).toContainText("Stale");
+    await expect(region.getByText(/This briefing is stale/)).toBeAttached();
     const details = region.locator("details");
     await details.locator("summary").click();
     await page.clock.fastForward(60_000);
-    await expect(region.getByText(/Daily refresh: failed/)).toBeAttached();
+    await expect(region.getByText(/Briefing refresh failed/)).toBeAttached();
     await expect(details).toHaveAttribute("open", "");
     await page.clock.fastForward(60_000);
     await expect(region.getByText("Authored updated weekly overview.")).toBeAttached();
@@ -119,6 +128,59 @@ test.describe("daily shared briefing", () => {
     await expect(region.locator("details")).toHaveCount(0);
     expect(await page.locator("html").getAttribute("data-research-calls")).toBe("0");
   });
+
+  for (const width of [1440, 390]) {
+    test(`${width}px policy-aware HTTP outcomes retain local layout and accessible collapsed content`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await page.clock.install({ time: new Date("2026-11-02T12:00:00Z") });
+      let body = architectBriefing();
+      let reads = 0;
+      await page.route("https://mcp.test/api/v1/briefing", async (route) => {
+        reads++;
+        await route.fulfill({ json: body });
+      });
+      for (const [result, minutes] of [
+        [architectBriefing(), 1], [architectBriefing(920, 80), 5], [legacyBriefing(), 6],
+      ] as const) {
+        body = result;
+        await page.goto("/tests/harness.html?http-briefing");
+        await page.getByRole("button", { name: "Agent", exact: true }).click();
+        const region = page.getByRole("region", { name: "Daily news briefing" });
+        await expect(region.getByRole("heading", { name: "TL;DR" })).toBeVisible();
+        const details = region.locator("details");
+        await expect(details).not.toHaveAttribute("open");
+        await expect(details.locator("summary")).toContainText(`About ${minutes} minute`);
+        const before = reads;
+        await details.locator("summary").focus();
+        await page.keyboard.press("Enter");
+        await expect(details).toHaveAttribute("open", "");
+        expect((await details.locator("section p").allTextContents()).join(" ")
+          .replace(/\[1\]/g, "").trim().split(/\s+/).length).toBe(
+            result.briefing!.sections[0]!.paragraphs[0]!.text.split(/\s+/).length);
+        await expect(details.getByRole("link")).toHaveAttribute("href", "https://publisher.test/briefing");
+        expect(reads).toBe(before);
+        expect(await page.locator("html").getAttribute("data-research-calls")).toBe("0");
+        expect((await new AxeBuilder({ page }).analyze()).violations.map((item) => item.id)).toEqual([]);
+      }
+      body = noMaterialBriefing();
+      await page.goto("/tests/harness.html?http-briefing");
+      await page.getByRole("button", { name: "Agent", exact: true }).click();
+      const region = page.getByRole("region", { name: "Daily news briefing" });
+      await expect(region.getByText("No material changes were identified in reviewed stored reporting.")).toBeVisible();
+      await expect(region.locator(".briefing-tldr, details, a")).toHaveCount(0);
+      await expect(region).not.toContainText(/No stored news|No published briefing|failed/);
+      expect((await new AxeBuilder({ page }).analyze()).violations.map((item) => item.id)).toEqual([]);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      body = architectBriefing(921, 80);
+      await page.goto("/tests/harness.html?http-briefing");
+      await page.getByRole("button", { name: "Agent", exact: true }).click();
+      await expect(region.getByRole("alert")).toContainText("invalid or incomplete response");
+      await expect(region.getByRole("button", { name: "Retry briefing" })).toBeEnabled();
+      await expect(region.locator(".briefing-tldr, details")).toHaveCount(0);
+      await expect(region).not.toContainText(/No stored news|No material changes|No published briefing/);
+      expect((await new AxeBuilder({ page }).analyze()).violations.map((item) => item.id)).toEqual([]);
+    });
+  }
 });
 
 for (const [zone, localDate, localTime, offset] of [
@@ -230,6 +292,13 @@ test("compact toolbar removes the hero gap and aligns Refresh with filters witho
   await expect(page.getByText("STORED NEWS. CLEARER CONTEXT.", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Stored articles, newest first. Initially showing up to 20.", { exact: true })).toHaveCount(0);
   await expect(page.locator(".news-heading")).toHaveCount(0);
+  await expect(page.getByLabel("Applied news filters")).toHaveCount(0);
+  await expect(page.locator(".news-column .filter-chips")).toHaveCount(0);
+  expect(await toolbar.evaluate((element) =>
+    element.nextElementSibling?.classList.contains("news-list"))).toBe(true);
+  const listBox = await page.locator(".news-list").boundingBox();
+  const filtersBox = await toolbar.boundingBox();
+  expect(listBox && filtersBox && Math.abs(listBox.y - filtersBox.y - filtersBox.height - 16) <= 1).toBeTruthy();
   const heading = page.getByRole("heading", { name: "Latest news", exact: true });
   const headingBox = await heading.boundingBox();
   expect(headingBox).not.toBeNull();
@@ -255,6 +324,10 @@ test("compact toolbar removes the hero gap and aligns Refresh with filters witho
   await expect(refresh).toHaveCount(0);
   await toolbar.getByRole("button", { name: "Clear search", exact: true }).click();
   await expect(page.locator(".news-search-context")).toHaveCount(0);
+  await toolbar.getByLabel("Source", { exact: true }).selectOption("fixture-source");
+  await toolbar.getByRole("button", { name: "Apply filters", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Authored search result", exact: true })).toBeVisible();
+  await expect(page.getByLabel("Applied news filters")).toHaveCount(0);
   await page.setViewportSize({ width: 390, height: 844 });
   await toolbar.getByLabel("Date period").selectOption("custom");
   expect(await toolbar.locator("select, input, button").evaluateAll((elements) => elements.every((element) => {
@@ -265,6 +338,9 @@ test("compact toolbar removes the hero gap and aligns Refresh with filters witho
   const mobileRefresh = await refresh.boundingBox();
   const mobileSource = await toolbar.getByLabel("Source", { exact: true }).boundingBox();
   expect(mobileRefresh && mobileSource && mobileRefresh.y > mobileSource.y).toBeTruthy();
+  const mobileList = await page.locator(".news-list").boundingBox();
+  const mobileFilters = await toolbar.boundingBox();
+  expect(mobileList && mobileFilters && Math.abs(mobileList.y - mobileFilters.y - mobileFilters.height - 16) <= 1).toBeTruthy();
   const results = await new AxeBuilder({ page }).analyze();
   if (results.violations.length)
     throw new Error(`ui_accessibility:${results.violations.map((item) => item.id).join(",")}`);
@@ -350,6 +426,8 @@ test("keyboard filter/search/reset journey preserves submitted research context 
   await expect(page.getByText("No news matches this search.")).toBeVisible();
   await expect(submitted).toContainText("Category: Agents and applications");
   await expect(page.getByLabel("Next research filters")).toContainText("Category: Models");
+  await expect(page.getByLabel("Applied news filters")).toHaveCount(0);
+  await expect(page.locator(".news-column .filter-chips")).toHaveCount(0);
   await page.getByRole("button", { name: "Reset filters", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Search results", exact: true })).toHaveClass("sr-only");
   await page.getByRole("button", { name: "Clear search", exact: true }).click();
@@ -371,7 +449,9 @@ test("catalogue failure is retryable and hostile category labels stay inert", as
   await expect(page.getByLabel("Source")).toBeEnabled();
   await page.getByLabel("Category").selectOption("agents-applications");
   await page.getByRole("button", { name: "Apply filters", exact: true }).click();
-  await expect(page.getByLabel("Applied news filters")).toContainText("<svg onload=bad()>");
+  await expect(page.getByLabel("Applied news filters")).toHaveCount(0);
+  await page.getByRole("button", { name: "Agent", exact: true }).click();
+  await expect(page.getByLabel("Next research filters")).toContainText("<svg onload=bad()>");
   expect(await page.locator("svg").count()).toBe(0);
   expect(await page.locator("html").getAttribute("data-research-calls")).toBe("0");
   await page.getByRole("button", { name: "Sign out", exact: true }).click();

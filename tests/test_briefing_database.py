@@ -46,7 +46,12 @@ async def test_real_snapshot_roles_once_only_publication_and_recovery(
                 assert claim is not None
                 await enrichment.complete(claim, enriched(), vector(), METADATA, "seed")
             await connection.execute(
-                "UPDATE news SET published_at=%s", (cutoff - timedelta(days=7),)
+                "UPDATE news SET title=%s,summary=%s,published_at=%s",
+                (
+                    "Authored event",
+                    "Authored evidence of a published event.",
+                    cutoff - timedelta(days=7),
+                ),
             )
             ids = await (await connection.execute("SELECT id FROM news ORDER BY id")).fetchall()
             excluded = ids[-1][0]

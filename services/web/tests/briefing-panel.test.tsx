@@ -5,7 +5,7 @@ import { App } from "../src/App";
 import type { BriefingResponse, NewsCatalog } from "../src/domain";
 import { UiFailure } from "../src/domain";
 import { parseAnswer } from "../src/answer";
-import { briefing, briefingResponse, detail, newsItem, page, sourceCatalog } from "./fixtures";
+import { architectBriefing, briefing, briefingResponse, detail, legacyBriefing, newsItem, noMaterialBriefing, page, sourceCatalog } from "./fixtures";
 
 const catalog = (read = vi.fn(briefing)): NewsCatalog => ({
   briefing: read, recent: async () => page([newsItem]), search: async () => page([]),
@@ -14,7 +14,7 @@ const catalog = (read = vi.fn(briefing)): NewsCatalog => ({
 const flush = async () => { await act(async () => undefined); };
 const open = () => fireEvent.click(screen.getByRole("button", { name: "Agent" }));
 const tick = async (ms: number) => { await act(async () => { await vi.advanceTimersByTimeAsync(ms); }); };
-const summary = () => screen.getByText("Full briefing and sources · About five minutes").closest("details")!;
+const summary = () => screen.getByText(/Full briefing and sources · About \d+ minutes?/).closest("details")!;
 beforeEach(() => {
   vi.useFakeTimers(); vi.setSystemTime(new Date("2026-11-02T12:00:00Z"));
 });
@@ -92,10 +92,10 @@ test("read failures remain visible and retryable; pending, stale, failed and no-
   fireEvent.click(screen.getByRole("button", { name: "Retry briefing" })); await flush();
   expect(read).toHaveBeenCalledOnce();
   await tick(60_000);
-  expect(screen.getByText(/No published briefing is available yet/)).toHaveTextContent("running");
+  expect(screen.getByText(/No published briefing is available yet/)).toBeInTheDocument();
   expect(screen.queryByText(/No stored news/)).toBeNull();
   await tick(60_000);
-  expect(screen.getByText(/Daily refresh: failed/)).toHaveTextContent("Stale");
+  expect(screen.getByText(/Briefing refresh failed/)).toHaveTextContent("stale");
   expect(screen.getByText(/Authored weekly overview/)).toBeInTheDocument();
   await tick(60_000);
   expect(screen.getByRole("alert")).toHaveTextContent("Access was denied");
@@ -104,6 +104,51 @@ test("read failures remain visible and retryable; pending, stale, failed and no-
   expect(screen.getByText(/No stored news was available/)).toBeInTheDocument();
   expect(screen.queryByText(/No published briefing/)).toBeNull();
   expect(screen.queryByRole("alert")).toBeNull();
+});
+
+test.each([
+  ["short architect", architectBriefing(), "About 1 minute"],
+  ["ceiling architect", architectBriefing(920, 80), "About 5 minutes"],
+  ["legacy 1026 plus 82", legacyBriefing(), "About 6 minutes"],
+])("%s shows only local generation metadata before TLDR and estimates all prose", async (_name, result, readingTime) => {
+  const read = vi.fn(async () => result);
+  const { container } = render(<BriefingPanel catalog={catalog(read)} active />);
+  await flush();
+  const region = screen.getByRole("region", { name: "Daily news briefing" });
+  expect([...region.children].map((child) => child.tagName)).toEqual(["H3", "P", "DIV", "DETAILS"]);
+  expect(region.children[1]).toHaveTextContent("Generated:");
+  expect(region.children[2]).toHaveClass("briefing-tldr");
+  expect(region.querySelectorAll("time")).toHaveLength(1);
+  expect(region.querySelector("time")).toHaveAttribute("datetime", result.briefing!.generated_at);
+  expect(region.textContent).not.toMatch(/Daily refresh|Expected daily cutoff|Evidence window|stored records|Last read|cache age|Generated overview/);
+  expect(summary()).toHaveTextContent(readingTime);
+  expect(summary().open).toBe(false);
+  summary().open = true;
+  await flush();
+  expect(container.querySelectorAll("details section p")).toHaveLength(result.briefing!.sections[0]!.paragraphs.length);
+  expect(read).toHaveBeenCalledOnce();
+});
+
+test("no-material publication has an honest concise notice without a fake TLDR or sources", async () => {
+  render(<BriefingPanel catalog={catalog(vi.fn(async () => noMaterialBriefing()))} active />);
+  await flush();
+  const region = screen.getByRole("region", { name: "Daily news briefing" });
+  expect(region).toHaveTextContent("No material changes were identified in reviewed stored reporting.");
+  expect(region.querySelector(".briefing-tldr, details, a")).toBeNull();
+  expect(region.textContent).not.toMatch(/No stored news|No published briefing|failed/);
+});
+
+test("a background read does not add healthy loading or diagnostic clutter", async () => {
+  const read = vi.fn(briefing).mockResolvedValueOnce(architectBriefing())
+    .mockImplementationOnce(() => new Promise<BriefingResponse>(() => undefined));
+  render(<BriefingPanel catalog={catalog(read)} active />);
+  await flush();
+  await tick(60_000);
+  expect(read).toHaveBeenCalledTimes(2);
+  const region = screen.getByRole("region", { name: "Daily news briefing" });
+  expect([...region.children].map((child) => child.tagName)).toEqual(["H3", "P", "DIV", "DETAILS"]);
+  expect(region.querySelectorAll("time")).toHaveLength(1);
+  expect(region.textContent).not.toMatch(/Reading the published briefing|Daily refresh|Last read|cache age/);
 });
 
 test("App keeps composer, selected news, answer/context and panel scroll independent of briefing reads", async () => {

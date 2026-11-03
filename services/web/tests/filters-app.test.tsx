@@ -24,6 +24,7 @@ test("draft edits dispatch nothing; Apply, Search, Reset and Clear preserve thei
   const agent = research();
   render(<App auth={auth} catalog={{ recent, search, sources, detail, briefing }} research={agent} />);
   await choicesReady();
+  expect(screen.queryByLabelText("Applied news filters")).toBeNull();
   change("Source", "fixture-source"); change("Category", "agents-applications");
   change("Search stored news", "unsent text");
   expect(search).not.toHaveBeenCalled(); expect(agent.ask).not.toHaveBeenCalled();
@@ -93,7 +94,9 @@ test("invalid custom dates are visible before dispatch and valid one-day ranges 
   change("Start date", "2026-11-01"); click("Apply filters");
   const expected = buildFilters({ ...emptyDraft, period: "custom", start: "2026-11-01", end: "2026-11-01" }, null);
   await waitFor(() => expect(search).toHaveBeenCalledWith(undefined, expect.any(AbortSignal), expected.filters));
-  expect(within(screen.getByLabelText("Applied news filters")).getByText(/2026-11-01 to 2026-11-01/)).toBeInTheDocument();
+  expect(screen.queryByLabelText("Applied news filters")).toBeNull();
+  expect(screen.getByLabelText("Start date")).toHaveValue("2026-11-01");
+  expect(screen.getByLabelText("End date")).toHaveValue("2026-11-01");
 });
 
 test("catalogue failure disables choices, permits dates, and retry does not relax applied filters", async () => {
@@ -115,7 +118,8 @@ test("catalogue failure disables choices, permits dates, and retry does not rela
   click("Retry catalogue");
   await choicesReady();
   expect(screen.getByLabelText("Source")).toBeEnabled();
-  expect(within(screen.getByLabelText("Applied news filters")).getByText(/Today:/)).toBeInTheDocument();
+  expect(screen.queryByLabelText("Applied news filters")).toBeNull();
+  expect(screen.getByLabelText("Date period")).toHaveValue("today");
 });
 
 test("in-flight and completed research retain exact context despite subsequent browsing changes", async () => {
@@ -138,6 +142,7 @@ test("in-flight and completed research retain exact context despite subsequent b
   expect(ask).toHaveBeenCalledWith("Independent question", expect.any(AbortSignal), [newsItem.id], { source: "fixture-source" });
   change("Category", "models"); click("Apply filters");
   await screen.findByText("No news matches these filters.");
+  expect(screen.queryByLabelText("Applied news filters")).toBeNull();
   expect(within(screen.getByLabelText("Next research filters")).getByText("Category: Models")).toBeInTheDocument();
   expect(within(screen.getByLabelText("Submitted research context")).getByText("Any category")).toBeInTheDocument();
   release?.();

@@ -4,13 +4,14 @@ from collections.abc import AsyncGenerator
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import TypeVar
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import httpx
 import pytest
 from azure.core.credentials import AccessToken
 from azure.core.credentials_async import AsyncTokenCredential
 from newsloom_briefing.cli import execute
+from newsloom_briefing.editorial import Facts, Selection, Signal
 from newsloom_briefing.generation import (
     DraftParagraph,
     DraftSection,
@@ -55,17 +56,31 @@ class Scripted:
         self.inputs.append((stage, value))
         if stage == "notes":
             ids = tuple(item["id"] for item in json.loads(value))
-            result: BaseModel = Notes(
-                notes=(
-                    DraftParagraph(
-                        text="The supplied reporting describes a published event.",
-                        sources=ids,
+            source = (
+                UUID(ids[0]) if UUID(ids[0]) in {i.id for i in self.items} else self.items[0].id
+            )
+            result: BaseModel = Facts(
+                reviewed_sources=ids,
+                signals=(
+                    Signal(
+                        product="Authored",
+                        event_key="published event",
+                        change="Published event",
+                        implication="Evaluate deployment impact",
+                        protected_facts=("published event",),
+                        caveats=(),
+                        availability="unknown",
+                        significance="material",
+                        impact="high",
+                        confidence="explicit",
+                        sources=(source,),
                     ),
-                )
+                ),
             )
         elif stage == "reduce":
-            ids = tuple(dict.fromkeys(source for p in json.loads(value) for source in p["sources"]))
-            result = Notes(notes=(DraftParagraph(text="Published event.", sources=ids[:1]),))
+            result = Selection(
+                signals=tuple(Signal.model_validate(item) for item in json.loads(value))
+            )
         elif stage == "summary":
             result = Summary(
                 coverage="full",
@@ -74,7 +89,8 @@ class Scripted:
                         heading="Authored weekly developments",
                         paragraphs=(
                             DraftParagraph(
-                                text=" ".join(["Authored published event."] * 320),
+                                text=" ".join(["Authored published event."] * 319)
+                                + " Evaluate deployment impact.",
                                 sources=(self.items[0].id,),
                             ),
                         ),

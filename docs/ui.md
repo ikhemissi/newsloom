@@ -98,18 +98,44 @@ empty-news result, and the composer remains usable. Deployment/usage and the
 open successful-generation boundary are recorded in the [briefing runbook](briefing.md).
 
 The TL;DR is below heading/Close and above the research notice/context/composer.
+Generation time is the only healthy metadata line before the TL;DR; the scope,
+refresh-ready, cutoff/window/count and last-read/cache diagnostics are not shown.
 Native details contains the complete cited summary; it starts collapsed and
 resets only for a different published version. Closing/reopening or rereading
 the same version retains expansion. Publisher text is inert; original citations
 permit HTTPS without credentials only. Dates retain their wire strings and
 display in the browser's locale/timezone with explicit offsets.
 
-The panel distinguishes no publication, no news, limited evidence, stale content,
-refresh pending/running/ready/failed and transport/auth/schema failures. The
+The panel distinguishes no publication, no news, no material changes, limited
+evidence, stale content and refresh/read failures through concise notices. The
 last successfully read publication remains visible after a later read failure,
-with an explicit freshness warning. Window, actual generation time, expected
-cutoff and last-read/cache-age metadata are not fabricated or updated by the
-display clock.
+with an explicit freshness warning. Operational window/cutoff/read/cache values
+remain in the protected DTO, not an expanded diagnostics block.
+
+The [architect-focused refinement](../openspec/changes/architect-focused-briefing/specs/architect-focused-briefing/spec.md)
+adds optional `editorial_policy: "architect-v1"`. Its TL;DR plus narrative have
+no minimum and a combined maximum of 1,000 whitespace-delimited words, excluding
+headings and citations. Omitted/null policy retains the historical full
+900–1,100 narrative-word validator, including the published 1,026-word narrative
+and 82-word TL;DR; unknown policies fail validation. The collapsed summary's
+estimated reading time rounds total TL;DR/narrative words up at 200 words/minute,
+so the legacy publication estimates six minutes, not a fixed five.
+
+`coverage: "no_material_changes"` requires architect policy, positive reviewed
+evidence and null TL;DR/empty sections/citations. It shows only the concise notice
+that no material changes were identified in reviewed stored reporting, not a
+claim about all real-world AI changes or fabricated content. Zero stored news,
+missing publication and transport failures remain separate outcomes.
+
+The main applied-filter badge row and its reserved spacing are removed for
+default and selected filters. Draft edits still dispatch nothing; Apply/Search/
+Reset retain their explicit semantics. Research filter chips and submitted
+question/answer context snapshots remain visible and immutable.
+
+Local authored policy/compatibility, metadata order, absent badge spacing,
+desktop/mobile geometry, keyboard/citation and axe regressions pass. These are
+fixture checks only; this refinement has not been deployed or accepted in a
+signed-in Azure browser, and prior scheduled/quality acceptance stays open.
 
 Reads are throttled to at most one start per minute, including retries, focus,
 visibility resumption and close/reopen. Open visible panels periodically reread;

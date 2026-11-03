@@ -1,14 +1,23 @@
 import { z } from "zod";
 import { safeHttps } from "./config";
-import type { BriefingResponse } from "./domain";
+import type { Briefing, BriefingResponse } from "./domain";
 import { UiFailure } from "./domain";
 
 const instant = z.iso.datetime({ offset: true });
 const positive = z.number().int().positive();
 const paragraph = z.strictObject({ text: z.string(), references: z.array(positive) });
+const wordCount = (text: string) => text.trim() ? text.trim().split(/\s+/u).length : 0;
+
+export function briefingWordCount(value: Pick<Briefing, "sections" | "tldr">): number {
+  return wordCount([value.tldr?.text ?? "",
+    ...value.sections.flatMap((section) => section.paragraphs.map((part) => part.text))].join(" "));
+}
+
 const artifact = z.strictObject({
   version: z.uuid(), window_start: instant, window_end: instant, generated_at: instant,
-  coverage: z.enum(["full", "limited", "empty"]), evidence_count: z.number().int().nonnegative(),
+  coverage: z.enum(["full", "limited", "empty", "no_material_changes"]),
+  editorial_policy: z.literal("architect-v1").nullable().optional(),
+  evidence_count: z.number().int().nonnegative(),
   tldr: paragraph.nullable(),
   sections: z.array(z.strictObject({ heading: z.string(), paragraphs: z.array(paragraph) })),
   citations: z.array(z.strictObject({
@@ -23,13 +32,19 @@ const artifact = z.strictObject({
   if (value.coverage === "empty")
     return value.evidence_count === 0 && value.tldr === null
       && !value.sections.length && !value.citations.length;
+  if (value.coverage === "no_material_changes")
+    return value.editorial_policy === "architect-v1" && value.evidence_count > 0
+      && value.tldr === null && !value.sections.length && !value.citations.length;
   if (!value.evidence_count || !value.tldr?.text.trim() || !value.sections.length
       || !value.citations.length || /\r|\n/.test(value.tldr.text)) return false;
   const paragraphs = value.sections.flatMap((section) => section.paragraphs);
   if (value.sections.some((section) => !section.heading.trim() || !section.paragraphs.length)
       || paragraphs.some((part) => !part.text.trim())) return false;
-  const words = paragraphs.map((part) => part.text).join(" ").trim().split(/\s+/u).length;
-  return words <= 1100 && (value.coverage !== "full" || words >= 900)
+  const words = wordCount(paragraphs.map((part) => part.text).join(" "));
+  const validLength = value.editorial_policy === "architect-v1"
+    ? briefingWordCount(value) <= 1000
+    : words <= 1100 && (value.coverage !== "full" || words >= 900);
+  return validLength
     && value.citations.every((citation, index) => citation.number === index + 1)
     && [...paragraphs, value.tldr].every((part) =>
       part.references.every((number) => number <= value.citations.length));

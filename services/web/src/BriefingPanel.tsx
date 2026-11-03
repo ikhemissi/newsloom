@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Briefing, BriefingParagraph, BriefingResponse, NewsCatalog } from "./domain";
 import { failureMessage } from "./domain";
 import { safeHttps } from "./config";
+import { briefingWordCount } from "./briefing";
 import { LocalTimestamp, localDateTimeFormat, useDisplayClock } from "./timestamps";
 
 const minute = 60_000;
@@ -14,15 +15,18 @@ function PublishedBriefing({ briefing }: { briefing: Briefing }) {
         aria-label={`Focus briefing citation ${number}`}
         onClick={() => references.current.get(number)?.focus()}>[{number}]</button>)}</p>;
   }
+  const minutes = Math.ceil(briefingWordCount(briefing) / 200);
   return <>
-    {briefing.coverage === "empty" ? <p>No stored news was available in this seven-day window.</p> : <>
+    {briefing.coverage === "empty" ? <p>No stored news was available in this seven-day window.</p>
+      : briefing.coverage === "no_material_changes"
+        ? <p>No material changes were identified in reviewed stored reporting.</p> : <>
       {briefing.coverage === "limited" && <p>Limited evidence: a shorter overview, without padding.</p>}
       <div className="briefing-tldr"><h4>TL;DR</h4>
         {briefing.tldr && <p>{briefing.tldr.text}{briefing.tldr.references.map((number, index) =>
           <span key={`${number}-${index}`}> [{number}]</span>)}</p>}
       </div>
       <details className="briefing-details">
-        <summary>Full briefing and sources · About five minutes</summary>
+        <summary>Full briefing and sources · About {minutes} {minutes === 1 ? "minute" : "minutes"}</summary>
         {briefing.sections.map((section, index) => <section key={index} aria-label={section.heading}>
           <h4>{section.heading}</h4>
           {section.paragraphs.map((part, partIndex) => paragraph(part, partIndex))}
@@ -100,29 +104,25 @@ export function BriefingPanel({ catalog, active }: { catalog: NewsCatalog; activ
   const artifact = data?.briefing;
   return <section aria-label="Daily news briefing" className="daily-briefing">
     <h3>Daily news briefing</h3>
-    <p className="briefing-note">Generated overview of all stored reporting in the window, independent of browsing filters. Not your research answer.</p>
-    {loading && active && <p role="status">Reading the published briefing…</p>}
+    {loading && active && !data && <p role="status">Reading the published briefing…</p>}
     {error && <div role="alert">
-      <p>Briefing read failed. {error} Your research is still available.</p>
+      <p>Briefing read failed. {error}</p>
+      {artifact && <p>Showing the last publication; freshness could not be checked.</p>}
       <button type="button" className="btn btn-outline btn-sm" disabled={loading}
         onClick={() => { setRetryQueued(true); setRetry((value) => value + 1); }}>Retry briefing</button>
-      <p className="briefing-note">Read-only retry; requests are limited to once per minute.</p>
       {retryQueued && <p role="status">Retry scheduled for the next permitted read.</p>}
     </div>}
     {data && <>
-      <p role="status">{data.refresh.stale ? "Stale · " : ""}Daily refresh: {data.refresh.state}.
-        {!artifact && " No published briefing is available yet."}
-        {artifact && error && " Showing the last successfully read publication; freshness could not be checked."}</p>
-      <p className="briefing-note">Expected daily cutoff: <LocalTimestamp value={data.refresh.expected_cutoff} formatter={formatter} /></p>
+      {!artifact && <p role="status">No published briefing is available yet.
+        {data.refresh.state === "failed" && " Briefing refresh failed."}</p>}
+      {artifact && !error && (data.refresh.stale || data.refresh.state === "failed") && <p role="status">
+        {data.refresh.stale && "This briefing is stale."}
+        {data.refresh.state === "failed" && " Briefing refresh failed."}
+      </p>}
       {artifact && <>
-        <p className="briefing-note">Evidence window: <LocalTimestamp value={artifact.window_start} formatter={formatter} />
-          {" to "}<LocalTimestamp value={artifact.window_end} formatter={formatter} /> (end exclusive).
-          {" "}{artifact.evidence_count} stored records.</p>
         <p className="briefing-note">Generated: <LocalTimestamp value={artifact.generated_at} formatter={formatter} /></p>
         <PublishedBriefing key={artifact.version} briefing={artifact} />
       </>}
-      <p className="briefing-note">Last read: <LocalTimestamp value={data.meta.read_at} formatter={formatter} />.
-        {" "}Server cache age at read: {data.meta.cache_age_seconds} seconds.</p>
     </>}
     {!data && !error && !loading && <p role="status">{active
       ? "Waiting for the next permitted briefing read (at most once per minute)."

@@ -43,3 +43,30 @@ export const briefingResponse: BriefingResponse = {
   meta: { read_at: "2026-11-02T06:00:00+01:00", cache_age_seconds: 0, result_scope: "briefing" },
 };
 export const briefing = async (): Promise<BriefingResponse> => structuredClone(briefingResponse);
+
+export function architectBriefing(narrativeWords = 24, tldrWords = 8): BriefingResponse {
+  const result = structuredClone(briefingResponse);
+  result.briefing = {
+    ...result.briefing!, editorial_policy: "architect-v1",
+    tldr: { text: Array(tldrWords).fill("change").join(" "), references: [1] },
+    sections: [{ heading: "Deployment changes", paragraphs: [
+      { text: Array(narrativeWords).fill("supported").join(" "), references: [1] },
+    ] }],
+  };
+  return result;
+}
+
+export function legacyBriefing(): BriefingResponse {
+  const result = architectBriefing(1026, 82);
+  delete result.briefing!.editorial_policy;
+  return result;
+}
+
+export function noMaterialBriefing(): BriefingResponse {
+  const result = structuredClone(briefingResponse);
+  result.briefing = {
+    ...result.briefing!, editorial_policy: "architect-v1", coverage: "no_material_changes",
+    tldr: null, sections: [], citations: [],
+  };
+  return result;
+}

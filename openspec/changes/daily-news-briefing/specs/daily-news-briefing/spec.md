@@ -21,11 +21,12 @@ fixed despite delayed execution, browser timezone, filters or article selection.
   same shared published version
 
 ### Requirement: Evidence-grounded weekly synthesis
-The briefing SHALL consider every eligible record in a consistent stored-news
-snapshot, synthesize themes and link claims to supplied original sources.
-The normal English summary SHALL contain 900-1,100 words excluding citations
-and TL;DR. It MUST NOT invent facts, fetch full articles or web-search, silently
-sample only the latest page, or claim exhaustive real-world news coverage.
+The briefing SHALL review every eligible stored record and prioritize supported
+material changes for AI solution architects, citing original sources.
+Architect-policy output SHALL have no word minimum and at most 1,000 combined
+TL;DR/narrative words. Legacy publications SHALL remain readable. It MUST NOT
+invent facts, fetch full articles/web-search, silently sample a page or claim
+exhaustive real-world coverage. Routine news SHALL NOT fill missing signal.
 
 #### Scenario: The week exceeds a single generation context
 - **WHEN** eligible stored news spans multiple pages or model contexts
@@ -89,10 +90,10 @@ and the scheduler MUST NOT impersonate a signed-in user.
 - **AND** existing safe errors, exact-origin policy and no-store headers apply
 
 ### Requirement: Honest availability and freshness
-Readers SHALL see the artifact's actual evidence window, generation time,
-expected daily cutoff and latest refresh state. A pending/failed update SHALL
-retain the last good version with explicit stale status. No prior version,
-valid no-news result and service failure MUST be distinguishable.
+Healthy reader presentation SHALL show only generation time before the TL;DR.
+The actual window, cutoff and refresh state SHALL remain in protected metadata.
+Exceptional pending/stale/failed states SHALL be concise and preserve last-good
+content honestly. No version, no news, no material changes and failure MUST be distinct.
 
 #### Scenario: Initial generation or a later refresh has not succeeded
 - **WHEN** no published version exists

@@ -3,6 +3,7 @@
 import asyncio
 import hashlib
 import json
+import re
 import time
 from datetime import datetime
 from decimal import Decimal
@@ -15,6 +16,16 @@ from newsloom_core.briefing import Briefing, BriefingContract, Citation, Paragra
 from newsloom_core.model_transport import ModelClient, ModelFailure, Usage
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from newsloom_briefing.editorial import (
+    FACT_TASK,
+    SELECTION_TASK,
+    SUMMARY_TASK,
+    TLDR_TASK,
+    Facts,
+    Selection,
+    Signal,
+    select,
+)
 from newsloom_briefing.repository import Evidence, Repository
 
 INSTRUCTIONS = (
@@ -25,7 +36,9 @@ INSTRUCTIONS = (
     "Return only the requested strict JSON schema."
 )
 PROMPT_REVISION = hashlib.sha256(
-    (INSTRUCTIONS + "\nbriefing-v1-summary-then-tldr").encode()
+    (
+        INSTRUCTIONS + FACT_TASK + SELECTION_TASK + SUMMARY_TASK + TLDR_TASK + "\narchitect-v1"
+    ).encode()
 ).hexdigest()
 
 
@@ -102,11 +115,23 @@ def evidence_schema(schema: type[BaseModel], stage: str, value: str) -> dict[str
         }
     else:
         identifiers = {str(UUID(source)) for paragraph in data for source in paragraph["sources"]}
-    definitions = result.get("$defs")
-    if identifiers and isinstance(definitions, dict):
-        paragraph = definitions.get("DraftParagraph")
-        if isinstance(paragraph, dict):
-            paragraph["properties"]["sources"]["items"]["enum"] = sorted(identifiers)
+
+    def constrain(node: object) -> None:
+        if isinstance(node, dict):
+            properties = node.get("properties")
+            if isinstance(properties, dict):
+                for name in ("sources", "reviewed_sources"):
+                    field = properties.get(name)
+                    if isinstance(field, dict) and isinstance(field.get("items"), dict):
+                        field["items"]["enum"] = sorted(identifiers)
+            for value in node.values():
+                constrain(value)
+        elif isinstance(node, list):
+            for value in node:
+                constrain(value)
+
+    if identifiers:
+        constrain(result)
     return result
 
 
@@ -257,6 +282,43 @@ def validate_sources(paragraphs: tuple[DraftParagraph, ...], allowed: set[UUID])
         raise Failure("briefing_foreign_citation")
 
 
+def numbers_supported(text: str, evidence_texts: list[str]) -> bool:
+    return all(
+        any(
+            re.search(r"(?<![\d.])" + re.escape(number) + r"(?![\d.])", source)
+            for source in evidence_texts
+        )
+        for number in re.findall(r"\d+(?:[.,]\d+)*", text)
+    )
+
+
+def validate_signals(signals: tuple[Signal, ...], sources: dict[UUID, Evidence]) -> None:
+    for signal in signals:
+        if not set(signal.sources).issubset(sources):
+            raise Failure("briefing_foreign_citation")
+        texts = [(sources[s].title + " " + sources[s].summary).casefold() for s in signal.sources]
+        if not any(signal.product.casefold() in source for source in texts):
+            raise Failure("briefing_unsupported_fact")
+        if any(
+            not fact.strip() or not any(fact.casefold() in text for text in texts)
+            for fact in signal.protected_facts
+        ):
+            raise Failure("briefing_unsupported_fact")
+        if not numbers_supported(signal.change, texts):
+            raise Failure("briefing_unsupported_fact")
+        if signal.availability == "ga" and not any(
+            "generally available" in text
+            or "general availability" in text
+            or re.search(r"\bga\b", text)
+            for text in texts
+        ):
+            raise Failure("briefing_unsupported_availability")
+        if signal.availability == "preview" and not any(
+            re.search(r"\b(preview|beta|alpha)\b", text) for text in texts
+        ):
+            raise Failure("briefing_unsupported_availability")
+
+
 async def synthesize(
     generator: Generator, evidence: list[Evidence], cutoff: datetime, deadline: float
 ) -> Briefing:
@@ -273,82 +335,110 @@ async def synthesize(
             tldr=None,
             sections=(),
             citations=(),
+            editorial_policy="architect-v1",
         )
     sources = {item.id: item for item in evidence}
-    notes: list[DraftParagraph] = []
+    signals: list[Signal] = []
     for batch in batches([item.model_dump(mode="json") for item in evidence]):
         data = json.loads(batch)
         allowed = {UUID(item["id"]) for item in data}
-        generated = await generator.generate(
-            "notes",
-            "Summarize the events and themes in this batch in concise notes, aiming for "
-            "150 words total. Each note cites original UUIDs in sources. Consider every entry. "
-            "Group related entries into themes, with at most three representative source IDs "
-            "per note. Do not repeat long titles or URLs. Preserve dates and factual distinctions.",
-            batch,
-            Notes,
-            deadline,
+        generated = await generator.generate("notes", FACT_TASK, batch, Facts, deadline)
+        if set(generated.reviewed_sources) != allowed or len(generated.reviewed_sources) != len(
+            allowed
+        ):
+            raise Failure("briefing_incomplete_review")
+        validate_signals(generated.signals, {s: sources[s] for s in allowed})
+        signals.extend(generated.signals)
+    signals = select(signals)
+    if not signals:
+        return Briefing(
+            version=uuid4(),
+            window_start=cutoff - timedelta(days=7),
+            window_end=cutoff,
+            generated_at=datetime.now(UTC),
+            coverage="no_material_changes",
+            evidence_count=len(evidence),
+            tldr=None,
+            sections=(),
+            citations=(),
+            editorial_policy="architect-v1",
         )
-        validate_sources(generated.notes, allowed)
-        notes.extend(generated.notes)
-    summary_task = (
-        "Write a coherent weekly briefing in thematic sections with 900-1100 narrative words "
-        "excluding headings. Use only these notes. Use full coverage unless the provided "
-        "evidence is too sparse to support that length; then use limited and be explicitly "
-        "shorter without padding. Each paragraph needs original UUID sources. "
-        "Explain meaningful developments, comparisons and limitations without outside facts."
-    )
+    if len(signals) > 1:
+        consolidated: list[Signal] = []
+        for batch in batches([s.model_dump(mode="json") for s in signals]):
+            allowed = {UUID(s) for item in json.loads(batch) for s in item["sources"]}
+            chosen = await generator.generate("reduce", SELECTION_TASK, batch, Selection, deadline)
+            validate_signals(chosen.signals, {s: sources[s] for s in allowed})
+            consolidated.extend(chosen.signals)
+        signals = select(consolidated)
+        if not signals:
+            raise Failure("briefing_selection_inconsistent")
     while True:
-        summary_input = serialized([p.model_dump(mode="json") for p in notes])
+        summary_input = serialized([s.model_dump(mode="json") for s in signals])
         if (
-            tokens(summary_input) <= 4000
-            and request_input_tokens(
-                summary_task, summary_input, evidence_schema(Summary, "summary", summary_input)
+            request_input_tokens(
+                SUMMARY_TASK, summary_input, evidence_schema(Summary, "summary", summary_input)
             )
             + 4096
             <= 9500
         ):
             break
-        previous_size = tokens(serialized([p.model_dump(mode="json") for p in notes]))
-        reduced: list[DraftParagraph] = []
-        for batch in batches([p.model_dump(mode="json") for p in notes]):
+        previous_size = tokens(summary_input)
+        reduced: list[Signal] = []
+        for batch in batches([s.model_dump(mode="json") for s in signals]):
             allowed = {UUID(s) for p in json.loads(batch) for s in p["sources"]}
-            generated = await generator.generate(
-                "reduce",
-                "Combine these notes into thematic notes, at most 120 words total. "
-                "Keep only supported claims with their original UUID source citations.",
-                batch,
-                Notes,
-                deadline,
+            selection = await generator.generate(
+                "reduce", SELECTION_TASK, batch, Selection, deadline
             )
-            validate_sources(generated.notes, allowed)
-            reduced.extend(generated.notes)
-        if tokens(serialized([p.model_dump(mode="json") for p in reduced])) >= previous_size:
+            validate_signals(selection.signals, {s: sources[s] for s in allowed})
+            reduced.extend(selection.signals)
+        reduced = select(reduced)
+        if (
+            not reduced
+            or tokens(serialized([s.model_dump(mode="json") for s in reduced])) >= previous_size
+        ):
             raise Failure("briefing_reduction_not_converging")
-        notes = reduced
+        signals = reduced
     summary = await generator.generate(
         "summary",
-        summary_task,
+        SUMMARY_TASK,
         summary_input,
         Summary,
         deadline,
     )
     paragraphs = tuple(p for section in summary.sections for p in section.paragraphs)
-    validate_sources(paragraphs, set(sources))
+    selected_sources = {s for signal in signals for s in signal.sources}
+    validate_sources(paragraphs, selected_sources)
+    if any(
+        not numbers_supported(
+            p.text, [(sources[s].title + " " + sources[s].summary).casefold() for s in p.sources]
+        )
+        for p in paragraphs
+    ):
+        raise Failure("briefing_unsupported_fact")
+    text = " ".join(p.text for p in paragraphs).casefold()
+    for signal in signals:
+        if any(
+            value.casefold() not in text
+            for value in (signal.product, signal.change, signal.implication)
+        ) or any(fact.casefold() not in text for fact in signal.protected_facts):
+            raise Failure("briefing_generic_or_missing_change")
     words = sum(len(p.text.split()) for p in paragraphs)
-    if not 1 <= words <= 1100 or (summary.coverage == "full" and words < 900):
+    if not 1 <= words <= 1000:
         raise Failure("briefing_summary_word_count")
     cited_ids = list(dict.fromkeys(source for p in paragraphs for source in p.sources))
     tldr = await generator.generate(
         "tldr",
-        "Derive ONE TLDR paragraph of 60-100 words from this completed summary only. "
-        "No new claims, no headings, no newline. Cite only source UUIDs already used "
-        "in the summary; you are summarizing the summary, not the original news.",
+        TLDR_TASK,
         summary.model_dump_json(),
         Tldr,
         deadline,
     )
     validate_sources((tldr.paragraph,), set(cited_ids))
+    if not numbers_supported(tldr.paragraph.text, [p.text for p in paragraphs]):
+        raise Failure("briefing_unsupported_fact")
+    if not any(signal.product.casefold() in tldr.paragraph.text.casefold() for signal in signals):
+        raise Failure("briefing_generic_tldr")
     numbers = {identifier: index + 1 for index, identifier in enumerate(cited_ids)}
 
     def paragraph(p: DraftParagraph) -> Paragraph:
@@ -376,4 +466,5 @@ async def synthesize(
             )
             for identifier in cited_ids
         ),
+        editorial_policy="architect-v1",
     )

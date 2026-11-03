@@ -6,6 +6,9 @@ job is scheduled for 05:00 UTC daily. A first full artifact was published by an
 explicitly authorized controlled retry on 2026-11-03; actual scheduled execution
 and signed-in qualitative acceptance remain open. Earlier failed attempts and
 their costs remain in append-only history and the original call rows.
+The [architect-focused refinement](../openspec/changes/architect-focused-briefing/tasks.md)
+is now deployed consumer-first. Its new editorial policy takes effect at the
+next valid 05:00 UTC slot; deployment does not rewrite today's successful report.
 [PRD-3](prd-3.md) owns sequencing; [capabilities](prd-3-capabilities.md) own
 product behavior. The [news API](news-api.md) and [UI runbook](ui.md) own their
 existing transport and browser boundaries.
@@ -19,9 +22,12 @@ later ingested records are not silently included in that frozen snapshot.
 Browsing filters, selected articles and the reader's timezone do not customize
 the artifact.
 
-The normal summary contains 900-1,100 narrative words, excluding headings,
-citations and TL;DR. Sparse evidence can produce an explicitly limited shorter
-briefing; empty evidence publishes a no-news state without generation.
+Architect-policy reports have no prose minimum. Combined TL;DR and summary
+narrative is at most 1,000 words, an estimated five-minute ceiling at 200 words
+per minute; fewer meaningful changes produce shorter reports, not padding.
+Legacy publications retain their historical 900-1,100-word narrative read policy.
+Empty evidence publishes a no-news state without generation. A nonempty review
+with no material architectural signal publishes a distinct no-material notice.
 These are synthesized stored summaries and metadata, not full articles or
 exhaustive coverage of real-world news.
 
@@ -29,6 +35,33 @@ The worker first produces the cited summary, then derives a concise TL;DR from
 that completed summary in the same run. Both publish atomically. The panel
 shows the TL;DR above an accessible full-summary collapsible, closed by default.
 Reading or expanding never starts generation or sends an agent question.
+
+The editorial audience is an AI solution architect. Generation first retains
+named products, supported concrete changes, exact source spans for versions/
+metrics/limits, availability, caveats and conditional architectural implications.
+Every input UUID must be represented in the review. Only explicit material
+signals reach consolidation/synthesis; routine promotion, funding without
+practical design impact and generic trend commentary are omitted.
+Same-event reports are consolidated and ordered by practical impact/confidence.
+Selection must fit useful explanations within the reading ceiling, rather than
+turning every article into an item. Facts survive structured reduction instead
+of being repeatedly compressed into generic thematic prose.
+
+Source-ID schema constraints cover factual candidates and review lists as well
+as final paragraphs. Protected spans must exist in their cited stored evidence;
+GA/preview claims need explicit source support. Summary validation rejects
+missing selected products/change/implication/protected facts; a generic
+schema-valid essay is not a successful briefing. These controls are not a
+substitute for actual semantic/user review, and missing source details are
+never invented or recovered through unapproved full-article fetching.
+
+New artifacts carry `editorial_policy: "architect-v1"`; unknown policy values
+are rejected. Legacy artifacts without a policy remain readable and serialize
+without an extra null policy field, allowing consumer-first rollout. A
+`no_material_changes` artifact has reviewed news but no generated TL;DR, body
+or irrelevant citations. The UI shows a concise fixed notice instead.
+Healthy presentation keeps only generation time before the TL;DR, with brief
+exceptional stale/failure notices and no read/cache/window diagnostic block.
 
 ## Execution and publication
 
@@ -115,9 +148,9 @@ retained failed attempts and the successful attempt, actual accounting records
 estimated model cost USD 0.09427275 and zero unknown operations. The successful
 attempt alone accounts for USD 0.072625575; hosting/build costs remain separate.
 Numeric/provenance validation is not a semantic faithfulness or user-review score.
-The deployed controlled-retry worker source is
+That controlled-retry worker source was
 `abce35e2d3a7421f7ce83780bb54b4376fc81f40cc4fad7100fc4a94c4f76de1`;
-the existing UI/API images remain at their actual earlier source associations.
+its earlier UI/API source associations remain recorded in the rollout history.
 
 The notes stage had produced incomplete output at its earlier 1,400-token
 allowance. It now has a 4,096-token allowance with smaller input batches and
@@ -139,6 +172,35 @@ at capacity 10 is 10 requests/10,000 tokens per minute. Azure retail meters
 showed USD 0.825 input and USD 4.95 output per million tokens; cached-input
 discounts are not assumed. Recheck availability/quota/price at deployment,
 and record actual usage rather than interpreting these as incurred costs.
+
+## Architect refinement rollout (2026-11-03)
+
+Compatible API/shared contracts and the concise UI were deployed and independently
+verified before updating the scheduled producer. All three immutable images have
+source revision
+`e163fbad78462cb383a465efaa229f2a3a2e54377ff3d1834638431d130bb9aa`.
+Native previews showed only three in-place image changes and the UI runtime
+revision. Exact before/after ARM readback preserved all eight workload
+configurations, all four model deployments and 19 feature/authority flags,
+apart from those approved image/revision fields. No migration, resource,
+permission, consent or model-capacity change was needed.
+
+The full scoped primary gate passed: 303 evaluator tests, 1,741 repository
+tests with the intentionally excluded live-publisher test skipped, 78 UI tests,
+18 pinned browser journeys, strict types/lint, OpenSpec and native Terraform
+checks. All workspace packages built. A pinned nonroot production build matched
+the served index and both script/CSS assets byte-for-byte, with identical runtime
+configuration. API readiness 200, anonymous briefing denial 401 and exact-origin
+preflight 204 passed. Actual Azure anonymous desktop/mobile checks had no
+horizontal overflow, script errors, protected requests or axe violations.
+
+A non-generating inspection under the new worker parsed the actual legacy
+publication and returned the identical before/after metadata and usage receipt:
+90 records, 1,026 narrative words, 82 TL;DR words, 42 citations and 12 physical
+model calls with no unknown usage. No new generation was dispatched. This proves
+legacy read compatibility, not new editorial quality. The next valid daily slot,
+actual specificity/materiality/citation review and permitted signed-in browser
+acceptance remain open; neither this change nor its parent is archived.
 
 ## Recovery and acceptance
 
