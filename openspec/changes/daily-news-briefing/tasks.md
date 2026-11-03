@@ -27,7 +27,7 @@
 - [ ] 5.1 Apply the scoped identity/model/migration and manual-disabled job through native azd, deploy the matching API then UI and run one bootstrap daily slot. Verify ready images/configuration, actual model and DB permissions/denials, full-window provenance, summary/TL;DR citation quality, word count, exact public assets and measured model usage/cost; preserve unrelated workloads/data/evaluation ledgers.
 - [ ] 5.2 Verify the corrected 05:00 UTC schedule and observe an actual successful scheduled execution separately, under the recorded 2026-11-03 next-slot recovery exception. Verify once-only slot behavior, published fresh/stale states and safe job diagnostics; keep this task open until that execution is observed.
 - [ ] 5.3 Verify the real signed-in regular-browser TL;DR/collapsible/status/citation/accessibility journey and API authorization without additional test-browser sign-in or credential export. Record unavailable checks as open, not as authored-fixture or anonymous-Azure substitutes.
-- [ ] 5.4 Selectively commit/publish implementation and measured status with exact-source CI for each publication, usage/cost observations and explicit open acceptance. Update owning PRD-3 capability/ADR/runbook links; verify parked work, prior source associations and failed evaluation receipts remain unchanged.
+- [x] 5.4 Selectively commit/publish implementation and measured status with exact-source CI for each publication, usage/cost observations and explicit open acceptance. Update owning PRD-3 capability/ADR/runbook links; verify parked work, prior source associations and failed evaluation receipts remain unchanged.
 
 ## User-requested pause: 2026-11-02
 
@@ -102,3 +102,9 @@
   actual news-write denial, preserving today's failure. All four unrelated
   original app/jobs and three original models retained their fingerprints.
   Canonical dev state was safely reconciled after conflict detection.
+- Combined implementation/measured-status publication `ddfd957` passed
+  exact-source CI `41690057706`. Committed Git blobs reproduce the deployed
+  worker/UI source exactly:
+  `6ea37bee8a0564eeef5d4cd3a7c8e38f2411afc0577c8244fe71072943443c17`.
+  Tasks 5.1, 5.2 and 5.3 remain open for successful generation, real scheduled
+  acceptance and signed-in qualitative/browser evidence.

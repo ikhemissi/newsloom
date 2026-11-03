@@ -172,6 +172,9 @@ artifact, confirming that the failed attempt was retained and not retried;
 news-write denial still passed. All four other original app/jobs and all three
 original model deployments retained their fingerprints. The canonical dev
 state was reconciled only after an independent-change check.
+Combined implementation and measured-deployment publication `ddfd957` passed
+exact-source CI `41690057706`. This does not close successful-generation,
+actual-scheduled or signed-in quality acceptance.
 
 Rollback first disables the briefing schedule, then restores matching API/UI
 images. Preserve identities, tables, run records and all existing jobs/models.
