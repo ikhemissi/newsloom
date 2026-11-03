@@ -10,6 +10,7 @@ locals {
   )
   environment = {
     WORKLOAD_IDENTITIES               = jsonencode(local.identities)
+    BRIEFING_IDENTITY                 = var.briefing_identity_base64 == "" ? "" : base64decode(var.briefing_identity_base64)
     POSTGRES_HOST                     = var.postgres_host
     POSTGRES_DATABASE                 = var.postgres_database
     POSTGRES_ADMIN_NAME               = var.postgres_admin_name

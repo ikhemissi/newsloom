@@ -1,0 +1,1 @@
+"""Scheduled shared briefing generation."""

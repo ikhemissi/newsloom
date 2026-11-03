@@ -12,7 +12,6 @@ from newsloom_platform.config import (
     RUNTIME_WORKLOADS,
     PlatformFailure,
     RuntimeConfig,
-    database_role,
 )
 
 ADVISORY_LOCK = 736981071
@@ -73,20 +72,28 @@ async def record(
 
 
 async def verify_principals(
-    connection: AsyncConnection[tuple[object, ...]], config: RuntimeConfig, *, create: bool
+    connection: AsyncConnection[tuple[object, ...]],
+    config: RuntimeConfig,
+    *,
+    create: bool,
+    briefing: bool = False,
 ) -> None:
+    workloads = ("briefing",) if briefing else RUNTIME_WORKLOADS
     cursor = await connection.execute("SELECT * FROM pg_catalog.pgaadauth_list_principals(false)")
     mappings = {str(row[0]): row for row in await cursor.fetchall()}
     cursor = await connection.execute(
         "SELECT rolname, rolsuper, rolcreaterole, rolcreatedb, rolbypassrls, "
         "pg_has_role(rolname, 'azure_pg_admin', 'member') FROM pg_roles "
         "WHERE rolname = ANY(%s)",
-        ([database_role(w) for w in RUNTIME_WORKLOADS],),
+        ([f"newsloom_{w}" for w in workloads],),
     )
     roles = {str(row[0]): row for row in await cursor.fetchall()}
-    for workload in RUNTIME_WORKLOADS:
-        role = database_role(workload)
-        expected = str(config.identities[workload].principal_id)
+    for workload in workloads:
+        role = f"newsloom_{workload}"
+        identity = config.briefing_identity if briefing else config.identities[workload]
+        if identity is None:
+            raise PlatformFailure("briefing_identity_missing")
+        expected = str(identity.principal_id)
         if role in roles:
             mapped = mappings.get(role)
             if (
@@ -120,10 +127,28 @@ async def migrate(config: RuntimeConfig, credential: AsyncTokenCredential) -> in
             if not already:
                 await record(admin, "001_workload_principals", checksum)
                 applied += 1
+        if config.briefing_identity is not None:
+            briefing_checksum = hashlib.sha256(
+                principal_sql.encode() + str(config.briefing_identity.principal_id).encode()
+            ).hexdigest()
+            async with admin.transaction():
+                already = await is_applied(admin, "005_briefing_principal", briefing_checksum)
+                await verify_principals(admin, config, create=not already, briefing=True)
+                if not already:
+                    await record(admin, "005_briefing_principal", briefing_checksum)
+                    applied += 1
         async with await connect(
             config, credential, config.postgres_database, config.postgres_admin_name
         ) as application:
-            for version in ("001_vector", "002_ingestion", "003_enrichment", "004_mcp_read"):
+            versions: tuple[str, ...] = (
+                "001_vector",
+                "002_ingestion",
+                "003_enrichment",
+                "004_mcp_read",
+            )
+            if config.briefing_identity is not None:
+                versions += ("005_briefing",)
+            for version in versions:
                 sql = migration_sql(f"{version}.sql")
                 checksum = hashlib.sha256(sql.encode()).hexdigest()
                 async with application.transaction():
@@ -133,6 +158,39 @@ async def migrate(config: RuntimeConfig, credential: AsyncTokenCredential) -> in
                         applied += 1
         await admin.execute("SELECT pg_advisory_unlock(%s)", (ADVISORY_LOCK,))
     return applied
+
+
+async def briefing_status(
+    config: RuntimeConfig, credential: AsyncTokenCredential
+) -> dict[str, int]:
+    async with (
+        await connect(
+            config, credential, config.postgres_database, config.postgres_admin_name
+        ) as connection,
+        connection.transaction(),
+    ):
+        await connection.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
+        await connection.execute("SET LOCAL statement_timeout='15s'")
+        counts = {}
+        for state in ("running", "ready", "failed"):
+            row = await (
+                await connection.execute(
+                    "SELECT count(*) FROM public.briefing_status WHERE status=%s", (state,)
+                )
+            ).fetchone()
+            if row is None or not isinstance(row[0], int):
+                raise PlatformFailure("invalid_briefing_status")
+            counts[state] = row[0]
+        for name, query in {
+            "current": "SELECT count(*) FROM public.briefing_current",
+            "calls": "SELECT count(*) FROM public.briefing_calls",
+            "unknown_calls": "SELECT count(*) FROM public.briefing_calls WHERE status='unknown'",
+        }.items():
+            row = await (await connection.execute(query)).fetchone()
+            if row is None or not isinstance(row[0], int):
+                raise PlatformFailure("invalid_briefing_status")
+            counts[name] = row[0]
+        return counts
 
 
 async def ingestion_status(

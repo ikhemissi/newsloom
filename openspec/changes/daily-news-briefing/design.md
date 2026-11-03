@@ -206,3 +206,17 @@ boundaries, not user spending policy.
    Rollback first disables scheduling, then restores matching API/UI images;
    preserve tables/run accounting and identities. Never roll back data by
    deleting resources or rewriting migration history.
+
+### Recorded recovery adjustment: 2026-11-03
+
+The first actual generation was rejected for a citation outside its supplied
+evidence. The user directed "fix it now and deploy it now" after the recovery
+choice explained preserving the failed slot and using the next scheduled slot
+as initial acceptance. Constrain per-stage source UUIDs in the model schema and
+include their exact token cost in admission/reduction. Preserve the failed
+run and measured usage; do not regenerate it.
+
+Deploy the corrected next-slot schedule with successful-generation/scheduled/
+semantic acceptance explicitly open. This is a manual-first sequencing
+exception, not successful bootstrap proof. Terraform's trigger transition
+replaces only the new briefing job, not its identity, model, database or ledger.

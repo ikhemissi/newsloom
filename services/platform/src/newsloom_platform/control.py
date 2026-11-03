@@ -99,7 +99,7 @@ def build(
     correlation: str,
     *,
     service: Literal[
-        "platform", "ingestion", "enrichment", "mcp", "phase1", "agent", "web"
+        "platform", "ingestion", "enrichment", "mcp", "phase1", "agent", "web", "briefing"
     ] = "platform",
 ) -> None:
     repository = f"newsloom-{service}"
@@ -183,7 +183,7 @@ def build(
         f"{service.upper()}_IMAGE",
         f"{env['AZURE_CONTAINER_REGISTRY_ENDPOINT']}/{repository}@{digest}",
     )
-    if service in ("phase1", "agent", "web", "mcp"):
+    if service in ("phase1", "agent", "web", "mcp", "briefing"):
         set_environment(f"{service.upper()}_IMAGE_REVISION", tag)
     event("image", "success", correlation, category=tag)
 
@@ -210,6 +210,7 @@ def execute_job(
     *,
     arguments: list[str] | None = None,
     extra_environment: dict[str, str] | None = None,
+    wait_seconds: int = 960,
 ) -> str:
     extra_environment = extra_environment or {}
     if set(extra_environment) - {"PHASE1_CONFIG_BASE64"} or any(
@@ -253,7 +254,7 @@ def execute_job(
     name = text_field(execution, "name")
     if not re.fullmatch(r"[a-z0-9-]+", name):
         raise PlatformFailure("invalid_execution_name")
-    deadline = time.monotonic() + 960
+    deadline = time.monotonic() + wait_seconds
     while True:
         result = json_object(
             rest(f"{base}/executions/{name}?api-version={API_VERSION}", "execution_status")
@@ -728,6 +729,16 @@ def control(command: str, correlation: str, *, force: bool = False, limit: int =
         build(env, correlation, service="ingestion")
     elif command == "build-enrichment":
         build(env, correlation, service="enrichment")
+    elif command in (
+        "build-briefing",
+        "prepare-briefing-identity",
+        "prepare-briefing-layer",
+        "verify-briefing",
+        "execute-briefing",
+    ):
+        from newsloom_platform import briefing
+
+        briefing.control(command, env, correlation)
     elif command == "build-mcp":
         build(env, correlation, service="mcp")
     elif command == "build-phase1":

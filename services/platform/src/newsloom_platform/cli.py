@@ -17,6 +17,7 @@ from pydantic import ValidationError
 
 from newsloom_platform.config import PlatformFailure, RuntimeConfig
 from newsloom_platform.database import (
+    briefing_status,
     enrichment_status,
     ingestion_sources,
     ingestion_status,
@@ -62,6 +63,9 @@ async def runtime(command: str, workload: str, correlation: str) -> None:
         elif command == "enrichment-status":
             counts = await enrichment_status(config, credential)
             event("enrichment_readback", "success", correlation, counts=counts)
+        elif command == "briefing-status":
+            counts = await briefing_status(config, credential)
+            event("briefing_readback", "success", correlation, counts=counts)
         elif command == "ingestion-status":
             counts = await ingestion_status(config, credential)
             event("ingestion_readback", "success", correlation, counts=counts)
@@ -104,6 +108,12 @@ def main() -> None:
                 "read-ingestion",
                 "enrichment-status",
                 "build-enrichment",
+                "build-briefing",
+                "briefing-status",
+                "prepare-briefing-identity",
+                "prepare-briefing-layer",
+                "verify-briefing",
+                "execute-briefing",
                 "execute-enrichment",
                 "evaluate-enrichment",
                 "read-enrichment",
@@ -188,6 +198,7 @@ def main() -> None:
             "probe",
             "ingestion-status",
             "enrichment-status",
+            "briefing-status",
             "mcp-eval-prepare",
             "mcp-eval-cleanup",
             "phase1-prepare",

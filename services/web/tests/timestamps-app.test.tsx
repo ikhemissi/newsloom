@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { App } from "../src/App";
 import type { AuthSession } from "../src/domain";
-import { newsDetail, newsItem, page, sourceCatalog } from "./fixtures";
+import { briefing, newsDetail, newsItem, page, sourceCatalog } from "./fixtures";
 
 const auth: AuthSession = {
   signedIn: () => true, signIn: async () => undefined, signOut: async () => undefined,
@@ -10,6 +10,7 @@ const auth: AuthSession = {
 };
 const future = { ...newsItem, publishedAt: "2026-11-03T00:00:00Z" };
 const fixtures = () => ({
+  briefing,
   recent: vi.fn(async () => ({ ...page([future]), readAt: future.publishedAt, cacheAgeSeconds: 12.5 })),
   search: vi.fn(async () => page([])), sources: vi.fn(async () => sourceCatalog),
   detail: vi.fn(async () => ({ ...newsDetail, ...future })),

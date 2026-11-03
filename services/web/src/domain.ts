@@ -63,7 +63,22 @@ export type NewsDetail = NewsItem & {
   publisherCategories: string[];
 };
 
+export type BriefingParagraph = { text: string; references: number[] };
+export type Briefing = {
+  version: string; window_start: string; window_end: string; generated_at: string;
+  coverage: "full" | "limited" | "empty"; evidence_count: number;
+  tldr: BriefingParagraph | null;
+  sections: { heading: string; paragraphs: BriefingParagraph[] }[];
+  citations: { number: number; url: string; title: string }[];
+};
+export type BriefingResponse = {
+  briefing: Briefing | null;
+  refresh: { expected_cutoff: string; state: "pending" | "running" | "ready" | "failed"; stale: boolean };
+  meta: { read_at: string; cache_age_seconds: number; result_scope: "briefing" };
+};
+
 export interface NewsCatalog {
+  briefing(signal: AbortSignal): Promise<BriefingResponse>;
   recent(signal: AbortSignal): Promise<NewsPage>;
   search(query: string | undefined, signal: AbortSignal, filters?: NewsFilters, cursor?: string): Promise<NewsPage>;
   sources(signal: AbortSignal): Promise<SourceCatalog>;

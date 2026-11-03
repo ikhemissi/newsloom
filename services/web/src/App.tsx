@@ -8,6 +8,7 @@ import type { DatePeriod, FilterDraft, FilterSnapshot } from "./filters";
 import { newsRoute } from "./navigation";
 import type { NewsRoute } from "./navigation";
 import { LocalTimestamp, localDateTimeFormat, useDisplayClock } from "./timestamps";
+import { BriefingPanel } from "./BriefingPanel";
 
 const phases: Phase[] = ["retrieving", "planning", "synthesizing", "validating"];
 const periods: { value: DatePeriod; label: string }[] = [
@@ -498,6 +499,7 @@ export function App({ auth, research, catalog }: {
         tabIndex={0} hidden={!panelOpen}>
         <div className="panel-heading"><h2>Ask Newsloom</h2>
           <button className="btn btn-ghost btn-sm" onClick={closePanel}>Close agent panel</button></div>
+        <BriefingPanel catalog={catalog} active={signedIn && panelOpen} />
         <p className="notice">Research is early access. Quality evaluation is still in progress.</p>
         {selected && <div className="context-chip">
           <span>Current news: {selected.title}</span>

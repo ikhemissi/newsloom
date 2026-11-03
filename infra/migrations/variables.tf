@@ -86,3 +86,7 @@ variable "tags" {
   default     = {}
   nullable    = false
 }
+variable "briefing_identity_base64" {
+  type    = string
+  default = ""
+}

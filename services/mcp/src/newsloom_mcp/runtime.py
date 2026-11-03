@@ -4,12 +4,14 @@ import asyncio
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
 import httpx
 import psycopg
 from azure.identity.aio import ManagedIdentityCredential
+from newsloom_core.briefing import BriefingRead
 from newsloom_core.model_transport import ModelClient, TransportLimits
 from newsloom_core.origins import normalize_origins
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -17,6 +19,7 @@ from starlette.applications import Starlette
 
 from newsloom_mcp.app import Services, create_app
 from newsloom_mcp.auth import EntraVerifier
+from newsloom_mcp.briefing import read_briefing
 from newsloom_mcp.embedding import FoundryQueryEmbedding
 from newsloom_mcp.http_models import digest
 from newsloom_mcp.repository import NewsRepository, Repository
@@ -38,6 +41,7 @@ class Config(BaseModel):
     telemetry_routing: str
     allowed_origins: tuple[str, ...] = ()
     news_api_enabled: bool = Field(default=False, strict=True)
+    news_briefing_enabled: bool = Field(default=False, strict=True)
 
     @field_validator("allowed_origins")
     @classmethod
@@ -46,6 +50,8 @@ class Config(BaseModel):
 
     @model_validator(mode="after")
     def canonical_origin(self) -> Config:
+        if self.news_briefing_enabled and not self.news_api_enabled:
+            raise ValueError("briefing_requires_news_api")
         url = httpx.URL(self.resource_url)
         if (
             url.userinfo
@@ -75,6 +81,9 @@ class Config(BaseModel):
                 "embedding_version": env["EMBEDDINGS_VERSION"],
                 "telemetry_routing": env["APPLICATIONINSIGHTS_CONNECTION_STRING"],
                 "news_api_enabled": parse_api_enabled(env.get("NEWS_API_ENABLED", "false")),
+                "news_briefing_enabled": parse_api_enabled(
+                    env.get("NEWS_BRIEFING_ENABLED", "false")
+                ),
                 "allowed_origins": tuple(env["MCP_ALLOWED_ORIGINS"].split(","))
                 if env.get("MCP_ALLOWED_ORIGINS")
                 else (),
@@ -124,6 +133,11 @@ async def resources(
                 await current.execute("SELECT id FROM public.news LIMIT 0")
             return True
 
+        async def briefing(cutoff: datetime) -> BriefingRead:
+            async with connection() as current, current.transaction():
+                await current.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
+                return await read_briefing(current, cutoff)
+
         transport = ModelClient(
             client, credential, config.model_endpoint, TransportLimits(request_seconds=20)
         )
@@ -149,6 +163,7 @@ async def resources(
                             config.embedding_version,
                         ]
                     ),
+                    briefing if config.news_briefing_enabled else None,
                 ),
                 verifier,
             )

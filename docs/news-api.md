@@ -7,7 +7,7 @@ authenticated native MCP discovery passed. Authenticated live HTTP/cache parity
 and usage acceptance remain open under an explicit user-approved publication
 exception. The [UI migration](ui.md#http-catalogue-migration) now uses HTTP;
 agent interactions/tools remain A2A/MCP. Its own signed-in acceptance remains open.
-Deployed source:
+Original cached-API deployment source:
 `a5588eaebe31132919b22e4b3f2b9d044cd85e66dbfa3b4f5d2087e5e6568ecd`.
 Implementation `3c798ae8b5fac8c5323d15ea7357fff72f96c0f4` passed exact-source CI
 `41449774908`. Measured-status commit `bfe5354` passed separate CI `41450605684`;
@@ -24,6 +24,7 @@ audience/scope, not another registration or user credential.
 | GET `/api/v1/news/{id}` | stored news UUID | item, meta |
 | GET `/api/v1/sources` | no parameters | sources, categories, meta |
 | POST `/api/v1/search` | JSON query and optional metadata/limit | items, next_cursor null, meta |
+| GET `/api/v1/briefing` | no parameters; additional default-off briefing feature | briefing or null, refresh, meta |
 
 Default limit is 20; integers 1-50 only. Unknown/duplicate scalar fields and blank
 queries fail, never silently broaden. Tags match ALL normalized terms.
@@ -33,9 +34,21 @@ pagination or completeness claim, retaining the existing exact filtered cosine
 ranking and model/vector validation.
 
 `meta` contains UTC `read_at`, nonnegative `cache_age_seconds` and `result_scope`
-(`page`, `bounded`, `item`, `catalogue`). Only the existing public projections
+(`page`, `bounded`, `item`, `catalogue`, or `briefing`). Only the public projections
 are returned. Detail adds stored author/date origin/publisher categories;
 valid absent UUIDs return 404, malformed UUIDs 400.
+
+The [daily briefing](briefing.md) extension is deployed early access, with
+successful artifact and authenticated read/quality acceptance still open.
+Its current image source is
+`a063f364dcfdbe6fb82433f3689f00834d3ecba34bfe58afae99df5239758551`.
+`NEWS_BRIEFING_ENABLED` defaults to false and
+requires the API flag plus its additive schema/read grants. It reads a shared
+published artifact only; no generation/model write is dispatched by GET.
+Null artifact/pending status, an empty-week artifact, stale last-good content
+and service errors are distinct. Its cache key includes the expected 05:00 UTC
+cutoff so the prior day's ready status cannot cross the daily boundary.
+MCP remains read-only and existing delegated scope/consent/origins are unchanged.
 
 Browse continuation sorts publication descending, UUID ascending. Follow the
 returned opaque cursor with the same normalized filters/page size. Cursors

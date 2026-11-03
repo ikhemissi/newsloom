@@ -1,5 +1,13 @@
 # Browser UI runbook
 
+The [daily briefing](briefing.md) panel extension is deployed early access.
+It displays a shared TL;DR above a collapsed full summary when an artifact is
+available, without generation on reads/expansion or changes to research context.
+The first attempted generation was rejected for a foreign citation; its
+corrected scheduled worker will use the next valid 05:00 UTC slot. No artifact
+is currently published, and successful generation/signed-in acceptance remain
+open rather than showing invented placeholder reporting.
+
 The [HTTP catalogue migration](../openspec/changes/ui-http-news-catalog/tasks.md)
 is deployed early access with stored-item pages and capped browse continuation.
 Local checks and owning image/config/asset/identity/backend preservation passed;
@@ -77,6 +85,44 @@ script errors or axe violations and made no protected requests.
 The 13 authored browser journeys verify the timestamp behavior locally;
 these anonymous Azure checks are not signed-in timestamp proof. That acceptance
 remains open in the checklist, and earlier phase/API acceptance is unchanged.
+
+## Daily shared briefing
+
+The [daily briefing change](../openspec/changes/daily-news-briefing/specs/daily-news-briefing/spec.md)
+owns the contract. The Agent panel reads `GET /api/v1/briefing` using the news
+audience and delegated `news.read`, only when signed in and open. Its independent
+HTTP lane never calls A2A, generates content or changes research snapshots.
+The matching API/schema and default-off backend feature are now deployed/enabled.
+An unavailable endpoint remains a visible, retryable briefing-read error, not an
+empty-news result, and the composer remains usable. Deployment/usage and the
+open successful-generation boundary are recorded in the [briefing runbook](briefing.md).
+
+The TL;DR is below heading/Close and above the research notice/context/composer.
+Native details contains the complete cited summary; it starts collapsed and
+resets only for a different published version. Closing/reopening or rereading
+the same version retains expansion. Publisher text is inert; original citations
+permit HTTPS without credentials only. Dates retain their wire strings and
+display in the browser's locale/timezone with explicit offsets.
+
+The panel distinguishes no publication, no news, limited evidence, stale content,
+refresh pending/running/ready/failed and transport/auth/schema failures. The
+last successfully read publication remains visible after a later read failure,
+with an explicit freshness warning. Window, actual generation time, expected
+cutoff and last-read/cache-age metadata are not fabricated or updated by the
+display clock.
+
+Reads are throttled to at most one start per minute, including retries, focus,
+visibility resumption and close/reopen. Open visible panels periodically reread;
+hidden documents resume when visible. A Retry within the minute schedules the
+next permitted read, rather than bypassing the limit. Close, sign-out and teardown
+abort owned reads and ignore late completions without stopping research.
+Nothing is persisted in browser storage.
+
+Authored component/HTTP-transport and desktop/mobile Chromium/axe journeys cover
+strict envelopes, complete expansion, keyboard citations, safe text, versions,
+status/error recovery, local dates and independent scroll/context preservation.
+These are local fixtures, not signed-in Azure, generation-quality or scheduled-job
+acceptance. All real Azure acceptance remains in the owning change.
 
 ## Local development
 

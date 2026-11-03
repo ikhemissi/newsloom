@@ -80,3 +80,24 @@ run "reject_placeholder_image" {
 
   expect_failures = [var.image]
 }
+
+run "briefing_principal_is_additive_not_a_foundation_identity" {
+  command = plan
+  variables {
+    briefing_identity_base64 = base64encode(jsonencode({
+      id           = "/subscriptions/test/resourceGroups/test/providers/Microsoft.ManagedIdentity/userAssignedIdentities/briefing"
+      client_id    = join("-", ["00000000", "0000", "0000", "0000", "000000000005"])
+      principal_id = join("-", ["00000000", "0000", "0000", "0000", "000000000105"])
+    }))
+  }
+  assert {
+    condition = (
+      length(local.identities) == 4 &&
+      toset(keys(local.identities)) == toset(["ingestion", "enrichment", "mcp", "migrations"]) &&
+      local.environment.BRIEFING_IDENTITY == base64decode(var.briefing_identity_base64) &&
+      local.environment.WORKLOAD_IDENTITIES == jsonencode(local.identities) &&
+      length(azurerm_container_app_job.operation) == 5
+    )
+    error_message = "Pass the new principal separately without changing existing identity/checksum inputs or probe jobs."
+  }
+}

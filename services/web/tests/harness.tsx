@@ -3,8 +3,9 @@ import { App } from "../src/App";
 import { parseAnswer } from "../src/answer";
 import type { AuthSession, ResearchClient } from "../src/domain";
 import { UiFailure } from "../src/domain";
-import { newsItem, sourceCatalog, newsDetail, page } from "./fixtures";
+import { briefing, newsItem, sourceCatalog, newsDetail, page, runtimeConfig } from "./fixtures";
 import { matchesFilters } from "../src/filters";
+import { HttpCatalog } from "../src/catalog";
 import "../src/style.css";
 
 document.documentElement.dataset.researchCalls = "0";
@@ -12,6 +13,7 @@ document.documentElement.dataset.searchCalls = "0";
 document.documentElement.dataset.querylessCalls = "0";
 document.documentElement.dataset.recentCalls = "0";
 document.documentElement.dataset.sourceCalls = "0";
+document.documentElement.dataset.briefingCalls = "0";
 const parameters = new URLSearchParams(location.search);
 const displayedItem = parameters.has("future-date")
   ? { ...newsItem, publishedAt: "2026-11-03T00:00:00Z" } : newsItem;
@@ -23,6 +25,9 @@ const auth: AuthSession = {
   signedIn: () => true, signIn: async () => undefined, signOut: async () => undefined,
   token: async () => { throw new Error("Authored harness never acquires tokens"); },
 };
+const briefingHttp = new HttpCatalog(runtimeConfig, {
+  ...auth, token: async () => "authored-briefing-token",
+});
 const research: ResearchClient = {
   async *ask() {
     document.documentElement.dataset.researchCalls = String(
@@ -49,6 +54,25 @@ function batch(cursor?: string) {
   })), start + 20 < 240 ? `page_${start + 20}` : null);
 }
 createRoot(container).render(<App auth={auth} research={research} catalog={{
+  briefing: async (signal) => {
+    const calls = Number(document.documentElement.dataset.briefingCalls) + 1;
+    document.documentElement.dataset.briefingCalls = String(calls);
+    if (parameters.has("http-briefing")) return briefingHttp.briefing(signal);
+    if (parameters.has("briefing-error") && calls === 1) throw new UiFailure("unavailable");
+    const result = await briefing();
+    if (parameters.has("briefing-pending")) result.briefing = null;
+    if (parameters.has("briefing-empty") && result.briefing) result.briefing = {
+      ...result.briefing, coverage: "empty", evidence_count: 0, tldr: null, sections: [], citations: [],
+    };
+    if (parameters.has("briefing-stale") || parameters.has("briefing-pending")) result.refresh = {
+      expected_cutoff: "2026-11-03T05:00:00Z", stale: true, state: calls === 1 ? "running" : "failed",
+    };
+    if (parameters.has("briefing-version") && calls > 2 && result.briefing) result.briefing = {
+      ...result.briefing, version: ["2f763497", "93cc", "42d7", "a560", "37eb80a7509e"].join("-"),
+      tldr: { text: "Authored updated weekly overview.", references: [1] },
+    };
+    return result;
+  },
   recent: async () => {
     document.documentElement.dataset.recentCalls = String(
       Number(document.documentElement.dataset.recentCalls) + 1,

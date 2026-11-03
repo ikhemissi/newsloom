@@ -5,6 +5,27 @@ metadata:
 infra:
   provider: terraform
   layers:
+    - name: briefing-identity
+      path: infra/briefing-identity
+      dependsOn:
+        - application
+      hooks:
+        preprovision:
+          shell: sh
+          run: uv run --locked newsloom-platform prepare-briefing-identity
+          interactive: false
+          continueOnError: false
+    - name: briefing
+      path: infra/briefing
+      dependsOn:
+        - briefing-identity
+        - migrations
+      hooks:
+        preprovision:
+          shell: sh
+          run: uv run --locked newsloom-platform prepare-briefing-layer
+          interactive: false
+          continueOnError: false
     - name: ui-identity
       path: infra/ui-identity
       dependsOn:
@@ -74,6 +95,7 @@ infra:
       path: infra/migrations
       dependsOn:
         - application
+        - briefing-identity
       hooks:
         preprovision:
           shell: sh

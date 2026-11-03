@@ -1,5 +1,125 @@
 import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import { briefingResponse } from "../fixtures";
+
+test.describe("daily shared briefing", () => {
+  test.use({ timezoneId: "Asia/Kathmandu", locale: "fr-FR" });
+  for (const width of [1440, 390]) {
+    test(`HTTP-backed ${width}px briefing is complete, inert, keyboard accessible and independent of research`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await page.clock.install({ time: new Date("2026-11-02T12:00:00Z") });
+      let reads = 0;
+      await page.route("https://mcp.test/api/v1/briefing", async (route) => {
+        reads++;
+        expect(route.request().method()).toBe("GET");
+        expect(route.request().headers()["authorization"]).toBe("Bearer authored-briefing-token");
+        await route.fulfill({ json: briefingResponse });
+      });
+      await page.goto("/tests/harness.html?http-briefing");
+      expect(reads).toBe(0);
+      await page.getByRole("button", { name: "Ask about this: Authored news headline" }).click();
+      const panel = page.getByRole("complementary");
+      const region = page.getByRole("region", { name: "Daily news briefing" });
+      await expect(region.getByText(/Authored weekly overview/)).toBeVisible();
+      expect(reads).toBe(1);
+      const order = await panel.evaluate((element) => [...element.children].map((child) =>
+        child.getAttribute("aria-label") ?? child.className));
+      expect(order[0]).toBe("panel-heading");
+      expect(order[1]).toBe("Daily news briefing");
+      expect(order[2]).toBe("notice");
+      await expect(region.locator("time[datetime='2026-11-02T05:10:00+00:00']")).toContainText("10:55:00");
+      await expect(region.locator("time[datetime='2026-11-02T05:10:00+00:00']")).toContainText("UTC+5:45");
+      const details = region.locator("details");
+      await expect(details).not.toHaveAttribute("open");
+      const question = page.getByLabel("What would you like to understand?");
+      await question.fill("Keep the authored draft");
+      const summary = details.locator("summary");
+      await summary.focus(); await page.keyboard.press("Enter");
+      await expect(details).toHaveAttribute("open", "");
+      await expect(region.getByRole("heading", { name: "Authored weekly theme 10" })).toHaveCount(1);
+      expect(await details.locator("section p").count()).toBe(10);
+      const fullText = await details.locator("section p").allTextContents();
+      expect(fullText.join(" ").replace(/\[1\]/g, "").trim().split(/\s+/).length).toBe(990);
+      expect(await region.locator("img, svg, script").count()).toBe(0);
+      const citationButton = region.getByRole("button", { name: "Focus briefing citation 1" }).first();
+      await citationButton.focus(); await page.keyboard.press("Enter");
+      await expect(details.locator("li")).toBeFocused();
+      const source = details.getByRole("link");
+      await expect(source).toHaveAttribute("href", "https://publisher.test/briefing");
+      await expect(source).toHaveAttribute("rel", "noopener noreferrer");
+      await summary.focus(); await page.keyboard.press("Space");
+      await expect(details).not.toHaveAttribute("open");
+      await expect(question).toHaveValue("Keep the authored draft");
+      expect(reads).toBe(1);
+      expect(await page.locator("html").getAttribute("data-research-calls")).toBe("0");
+      await summary.focus(); await page.keyboard.press("Enter");
+      await panel.evaluate((element) => { element.scrollTop = 300; });
+      const pageScroll = await page.evaluate(() => window.scrollY);
+      const panelScroll = await panel.evaluate((element) => element.scrollTop);
+      expect(panelScroll).toBeGreaterThan(0);
+      await page.clock.fastForward(60_000);
+      await expect.poll(() => reads).toBe(2);
+      await expect(details).toHaveAttribute("open", "");
+      expect(await panel.evaluate((element) => element.scrollTop)).toBe(panelScroll);
+      expect(await page.evaluate(() => window.scrollY)).toBe(pageScroll);
+      const results = await new AxeBuilder({ page }).analyze();
+      expect(results.violations.map((violation) => violation.id)).toEqual([]);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await page.getByRole("button", { name: "Close agent panel" }).click();
+      await page.getByRole("button", { name: "Agent", exact: true }).click();
+      await expect(details).toHaveAttribute("open", "");
+      await expect(question).toHaveValue("Keep the authored draft");
+      expect(reads).toBe(2);
+      await page.getByLabel("Category", { exact: true }).selectOption("agents-applications");
+      await page.getByRole("button", { name: "Apply filters" }).click();
+      await expect(page.getByRole("heading", { name: "Authored search result" })).toBeVisible();
+      await expect(page.getByText("Current news: Authored news headline")).toBeAttached();
+      expect(reads).toBe(2);
+      expect(await page.locator("html").getAttribute("data-research-calls")).toBe("0");
+    });
+  }
+
+  test("version/status updates collapse only new versions and errors leave research usable", async ({ page }) => {
+    await page.clock.install({ time: new Date("2026-11-02T12:00:00Z") });
+    await page.goto("/tests/harness.html?briefing-version&briefing-stale");
+    await page.getByRole("button", { name: "Agent", exact: true }).click();
+    const region = page.getByRole("region", { name: "Daily news briefing" });
+    await expect(region.getByText(/Daily refresh: running/)).toContainText("Stale");
+    const details = region.locator("details");
+    await details.locator("summary").click();
+    await page.clock.fastForward(60_000);
+    await expect(region.getByText(/Daily refresh: failed/)).toBeAttached();
+    await expect(details).toHaveAttribute("open", "");
+    await page.clock.fastForward(60_000);
+    await expect(region.getByText("Authored updated weekly overview.")).toBeAttached();
+    await expect(details).not.toHaveAttribute("open");
+    expect(await page.locator("html").getAttribute("data-research-calls")).toBe("0");
+
+    await page.goto("/tests/harness.html?briefing-error");
+    await page.getByRole("button", { name: "Agent", exact: true }).click();
+    await expect(region.getByRole("alert")).toContainText("Briefing read failed");
+    await page.getByLabel("What would you like to understand?").fill("Independent research through a failed read");
+    await page.getByRole("button", { name: "Ask Newsloom", exact: true }).click();
+    await expect(page.getByLabel("Research answer")).toBeVisible();
+    await region.getByRole("button", { name: "Retry briefing" }).click();
+    expect(await page.locator("html").getAttribute("data-briefing-calls")).toBe("1");
+    await page.clock.fastForward(60_000);
+    await expect(region.getByText(/Authored weekly overview/)).toBeAttached();
+    await expect(page.getByLabel("Research answer")).toBeAttached();
+    expect(await page.locator("html").getAttribute("data-research-calls")).toBe("1");
+    const results = await new AxeBuilder({ page }).analyze();
+    expect(results.violations.map((violation) => violation.id)).toEqual([]);
+    await page.goto("/tests/harness.html?briefing-pending");
+    await page.getByRole("button", { name: "Agent", exact: true }).click();
+    await expect(region.getByText(/No published briefing is available yet/)).toBeAttached();
+    await expect(region.locator("details")).toHaveCount(0);
+    await page.goto("/tests/harness.html?briefing-empty");
+    await page.getByRole("button", { name: "Agent", exact: true }).click();
+    await expect(region.getByText(/No stored news was available/)).toBeAttached();
+    await expect(region.locator("details")).toHaveCount(0);
+    expect(await page.locator("html").getAttribute("data-research-calls")).toBe("0");
+  });
+});
 
 for (const [zone, localDate, localTime, offset] of [
   ["Europe/Paris", "03/11/2026", "01:00:00", "UTC+1"],

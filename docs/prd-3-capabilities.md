@@ -178,3 +178,34 @@ migration over the deployed API contract; multi-selection remains subsequent wor
   backend slice owns 60-second process-local response caching and browse-only
   keysets; semantic search stays bounded to 50. It does not deliver browser paging
   or switch the NewsCatalog adapter. Richer citations/history remain future work.
+
+## P3-C08: Shared daily weekly-news briefing
+
+**Assignment:** active
+[`daily-news-briefing`](../openspec/changes/daily-news-briefing/tasks.md);
+implementation and acceptance tracked there, not a completed phase.
+
+**Outcome:** Readers can scan a shared weekly overview without asking a question.
+
+**User stories**
+- **P3-C08-US1:** As a reader, I want a daily five-minute overview of the last
+  seven days so that I can catch up without repeatedly requesting research.
+- **P3-C08-US2:** As a reader, I want a visible TL;DR and a collapsed cited
+  summary so that I can choose how much detail to read without crowding the panel.
+
+**Acceptance criteria**
+- Generate once daily at 05:00 UTC from the preceding seven-day stored-news
+  snapshot, independent of filters or selected articles; exclude the cutoff.
+- Normal summary length is 900-1,100 words, with honest sparse/empty handling.
+  Derive the TL;DR from the completed summary in the same run and atomically
+  publish one version with safe original-source citations.
+- Place the TL;DR above a full-summary collapsible closed by default at the top
+  of the Agent panel. Preserve composer/answer context and independent scrolling.
+- Read through existing delegated news.read without generating on reads or
+  expansion. MCP stays read-only; the scheduler uses a dedicated writer identity.
+- Show actual window/generation time and pending/stale/failure states. Measure
+  model usage/cost without an initial daily spending cap.
+- Verify actual scheduled execution separately from bootstrap and record
+  real signed-in Azure accessibility/behavior, leaving unavailable checks open.
+
+See the [briefing runbook](briefing.md) for operations and measured evidence.

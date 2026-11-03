@@ -4,9 +4,10 @@ import { App, AnswerView } from "../src/App";
 import { parseAnswer } from "../src/answer";
 import { UiFailure } from "../src/domain";
 import type { AuthSession, ResearchClient } from "../src/domain";
-import { detail, newsItem, sourceCatalog, page } from "./fixtures";
+import { briefing, detail, newsItem, sourceCatalog, page } from "./fixtures";
 
 const catalog = {
+  briefing,
   recent: vi.fn(async () => page([newsItem])),
   search: vi.fn(async () => page([])),
   sources: vi.fn(async () => sourceCatalog),
@@ -102,7 +103,7 @@ test("latest news is the default and typing/searching does not invoke the agent"
   const recent = vi.fn(async () => page([newsItem]));
   const search = vi.fn(async () => page([{ ...newsItem, title: "Ranked fixture result" }]));
   const ask = vi.fn(async function* () { yield { kind: "answer" as const, answer: parseAnswer("Fixture") }; });
-  render(<App auth={auth(true)} catalog={{ recent, search, sources: catalog.sources, detail }} research={{ ask, stop: async () => false }} />);
+  render(<App auth={auth(true)} catalog={{ recent, search, sources: catalog.sources, detail, briefing }} research={{ ask, stop: async () => false }} />);
   expect(await screen.findByRole("heading", { name: newsItem.title })).toBeInTheDocument();
   expect(screen.queryByRole("complementary")).toBeNull();
   expect(recent).toHaveBeenCalledOnce();
@@ -141,7 +142,7 @@ test("right panel uses displayed current-news context and close/reopen does not 
 
 test("search replaces stale idle context and failures are not successful empty lists", async () => {
   const search = vi.fn(async () => { throw new UiFailure("unavailable"); });
-  render(<App auth={auth(true)} catalog={{ recent: async () => page([newsItem]), search, sources: catalog.sources, detail }}
+  render(<App auth={auth(true)} catalog={{ recent: async () => page([newsItem]), search, sources: catalog.sources, detail, briefing }}
     research={{ ask: vi.fn(), stop: async () => false }} />);
   fireEvent.click(await screen.findByRole("button", { name: `Ask about this: ${newsItem.title}` }));
   fireEvent.change(screen.getByLabelText("Search stored news"), { target: { value: "fixture" } });
@@ -154,7 +155,7 @@ test("search replaces stale idle context and failures are not successful empty l
 test("sign-out prevents an unfinished read from repopulating news", async () => {
   let release: ((value: typeof newsItem[]) => void) | undefined;
   const pending = new Promise<typeof newsItem[]>((resolve) => { release = resolve; });
-  render(<App auth={auth(true)} catalog={{ recent: async () => page(await pending), search: async () => page([]), sources: catalog.sources, detail }}
+  render(<App auth={auth(true)} catalog={{ recent: async () => page(await pending), search: async () => page([]), sources: catalog.sources, detail, briefing }}
     research={{ ask: vi.fn(), stop: async () => false }} />);
   fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
   release?.([newsItem]);

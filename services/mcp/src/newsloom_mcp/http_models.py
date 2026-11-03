@@ -9,6 +9,7 @@ from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
+from newsloom_core.briefing import BriefingRead
 from pydantic import ConfigDict, Field, field_validator
 from starlette.datastructures import QueryParams
 
@@ -161,7 +162,7 @@ def browse_input(params: QueryParams) -> tuple[SearchInput, Cursor | None]:
     return args, cursor
 
 
-ResultScope = Literal["page", "bounded", "item", "catalogue"]
+ResultScope = Literal["page", "bounded", "item", "catalogue", "briefing"]
 
 
 class Meta(Contract):
@@ -188,4 +189,8 @@ class DetailResult(Contract):
 
 
 class CatalogueResult(SourcesResult):
+    meta: Meta
+
+
+class BriefingResult(BriefingRead):
     meta: Meta

@@ -144,7 +144,7 @@ class Telemetry:
 
     def record_api(self, route: str, outcome: str, cache: str, elapsed: float) -> None:
         if (
-            route not in ("news", "detail", "sources", "search", "other")
+            route not in ("news", "detail", "sources", "search", "briefing", "other")
             or outcome not in OUTCOMES
             or cache not in ("none", "miss", "hit", "bypass")
         ):

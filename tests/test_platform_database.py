@@ -12,6 +12,7 @@ from azure.identity.aio import ManagedIdentityCredential
 from newsloom_platform import database
 from newsloom_platform.config import (
     RUNTIME_WORKLOADS,
+    Identity,
     PlatformFailure,
     RuntimeConfig,
     database_role,
@@ -43,6 +44,7 @@ async def platform_database(monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[Ru
         await connection.execute("DROP DATABASE IF EXISTS newsloom WITH (FORCE)")
         await connection.execute("DROP SCHEMA IF EXISTS newsloom_admin CASCADE")
         await connection.execute("CREATE DATABASE newsloom")
+        await connection.execute("DROP ROLE IF EXISTS newsloom_briefing")
         for workload in RUNTIME_WORKLOADS:
             await connection.execute(
                 psycopg.sql.SQL("DROP ROLE IF EXISTS {}").format(
@@ -132,6 +134,86 @@ async def test_migration_replay_and_vector_contract(platform_database: RuntimeCo
             }
 
 
+async def test_briefing_additive_migration_and_real_role_boundaries(
+    platform_database: RuntimeConfig,
+) -> None:
+    config = platform_database.model_copy(
+        update={
+            "briefing_identity": Identity(
+                id="/local/briefing", client_id=uuid4(), principal_id=uuid4()
+            )
+        }
+    )
+    async with ManagedIdentityCredential() as credential:
+        assert await database.migrate(platform_database, credential) == 5
+        assert await database.migrate(config, credential) == 2
+        assert await database.migrate(config, credential) == 0
+        # Optional omission must leave all historical checksums and additive tables intact.
+        assert await database.migrate(platform_database, credential) == 0
+        async with await database.connect(config, credential, "newsloom", "postgres") as connection:
+            await connection.execute("SET ROLE newsloom_briefing")
+            await connection.execute(
+                "SELECT id,title,summary,source,category,tags,published_at,canonical_url "
+                "FROM public.news"
+            )
+            for query in (
+                "UPDATE public.news SET title='forbidden'",
+                "DELETE FROM public.news",
+                "SELECT embedding FROM public.news",
+                "SELECT * FROM public.ingestion_queue",
+                "DELETE FROM public.briefing_runs",
+                "CREATE TABLE public.forbidden (id int)",
+            ):
+                with pytest.raises(psycopg.errors.InsufficientPrivilege):
+                    await connection.execute(query)
+            await connection.execute(
+                "INSERT INTO public.briefing_runs "
+                "(cutoff,status,prompt_revision,model,model_version) "
+                "VALUES ('2026-11-02T05:00:00Z','running','v1','model','version')"
+            )
+            await connection.execute(
+                "INSERT INTO public.briefing_calls "
+                "(cutoff,ordinal,stage,status,price_basis) "
+                "VALUES ('2026-11-02T05:00:00Z',1,'notes','pending','fixture')"
+            )
+            await connection.execute(
+                "UPDATE public.briefing_calls SET status='unknown' WHERE ordinal=1"
+            )
+            async with connection.transaction():
+                await connection.execute(
+                    "INSERT INTO public.briefing_current VALUES "
+                    "(true,'2026-11-02T05:00:00Z','{\"version\":\"test\"}')"
+                )
+                await connection.execute(
+                    "UPDATE public.briefing_runs SET status='ready',"
+                    "finished_at=clock_timestamp() WHERE status='running'"
+                )
+            await connection.execute("RESET ROLE")
+            await connection.execute("SET ROLE newsloom_mcp")
+            assert await (
+                await connection.execute("SELECT payload FROM public.briefing_current")
+            ).fetchone() == ({"version": "test"},)
+            await connection.execute("SELECT cutoff,status FROM public.briefing_status")
+            for query in (
+                "UPDATE public.briefing_current SET payload='{}'",
+                "INSERT INTO public.briefing_current VALUES (true,now(),'{}')",
+                "DELETE FROM public.briefing_current",
+                "SELECT * FROM public.briefing_runs",
+                "SELECT * FROM public.briefing_calls",
+            ):
+                with pytest.raises(psycopg.errors.InsufficientPrivilege):
+                    await connection.execute(query)
+            await connection.execute("RESET ROLE")
+            assert await database.briefing_status(config, credential) == {
+                "running": 0,
+                "ready": 1,
+                "failed": 0,
+                "current": 1,
+                "calls": 1,
+                "unknown_calls": 1,
+            }
+
+
 async def test_concurrent_migrations_serialize(platform_database: RuntimeConfig) -> None:
     async with ManagedIdentityCredential() as credential:
         outcomes = await asyncio.gather(
@@ -139,6 +221,65 @@ async def test_concurrent_migrations_serialize(platform_database: RuntimeConfig)
             database.migrate(platform_database, credential),
         )
     assert sorted(outcomes) == [0, 5]
+
+
+async def test_briefing_schema_checks_and_historical_checksum_preservation(
+    platform_database: RuntimeConfig,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = platform_database.model_copy(
+        update={
+            "briefing_identity": Identity(
+                id="/local/briefing", client_id=uuid4(), principal_id=uuid4()
+            )
+        }
+    )
+    async with ManagedIdentityCredential() as credential:
+        assert await database.migrate(config, credential) == 7
+        async with await database.connect(config, credential, "newsloom", "postgres") as connection:
+            await connection.execute("SET ROLE newsloom_briefing")
+            for query in (
+                "INSERT INTO public.briefing_runs "
+                "(cutoff,status,prompt_revision,model,model_version) "
+                "VALUES (now(),'unreviewed','v1','model','version')",
+                "INSERT INTO public.briefing_current VALUES (false,now(),'{}')",
+                "INSERT INTO public.briefing_current VALUES (true,now(),'[]')",
+            ):
+                with pytest.raises(psycopg.errors.CheckViolation):
+                    await connection.execute(query)
+            await connection.execute(
+                "INSERT INTO public.briefing_runs "
+                "(cutoff,status,prompt_revision,model,model_version) "
+                "VALUES ('2026-11-02T05:00:00Z','running','v1','model','version')"
+            )
+            with pytest.raises(psycopg.errors.CheckViolation):
+                await connection.execute(
+                    "INSERT INTO public.briefing_calls"
+                    "(cutoff,ordinal,stage,status,price_basis) VALUES "
+                    "('2026-11-02T05:00:00Z',1,'map','pending','fixture')"
+                )
+            for column, value in (
+                ("input_tokens", "-1"),
+                ("output_tokens", "-1"),
+                ("elapsed_seconds", "'Infinity'"),
+                ("estimated_cost_usd", "'NaN'"),
+            ):
+                with pytest.raises(psycopg.errors.CheckViolation):
+                    await connection.execute(
+                        psycopg.sql.SQL(
+                            "INSERT INTO public.briefing_calls"
+                            "(cutoff,ordinal,stage,status,price_basis,{}) VALUES "
+                            "('2026-11-02T05:00:00Z',1,'summary','pending','fixture',{})"
+                        ).format(psycopg.sql.Identifier(column), psycopg.sql.SQL(value))
+                    )
+        original = database.migration_sql
+        monkeypatch.setattr(
+            database,
+            "migration_sql",
+            lambda name: original(name) + "\n" if name == "005_briefing.sql" else original(name),
+        )
+        with pytest.raises(PlatformFailure, match="migration_checksum_mismatch"):
+            await database.migrate(config, credential)
 
 
 async def test_failed_sql_phase_rolls_back(

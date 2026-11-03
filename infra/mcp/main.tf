@@ -10,6 +10,7 @@ locals {
   browser_origins = var.allowed_origins_base64 == "" ? var.allowed_origins : toset(jsondecode(base64decode(var.allowed_origins_base64)))
   environment = {
     NEWS_API_ENABLED      = tostring(var.news_api_enabled)
+    NEWS_BRIEFING_ENABLED = tostring(var.news_briefing_enabled)
     AZURE_CLIENT_ID       = local.identity.client_id
     MCP_TENANT_ID         = var.tenant_id
     MCP_API_CLIENT_ID     = var.api_client_id

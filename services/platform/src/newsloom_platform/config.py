@@ -37,6 +37,7 @@ class RuntimeConfig(BaseModel):
     registry_endpoint: str
     model_account_id: str
     applicationinsights_connection_string: str
+    briefing_identity: Identity | None = None
 
     @model_validator(mode="after")
     def validate_boundaries(self) -> RuntimeConfig:
@@ -46,6 +47,12 @@ class RuntimeConfig(BaseModel):
             raise ValueError("Workload principals must be distinct.")
         if len({i.client_id for i in self.identities.values()}) != 4:
             raise ValueError("Workload clients must be distinct.")
+        if self.briefing_identity is not None and any(
+            self.briefing_identity.principal_id == identity.principal_id
+            or self.briefing_identity.client_id == identity.client_id
+            for identity in self.identities.values()
+        ):
+            raise ValueError("Briefing identity must be distinct from foundation workloads.")
         if not self.model_endpoint.startswith("https://"):
             raise ValueError("Model access requires HTTPS.")
         if not self.postgres_host or not self.postgres_admin_name:
@@ -57,6 +64,9 @@ class RuntimeConfig(BaseModel):
         return cls.model_validate(
             {
                 "identities": json.loads(env["WORKLOAD_IDENTITIES"]),
+                "briefing_identity": json.loads(env["BRIEFING_IDENTITY"])
+                if env.get("BRIEFING_IDENTITY")
+                else None,
                 "postgres_host": env["POSTGRES_HOST"],
                 "postgres_database": env["POSTGRES_DATABASE"],
                 "postgres_admin_name": env["POSTGRES_ADMIN_NAME"],

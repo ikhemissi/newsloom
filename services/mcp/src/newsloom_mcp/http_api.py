@@ -10,6 +10,7 @@ import httpx
 import psycopg
 from azure.core.exceptions import AzureError
 from newsloom_core.auth import TrustedKeysFailure
+from newsloom_core.briefing import cutoff_at
 from newsloom_core.diagnostics import event
 from newsloom_core.model_transport import ModelFailure
 from newsloom_core.origins import BrowserPolicy
@@ -22,6 +23,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 from newsloom_mcp.auth import EntraVerifier
 from newsloom_mcp.http_models import (
     ApiFailure,
+    BriefingResult,
     CatalogueResult,
     DetailResult,
     Meta,
@@ -46,10 +48,13 @@ SCOPES: dict[str, ResultScope] = {
     "detail": "item",
     "sources": "catalogue",
     "search": "bounded",
+    "briefing": "briefing",
 }
 
 
 def api_route(path: str) -> tuple[str, str] | None:
+    if path == PREFIX + "/briefing":
+        return "briefing", "GET"
     if path == PREFIX + "/news":
         return "news", "GET"
     if path.startswith(PREFIX + "/news/") and "/" not in path[len(PREFIX + "/news/") :]:
@@ -114,7 +119,11 @@ class NewsApi:
                     )
                 except ValueError:
                     raise ApiFailure(403, "origin_denied") from None
-            if not self.enabled or route is None:
+            if (
+                not self.enabled
+                or route is None
+                or (route[0] == "briefing" and self.services.briefing is None)
+            ):
                 raise ApiFailure(404, "not_found")
             if len(scope.get("raw_path", b"")) + len(scope.get("query_string", b"")) + 1 > 8192:
                 raise ApiFailure(413, "request_limit")
@@ -244,6 +253,7 @@ class NewsApi:
         partition: str,
         deadline: float,
     ) -> tuple[Response, str, Entry | None, str]:
+        cutoff = cutoff_at(datetime.now(UTC))
         args, after, identifier = None, None, None
         if route == "news":
             args, after = browse_input(request.query_params)
@@ -266,7 +276,7 @@ class NewsApi:
                 identifier = DetailInput.model_validate({"id": request.url.path.rsplit("/", 1)[-1]})
                 parameters = identifier.model_dump(mode="json")
             else:
-                parameters = {}
+                parameters = {"cutoff": cutoff.isoformat()} if route == "briefing" else {}
         key = digest(
             {
                 "version": 1,
@@ -285,6 +295,22 @@ class NewsApi:
             cached = self.cache.get(key) if self.cache is not None else None
             if cached is not None:
                 return self.response(cached), key, None, "hit"
+            if route == "briefing":
+                if self.services.briefing is None:
+                    raise ApiFailure(404, "not_found")
+                started, read_at = time.monotonic(), datetime.now(UTC)
+                briefing = await self.services.briefing(cutoff)
+                briefing_result = BriefingResult(
+                    **briefing.model_dump(),
+                    meta=Meta(read_at=read_at, cache_age_seconds=0, result_scope="briefing"),
+                )
+                entry = Entry(
+                    briefing_result.model_dump_json(exclude={"meta"}).encode(),
+                    read_at,
+                    started,
+                    "briefing",
+                )
+                return self.response(entry), key, entry, "miss"
             vector = None
             if route == "search" and args is not None and args.query is not None:
                 vector = (await self.services.embeddings.embed(args.query, deadline)).values

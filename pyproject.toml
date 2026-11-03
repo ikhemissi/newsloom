@@ -10,6 +10,7 @@ dependencies = []
 dev = [
     "mypy>=1.19",
     "newsloom-agent",
+    "newsloom-briefing",
     "newsloom-core",
     "newsloom-enrichment",
     "newsloom-ingestion",
@@ -33,6 +34,7 @@ exclude = ["tools/agent-evaluation", "services/web"]
 
 [tool.uv.sources]
 newsloom-agent = { workspace = true }
+newsloom-briefing = { workspace = true }
 newsloom-core = { workspace = true }
 newsloom-ingestion = { workspace = true }
 newsloom-enrichment = { workspace = true }

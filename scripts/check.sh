@@ -9,8 +9,12 @@ uv run --locked ruff format --check .
 uv run --locked mypy
 uv run --locked pytest
 uv run --isolated --locked --no-dev --package newsloom-agent newsloom-agent check-runtime
+uv run --isolated --locked --no-dev --package newsloom-briefing python -c \
+  'import asyncio; import newsloom_briefing.cli; from azure.identity.aio import ManagedIdentityCredential; credential = ManagedIdentityCredential(); asyncio.run(credential.close())'
 uv run --isolated --locked --no-dev --package newsloom-enrichment python -c \
   'import asyncio; import newsloom_enrichment.cli; from azure.identity.aio import ManagedIdentityCredential; credential = ManagedIdentityCredential(); asyncio.run(credential.close())'
+uv run --isolated --locked --no-dev --package newsloom-briefing python -c \
+  'import newsloom_briefing.cli'
 uv run --isolated --locked --no-dev --package newsloom-mcp python -c \
   'import newsloom_mcp.cli; from mcp.server.lowlevel import Server'
 uv run --locked newsloom-validate-feeds config/feeds.json
@@ -22,7 +26,7 @@ npm run -w services/web build
 bash scripts/check-ui-browser.sh
 npm run spec:check
 terraform fmt -check -recursive infra
-for directory in infra infra/bootstrap infra/migrations infra/ingestion infra/enrichment infra/mcp-identity infra/mcp infra/phase1-acceptance infra/agent-identity infra/agent infra/agent-evaluation infra/ui-identity infra/ui; do
+for directory in infra infra/bootstrap infra/migrations infra/ingestion infra/enrichment infra/mcp-identity infra/mcp infra/phase1-acceptance infra/agent-identity infra/agent infra/agent-evaluation infra/ui-identity infra/ui infra/briefing-identity infra/briefing; do
   terraform -chdir="$directory" init -backend=false -input=false -lockfile=readonly
   terraform -chdir="$directory" validate
 done
@@ -39,3 +43,5 @@ terraform -chdir=infra/agent test
 terraform -chdir=infra/agent-evaluation test
 terraform -chdir=infra/ui-identity test
 terraform -chdir=infra/ui test
+terraform -chdir=infra/briefing-identity test
+terraform -chdir=infra/briefing test

@@ -4,6 +4,7 @@ import type { AuthSession, NewsCatalog, NewsDetail, NewsFilters, NewsItem, NewsP
 import { accessToken, UiFailure } from "./domain";
 import { guardedFetch } from "./research";
 import { matchesFilters, newsIdSchema, validateFilters } from "./filters";
+import { parseBriefing } from "./briefing";
 
 const itemSchema = z.object({
   id: z.uuid().transform((value) => value.toLowerCase()), title: z.string(), summary: z.string(),
@@ -50,9 +51,12 @@ export function validateSearch(value: string): string {
 }
 
 export class HttpCatalog implements NewsCatalog {
-  private active = new Map<"news" | "catalogue" | "detail", AbortController>();
+  private active = new Map<"news" | "catalogue" | "detail" | "briefing", AbortController>();
   constructor(private config: RuntimeConfig, private auth: AuthSession, private fetchImpl: typeof fetch = fetch) {}
   recent(signal: AbortSignal): Promise<NewsPage> { return this.search(undefined, signal); }
+  async briefing(signal: AbortSignal) {
+    return parseBriefing(await this.load("briefing", "/briefing", signal));
+  }
   async search(value: string | undefined, signal: AbortSignal, filters: NewsFilters = {}, cursor?: string): Promise<NewsPage> {
     const snapshot = validateFilters(filters);
     if (cursor !== undefined && (!cursorSchema.safeParse(cursor).success || value !== undefined)) throw new UiFailure("invalid_news_request");
@@ -91,7 +95,7 @@ export class HttpCatalog implements NewsCatalog {
     return { ...mapItem(item), tags: item.tags, author: item.author,
       dateOrigin: item.date_origin, publisherCategories: item.publisher_categories };
   }
-  private async load(lane: "news" | "catalogue" | "detail", path: string, signal: AbortSignal, body?: object): Promise<unknown> {
+  private async load(lane: "news" | "catalogue" | "detail" | "briefing", path: string, signal: AbortSignal, body?: object): Promise<unknown> {
     if (this.active.get(lane) && !this.active.get(lane)?.signal.aborted) throw new UiFailure("overloaded");
     const controller = new AbortController();
     this.active.set(lane, controller);

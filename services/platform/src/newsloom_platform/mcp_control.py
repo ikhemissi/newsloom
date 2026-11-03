@@ -42,6 +42,7 @@ def prepare(env: dict[str, str], correlation: str) -> None:
         base64.b64encode(json.dumps(allowed).encode()).decode(),
     )
     control.set_environment("NEWS_API_ENABLED", flag)
+    control.set_environment("NEWS_BRIEFING_ENABLED", briefing_enabled(env))
     event("mcp_layer", "prepared", correlation, category=revision)
 
 
@@ -86,8 +87,10 @@ def verify(env: dict[str, str], correlation: str) -> None:
     actual = {
         text_field(json_object(row), "name"): text_field(json_object(row), "value") for row in rows
     }
+    actual.setdefault("NEWS_BRIEFING_ENABLED", "false")
     expected = {
         "NEWS_API_ENABLED": api_enabled(env),
+        "NEWS_BRIEFING_ENABLED": briefing_enabled(env),
         "AZURE_CLIENT_ID": identity["client_id"],
         "MCP_TENANT_ID": env["MCP_TENANT_ID"],
         "MCP_API_CLIENT_ID": env["MCP_API_CLIENT_ID"],
@@ -127,7 +130,7 @@ def verify(env: dict[str, str], correlation: str) -> None:
         or json_object(container.get("resources")).get("cpu") != 0.25
         or json_object(container.get("resources")).get("memory") != "0.5Gi"
         or actual != expected
-        or len(rows) != len(actual)
+        or len(rows) != len({json_object(row).get("name") for row in rows})
         or any(json_object(row).get("secretRef") for row in rows)
         or len(assignments) != 1
         or json_object(app.get("identity")).get("type") != "UserAssigned"
@@ -153,4 +156,13 @@ def api_enabled(env: dict[str, str]) -> str:
     value = env.get("NEWS_API_ENABLED", "false")
     if value not in ("true", "false"):
         raise PlatformFailure("invalid_news_api_enabled")
+    return value
+
+
+def briefing_enabled(env: dict[str, str]) -> str:
+    value = env.get("NEWS_BRIEFING_ENABLED", "false")
+    if value not in ("true", "false"):
+        raise PlatformFailure("invalid_news_briefing_enabled")
+    if value == "true" and api_enabled(env) != "true":
+        raise PlatformFailure("briefing_requires_news_api")
     return value

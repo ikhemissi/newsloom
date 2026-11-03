@@ -4,7 +4,7 @@ import { App } from "../src/App";
 import { UiFailure } from "../src/domain";
 import type { AuthSession, NewsFilters, NewsPage } from "../src/domain";
 import { newsRoute, returnPath } from "../src/navigation";
-import { detail, newsDetail, newsItem, page, sourceCatalog } from "./fixtures";
+import { briefing, detail, newsDetail, newsItem, page, sourceCatalog } from "./fixtures";
 
 const auth: AuthSession = {
   signedIn: () => true, signIn: async () => undefined, signOut: async () => undefined,
@@ -13,7 +13,7 @@ const auth: AuthSession = {
 const research = () => ({ ask: vi.fn(), stop: async () => false });
 const catalog = {
   recent: async () => page([newsItem]), search: async () => page([]),
-  sources: async () => sourceCatalog, detail,
+  sources: async () => sourceCatalog, detail, briefing,
 };
 const click = (name: string) => fireEvent.click(screen.getByRole("button", { name }));
 const item = (index: number) => ({

@@ -96,3 +96,27 @@ with the matching UI image. Preserve old config/image bindings for reviewed
 rollback; do not retain runtime MCP fallback or remove the existing news consent.
 Historical UI deltas retain their old transport evidence; this migration owns
 the current transition, not retroactive completion of those acceptance ledgers.
+
+## Scheduled shared briefing, separate from interactive research
+
+The [daily briefing](../openspec/changes/daily-news-briefing/proposal.md) is a
+shared product artifact, not an unattended delegated-user A2A request. A dedicated
+managed-identity writer reads a frozen seven-day stored-news snapshot and
+publishes one atomic summary/TL;DR pair for each 05:00 UTC slot. Hierarchical
+synthesis considers all eligible stored records rather than silently using an
+interactive top-k or UI page. TL;DR derives from the completed summary.
+
+Use the retained database/ACA environment with additive migrations and one
+separate pinned chat deployment for throughput, not the existing pipeline's
+capacity or a new model choice. Preserve historical principal checksums and
+foundation identity inventory. The co-hosted HTTP API retains delegated
+news.read and read-only MCP identity; no application-only caller scope,
+browser regeneration or conversation persistence is introduced.
+
+The panel displays TL;DR above a native full-summary collapsible, closed by
+default. Reading/expanding cannot generate or mutate research context. Durable
+run/call accounting prevents duplicate/uncertain inference replay; stale
+publication remains visibly stale. Measure calls/tokens/latency/model cost
+before deciding a spending policy; no daily dollar cap is added. Actual RBAC
+scope and semantic/citation/scheduling acceptance must be measured, not inferred
+from a client deployment name or local fixture.

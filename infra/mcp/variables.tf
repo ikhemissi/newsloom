@@ -84,3 +84,11 @@ variable "tags" {
   default  = {}
   nullable = false
 }
+variable "news_briefing_enabled" {
+  type    = bool
+  default = false
+  validation {
+    condition     = !var.news_briefing_enabled || var.news_api_enabled
+    error_message = "Briefing reads require the existing protected news API."
+  }
+}

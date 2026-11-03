@@ -66,6 +66,103 @@ for the dated API readings and completed acceptance checks.
 
 ## Outputs and workload boundaries
 
+### Additive daily briefing layer
+
+The approved [daily briefing change](../openspec/changes/daily-news-briefing/proposal.md)
+adds native `briefing-identity` and `briefing` layers; both default off through
+`BRIEFING_ENABLED=false`. `BRIEFING_SCHEDULE_ENABLED=false` creates a manual job
+when the workload is enabled. Do not alter the four-entry `WORKLOAD_IDENTITIES`
+manifest or rebaseline historical migration checksums to add this identity.
+`BRIEFING_IDENTITY_BASE64` is a separate identity output. The migration layer
+decodes it to the optional `BRIEFING_IDENTITY` input and applies the independent
+`005_briefing_principal` and `005_briefing` ledger entries only when provided.
+An omitted optional input leaves already-applied schema and grants intact.
+
+The identity layer owns exactly one dedicated managed identity, its three
+assignments (registry-scoped `AcrPull`, telemetry-scoped `Monitoring Metrics
+Publisher`, account-scoped chat custom role), the custom role definition and a
+separate model deployment. The model inherits enrichment's exact pinned
+model/version/SKU, uses `NoAutoUpgrade` and capacity **10**, in the retained
+account. No existing capacity, deployment or principal grants are edited.
+Azure OpenAI chat authorization is account-scoped: this is **not**
+deployment-level RBAC isolation. Only the worker's named endpoint/deployment
+configuration limits its intended target; the role cannot restrict chat tools
+or named deployments. The worker must enforce those application boundaries.
+
+| PostgreSQL principal | Added authority |
+| --- | --- |
+| `newsloom_briefing` | CONNECT/USAGE; column SELECT on `news(id,title,summary,source,category,tags,published_at,canonical_url)`; SELECT/INSERT/UPDATE on `briefing_runs`, `briefing_calls`, `briefing_current` only |
+| `newsloom_mcp` | SELECT on `briefing_current` and safe `briefing_status` view only |
+| Existing migration principal | Existing Entra administrative migration authority; no additional runtime admin |
+
+`briefing_current` holds at most one protected JSON artifact. `briefing_runs`
+and `briefing_calls` store content-free run/call intent, usage and uncertainty.
+The status view exposes only cutoff, status, timestamps and a fixed-category
+failure code. No news writes, writer DELETE/DDL, MCP briefing writes, direct
+MCP run/call reads, evidence bodies or intermediate completions are granted.
+Local PostgreSQL-role tests exercise these boundaries; they do not prove Azure
+Entra mapping or deployed execution.
+
+Before any enablement, read current regional availability/quota/rate and retail
+pricing without mutation. Stop if the retained pinned version/SKU at additional
+capacity 10 is unavailable; never increase existing capacity or fall back to a
+broader role. Set verified input/output USD-per-million prices and a dated basis
+in ignored azd values (`BRIEFING_INPUT_PRICE_PER_MILLION`,
+`BRIEFING_OUTPUT_PRICE_PER_MILLION`, `BRIEFING_PRICE_BASIS`). No price is invented
+by preparation, and no daily dollar cap is applied. Model cost estimates exclude
+hosting, telemetry, ACR and image builds; report unmeasured hosting costs
+separately. The preparation helper fingerprints retained model contracts and
+the unchanged foundation manifest in `BRIEFING_PRESERVATION_SHA256`; drift
+blocks subsequent preparation/readback rather than silently accepting it.
+
+Once local gates and read-only prerequisites pass, the operational sequence is:
+
+```bash
+# Defaults are populated by the default-off identity preparation hook.
+uv run --locked newsloom-platform prepare-briefing-identity
+# Review requirements and set ignored environment inputs before opting in.
+azd env set BRIEFING_ENABLED true
+azd env set BRIEFING_SCHEDULE_ENABLED false
+azd provision briefing-identity --preview
+# Apply only after reviewing the additive preview; then re-run migrations.
+azd provision briefing-identity
+azd provision migrations --preview
+azd provision migrations
+azd provision briefing --preview
+azd provision briefing
+uv run --locked newsloom-platform verify-briefing
+uv run --locked newsloom-platform execute-briefing
+```
+
+`build-briefing` uses the shared immutable source-hash/ACR-digest build path;
+`prepare-briefing-layer` builds only when enabled. The worker is invoked as
+`newsloom-briefing run` through its image entrypoint. `verify-briefing` checks
+the pinned image/source, identity, exact environment, retained models, price
+inputs and actual job shape without reading artifact content. `execute-briefing`
+verifies before starting, waits up to 3,660 seconds, then runs content-free
+`briefing-status` through the existing migration job. The provider-validated
+Consumption timeout is 3,600 seconds, one replica/completion and zero replica
+retries; worker deadlines must reserve shutdown time. Capacity 10 is not a
+one-hour completion guarantee: honor the observed token/request rate, account
+for physical attempts and fail honestly rather than omit evidence.
+
+The protected API has a separate default-off `NEWS_BRIEFING_ENABLED` flag,
+passed by the existing MCP layer. It requires `NEWS_API_ENABLED=true` and adds
+no user scope or browser configuration. Enable API/UI reads only after the
+matching migration and source images exist. Enable
+`BRIEFING_SCHEDULE_ENABLED=true` only after a verified manual artifact and
+signed-in read; the schedule is exactly `0 5 * * *` UTC. A manual success is
+not scheduled-execution acceptance. Inspect a real subsequent scheduled slot.
+
+Rollback first sets `BRIEFING_SCHEDULE_ENABLED=false` and reapplies only the
+briefing layer; disable `NEWS_BRIEFING_ENABLED` and restore matching API/UI
+images as necessary. Do **not** disable `BRIEFING_ENABLED` on an already
+provisioned layer merely to pause execution: Terraform would plan removal.
+Keep the identity, model, current artifact and accounting history; never delete
+or rewrite migration history, reset uncertain slots, or rerun paid generation
+as a recovery probe. Reconcile stale/uncertain run/publication metadata
+read-only and let the next daily slot proceed.
+
 Inspect outputs with `azd env get-values`; do not paste the complete output into
 logs or tickets. It contains tenant-specific identifiers and telemetry routing
 configuration even though it contains no application passwords.

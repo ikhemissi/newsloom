@@ -43,9 +43,33 @@ run "bounded_always_on_app_with_owned_identity" {
       length(azurerm_container_app.mcp.identity[0].identity_ids) == 1 &&
       azurerm_container_app.mcp.registry[0].password_secret_name == null
       && local.environment.NEWS_API_ENABLED == "false"
+      && local.environment.NEWS_BRIEFING_ENABLED == "false"
     )
     error_message = "Use one small HTTPS app, immutable image and only its existing managed identity."
   }
+}
+run "briefing_read_flag_preserves_existing_api_boundary" {
+  command = plan
+  variables {
+    news_api_enabled      = true
+    news_briefing_enabled = true
+  }
+  assert {
+    condition = (
+      local.environment.NEWS_BRIEFING_ENABLED == "true" &&
+      azurerm_container_app.mcp.template[0].min_replicas == 1 &&
+      azurerm_container_app.mcp.template[0].max_replicas == 1 &&
+      length(azurerm_container_app.mcp.identity[0].identity_ids) == 1
+    )
+    error_message = "Briefing reads must not add another identity, capacity or authorization boundary."
+  }
+}
+run "briefing_cannot_enable_without_news_api" {
+  command = plan
+  variables {
+    news_briefing_enabled = true
+  }
+  expect_failures = [var.news_briefing_enabled]
 }
 run "resource_url_and_health_match_real_hostname" {
   command = plan
