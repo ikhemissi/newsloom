@@ -46,7 +46,8 @@ SUMMARY_TASK = (
     "rollout. Never repeat a change. Group paragraphs under short plain topic headings (e.g. "
     "'Models and platforms', 'Agent tooling', 'Security'); never use internal keys or version "
     "labels as headings. No generic industry trends, filler or business-as-usual. No minimum "
-    "length; at most 800 words. Cite original UUIDs per paragraph. Use full when the input "
+    "length; at most 800 words. Cite original UUIDs only in each paragraph's sources field, "
+    "never in the text. Use full when the input "
     "review completed; limited means evidence limitation, not brevity."
 )
 TLDR_TASK = (
@@ -54,7 +55,8 @@ TLDR_TASK = (
     "highest-impact product changes by exact product name, what changed and the practical "
     "consequence for an AI solution architect. Do not list customer names or case studies. "
     "Do not say merely that AI, agents or governance are evolving. No new claims, no "
-    "headings/newlines. Cite only original UUIDs used in the completed briefing."
+    "headings/newlines. Put UUIDs only in the sources field, never in the text; cite only "
+    "original UUIDs used in the completed briefing."
 )
 
 

@@ -332,3 +332,11 @@ def test_same_product_reports_merge_into_one_item() -> None:
     (merged,) = select([base, other])
     assert len(merged.protected_facts) == 8 and len(merged.caveats) == 5
     assert "Adds async subagents" in merged.change and base.change.rstrip(". ") in merged.change
+
+
+def test_model_written_source_ids_are_removed_from_prose() -> None:
+    from newsloom_briefing.generation import without_ids
+
+    first, second = uuid4(), uuid4()
+    text = f"PyTorch 2.15 changes the default backend [{first}, {second}]. Next (source: {first})."
+    assert without_ids(text) == "PyTorch 2.15 changes the default backend. Next."

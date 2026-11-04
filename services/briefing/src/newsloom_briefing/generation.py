@@ -297,6 +297,23 @@ def numbers_supported(text: str, evidence_texts: list[str]) -> bool:
 NORMALIZE = str.maketrans("\u2018\u2019\u201c\u201d\u2013\u2014\u00a0", "''\"\"-- ")
 
 
+UUID_TEXT = re.compile(
+    r"[\[(]?\s*(?:sources?:?\s*)?(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+    r"[\s,;]*)+[\])]?",
+    re.IGNORECASE,
+)
+
+
+def without_ids(text: str) -> str:
+    """Remove source UUIDs a model wrote into prose; citations are structured separately."""
+    cleaned = UUID_TEXT.sub("", text)
+    return re.sub(r"\s+([.,;:])", r"\1", " ".join(cleaned.split()))
+
+
+def clean_paragraph(paragraph: DraftParagraph) -> DraftParagraph:
+    return paragraph.model_copy(update={"text": without_ids(paragraph.text)})
+
+
 def normalized(text: str) -> str:
     text = text.translate(NORMALIZE)
     return " ".join(text.casefold().split())
@@ -468,6 +485,16 @@ async def synthesize(
         summary = await generator.generate(
             "summary", SUMMARY_TASK, summary_input, Summary, deadline
         )
+        summary = summary.model_copy(
+            update={
+                "sections": tuple(
+                    section.model_copy(
+                        update={"paragraphs": tuple(map(clean_paragraph, section.paragraphs))}
+                    )
+                    for section in summary.sections
+                )
+            }
+        )
         validate_sources(
             tuple(p for section in summary.sections for p in section.paragraphs),
             {s for signal in signals for s in signal.sources},
@@ -504,6 +531,7 @@ async def synthesize(
         Tldr,
         deadline,
     )
+    tldr = tldr.model_copy(update={"paragraph": clean_paragraph(tldr.paragraph)})
     validate_sources((tldr.paragraph,), {source for p in paragraphs for source in p.sources})
     if not numbers_supported(
         normalized(tldr.paragraph.text), [normalized(p.text) for p in paragraphs] + selected_texts
