@@ -2,10 +2,10 @@ import json
 import time
 from datetime import UTC, datetime, timedelta
 from typing import TypeVar
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
-from newsloom_briefing.editorial import Facts, Selection, Signal, select
+from newsloom_briefing.editorial import Facts, Selection, Signal, select, select_cases, vendor
 from newsloom_briefing.generation import (
     DraftParagraph,
     DraftSection,
@@ -38,6 +38,8 @@ def item(title: str, summary: str) -> Evidence:
 
 def material(evidence: Evidence) -> Signal:
     return Signal(
+        kind="change",
+        services=(),
         product="Nimbus SDK",
         event_key="nimbus-2.1-delegated-auth",
         change="Nimbus SDK 2.1 adds delegated authentication",
@@ -81,7 +83,8 @@ class EditorialProvider:
         elif stage == "reduce":
             result = Selection(signals=tuple(select([Signal.model_validate(row) for row in data])))
         elif stage == "summary":
-            signals = [Signal.model_validate(row) for row in data]
+            assert all("event_key" not in row and "significance" not in row for row in data)
+            first_sources = tuple(UUID(source) for source in data[0]["sources"])
             text = (
                 "AI adoption is evolving and governance is increasingly important."
                 if self.generic_summary
@@ -95,7 +98,7 @@ class EditorialProvider:
                 sections=(
                     DraftSection(
                         heading="Nimbus SDK: delegated authentication",
-                        paragraphs=(DraftParagraph(text=text, sources=signals[0].sources),),
+                        paragraphs=(DraftParagraph(text=text, sources=first_sources),),
                     ),
                 ),
             )
@@ -127,6 +130,8 @@ def corpus() -> tuple[list[Evidence], dict[str, Signal]]:
     )
     signals = {str(first.id): material(first), str(duplicate.id): material(duplicate)}
     signals[str(routine.id)] = Signal(
+        kind="change",
+        services=(),
         product="Vanta Labs",
         event_key="funding",
         change="Raises capital",
@@ -203,17 +208,22 @@ async def test_routine_review_is_distinct_from_empty_news_or_failed_generation()
     )
 
 
-def test_unsupported_specifics_and_invented_ga_are_rejected() -> None:
+def test_unsupported_specifics_are_dropped_and_invented_ga_is_downgraded() -> None:
     evidence, signals = corpus()
     signal = signals[str(evidence[0].id)]
-    for updated, error in (
-        (signal.model_copy(update={"protected_facts": ("2.2",)}), "unsupported_fact"),
-        (signal.model_copy(update={"product": "Invented Platform"}), "unsupported_fact"),
-        (signal.model_copy(update={"change": "Nimbus SDK cuts cost by 50%"}), "unsupported_fact"),
-        (signal.model_copy(update={"availability": "ga"}), "unsupported_availability"),
+    rows = {row.id: row for row in evidence}
+    for updated in (
+        signal.model_copy(update={"protected_facts": ("2.2",)}),
+        signal.model_copy(update={"product": "Invented Platform"}),
+        signal.model_copy(update={"change": "Nimbus SDK cuts cost by 50%"}),
     ):
-        with pytest.raises(Failure, match=error):
-            validate_signals((updated,), {row.id: row for row in evidence})
+        assert validate_signals((updated, signal), rows) == [signal]
+    mixed = signal.model_copy(update={"protected_facts": ("2.2", *signal.protected_facts)})
+    assert validate_signals((mixed,), rows)[0].protected_facts == signal.protected_facts
+    (downgraded,) = validate_signals((signal.model_copy(update={"availability": "ga"}),), rows)
+    assert downgraded.availability == "unknown"
+    with pytest.raises(Failure, match="foreign_citation"):
+        validate_signals((signal.model_copy(update={"sources": (uuid4(),)}),), rows)
 
 
 def test_source_enumeration_covers_new_factual_candidates_and_review_lists() -> None:
@@ -266,3 +276,59 @@ async def test_new_combined_word_boundary_and_legacy_read_compatibility() -> Non
     value["editorial_policy"] = "unknown-v2"
     with pytest.raises(ValidationError):
         Briefing.model_validate(value)
+
+
+def test_case_studies_keep_grounded_services_and_vendor_cap_limits_one_vendor() -> None:
+    case_source = item(
+        "How Acme automated freight with Amazon Bedrock",
+        "Acme used Amazon Bedrock and Amazon EC2 with human approval to automate exceptions.",
+    )
+    rows = {case_source.id: case_source}
+    case = Signal(
+        kind="case_study",
+        services=("Amazon Bedrock", "Amazon EC2", "Invented Service"),
+        product="Acme",
+        event_key="acme freight",
+        change="Automated freight exceptions with human approval",
+        implication="Pattern for back-office agents",
+        protected_facts=("human approval",),
+        caveats=(),
+        availability="unknown",
+        significance="watch",
+        impact="medium",
+        confidence="explicit",
+        sources=(case_source.id,),
+    )
+    (grounded_case,) = validate_signals((case,), rows)
+    assert grounded_case.services == ("Amazon Bedrock", "Amazon EC2")
+    assert select_cases([grounded_case]) == [grounded_case] and select([grounded_case]) == []
+    assert validate_signals((case.model_copy(update={"services": ("Nope",)}),), rows) == []
+    changes = [
+        case.model_copy(
+            update={
+                "kind": "change",
+                "services": (),
+                "significance": "material",
+                "product": f"{vendor_name} Product {index}",
+                "event_key": f"{vendor_name}-{index}",
+            }
+        )
+        for vendor_name in ("Amazon", "AWS", "OpenAI")
+        for index in range(3)
+    ]
+    chosen = select(changes)
+    assert sum(vendor(s.product) == "amazon" for s in chosen) == 3
+    assert sum(vendor(s.product) == "openai" for s in chosen) == 3
+
+
+def test_same_product_reports_merge_into_one_item() -> None:
+    evidence, signals = corpus()
+    base = signals[str(evidence[0].id)]
+    other = base.model_copy(
+        update={"event_key": "different key", "change": "Adds async subagents", "impact": "high"}
+    )
+    many = tuple(f"fact {index}" for index in range(8))
+    other = other.model_copy(update={"protected_facts": many, "caveats": ("a", "b", "c", "d", "e")})
+    (merged,) = select([base, other])
+    assert len(merged.protected_facts) == 8 and len(merged.caveats) == 5
+    assert "Adds async subagents" in merged.change and base.change.rstrip(". ") in merged.change

@@ -47,6 +47,15 @@ Selection must fit useful explanations within the reading ceiling, rather than
 turning every article into an item. Facts survive structured reduction instead
 of being repeatedly compressed into generic thematic prose.
 
+Ranking uses impact, then the number of independent reports, never product-name
+order, and allows at most three items per vendor. Reports about the same product
+are merged into one item. Security incidents and compromised releases are always
+material. Named customer case studies are not padded into prose: they appear as
+one line each in a final "Customer case studies" section, with the main services
+in parentheses (kept only if named in the source). Vendor showcases without a
+customer are excluded. Individually unsupported or duplicate items/paragraphs are
+dropped instead of failing the whole report; invented numbers are still rejected.
+
 Source-ID schema constraints cover factual candidates and review lists as well
 as final paragraphs. Protected spans must exist in their cited stored evidence;
 GA/preview claims need explicit source support. Summary validation rejects
@@ -219,6 +228,33 @@ Do not delete failed history or relaunch uncertain generation to repair missing
 answers. Reconcile current artifact/run status read-only; preserve unknown
 usage. Known validation failures require the explicitly authorized guarded
 operator retry; a subsequent daily slot remains independent.
+
+### Guarded editorial revision
+
+The [guarded refresh](../openspec/changes/guarded-briefing-refresh/tasks.md)
+adds an explicitly authorized operator command for replacing today's published
+artifact, for example after an editorial-policy change:
+
+```sh
+newsloom-briefing revise-published --request-id <new-uuid> \
+  --expected-version <current-artifact-version> --reason editorial-policy-upgrade
+```
+
+Obtain the current version from `newsloom-briefing inspect`, which reports only
+safe metadata. If today's scheduled slot failed with a known validation category
+and fully observed usage, a revision can also supersede it while the older
+report stays published until the replacement validates. Admission locks generation, requires the expected version and
+fully observed usage, and refuses reused request IDs or an execution that could
+overlap the next 05:00 UTC cutoff. Before dispatch, the prior payload and run
+metadata are inserted into the writer-restricted append-only
+`briefing_revisions` table (migration `007`); MCP/readers cannot access it.
+Call ordinals continue and all earlier call/cost rows stay intact. The existing
+artifact remains published until the new summary and TL;DR both validate and the
+base version is still current. A failed revision keeps last good content;
+another attempt needs a fresh request ID and no unknown usage. The window stays
+fixed, though the new snapshot may include late rows for that window. A manual
+revision is not evidence of scheduled execution. Ordinary `run` and
+`retry-failed` behavior is unchanged.
 
 Provision only owning native azd layers after local/real-role checks and
 reviewed previews. Bootstrap one manual slot before enabling `0 5 * * *`.

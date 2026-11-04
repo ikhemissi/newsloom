@@ -15,6 +15,31 @@ from psycopg.types.json import Jsonb
 from pydantic import Field
 
 LOCK_ID = 736981085
+RETRYABLE_FAILURES = (
+    "briefing_foreign_citation",
+    "briefing_summary_word_count",
+    "briefing_invalid_generation",
+    "briefing_refused_or_incomplete",
+    "briefing_generation_truncated",
+)
+REVISION_REASONS = ("editorial-policy-upgrade",)
+# Known, fully observed validation failures that an explicit revision may supersede.
+REVISABLE_FAILURES = (
+    *RETRYABLE_FAILURES,
+    "briefing_unsupported_fact",
+    "briefing_unsupported_availability",
+    "briefing_generic_or_missing_change",
+    "briefing_generic_tldr",
+    "briefing_incomplete_review",
+    "briefing_selection_inconsistent",
+    "briefing_reduction_not_converging",
+    "briefing_tldr_citation_trimmed",
+    "briefing_request_context_limit",
+)
+
+
+class RevisionRefused(Exception):
+    """A guarded editorial revision was refused before or at publication."""
 
 
 class Evidence(BriefingContract):
@@ -84,18 +109,7 @@ class Repository:
                     (cutoff,),
                 )
             ).fetchone()
-            if (
-                row is None
-                or row[0] != "failed"
-                or row[1]
-                not in (
-                    "briefing_foreign_citation",
-                    "briefing_summary_word_count",
-                    "briefing_invalid_generation",
-                    "briefing_refused_or_incomplete",
-                    "briefing_generation_truncated",
-                )
-            ):
+            if row is None or row[0] != "failed" or row[1] not in RETRYABLE_FAILURES:
                 return None
             current = await (
                 await self.connection.execute(
@@ -120,6 +134,76 @@ class Repository:
                 "SELECT cutoff,%s,to_jsonb(briefing_runs) "
                 "FROM public.briefing_runs WHERE cutoff=%s",
                 (ordinal, cutoff),
+            )
+            await self.connection.execute(
+                "UPDATE public.briefing_runs SET status='running',started_at=clock_timestamp(),"
+                "finished_at=NULL,error_category=NULL,evidence_count=NULL,evidence_sha256=NULL,"
+                "prompt_revision=%s,model=%s,model_version=%s WHERE cutoff=%s",
+                (prompt_revision, model, version, cutoff),
+            )
+            return ordinal
+
+    async def revise_claim(
+        self,
+        cutoff: datetime,
+        request: UUID,
+        base: UUID,
+        reason: str,
+        prompt_revision: str,
+        model: str,
+        version: str,
+    ) -> int:
+        if reason not in REVISION_REASONS:
+            raise RevisionRefused("briefing_revision_invalid_reason")
+        lock = await self.connection.execute("SELECT pg_try_advisory_lock(%s)", (LOCK_ID,))
+        if await lock.fetchone() != (True,):
+            raise RevisionRefused("briefing_revision_busy")
+        async with self.connection.transaction():
+            existing = await (
+                await self.connection.execute(
+                    "SELECT 1 FROM public.briefing_revisions WHERE request_id=%s", (request,)
+                )
+            ).fetchone()
+            if existing is not None:
+                raise RevisionRefused("briefing_revision_request_exists")
+            run = await (
+                await self.connection.execute(
+                    "SELECT status,error_category,to_jsonb(briefing_runs) "
+                    "FROM public.briefing_runs WHERE cutoff=%s FOR UPDATE",
+                    (cutoff,),
+                )
+            ).fetchone()
+            current = await (
+                await self.connection.execute(
+                    "SELECT cutoff,payload FROM public.briefing_current WHERE singleton FOR UPDATE"
+                )
+            ).fetchone()
+            if run is None or current is None:
+                raise RevisionRefused("briefing_revision_slot_mismatch")
+            payload = current[1]
+            if not isinstance(payload, dict) or payload.get("version") != str(base):
+                raise RevisionRefused("briefing_revision_stale_version")
+            if run[0] == "failed":
+                if run[1] not in REVISABLE_FAILURES:
+                    raise RevisionRefused("briefing_revision_not_permitted")
+            elif run[0] != "ready" or current[0] != cutoff:
+                raise RevisionRefused("briefing_revision_not_permitted")
+            usage = await (
+                await self.connection.execute(
+                    "SELECT coalesce(max(ordinal),0),count(*) FILTER("
+                    "WHERE status<>'completed' OR input_tokens IS NULL OR output_tokens IS NULL) "
+                    "FROM public.briefing_calls WHERE cutoff=%s",
+                    (cutoff,),
+                )
+            ).fetchone()
+            if usage is None or usage[1] != 0 or not isinstance(usage[0], int):
+                raise RevisionRefused("briefing_revision_unknown_usage")
+            ordinal = usage[0]
+            await self.connection.execute(
+                "INSERT INTO public.briefing_revisions"
+                "(request_id,cutoff,reason,base_version,last_call_ordinal,prior_run,prior_payload) "
+                "VALUES (%s,%s,%s,%s,%s,%s,%s)",
+                (request, cutoff, reason, base, ordinal, Jsonb(run[2]), Jsonb(payload)),
             )
             await self.connection.execute(
                 "UPDATE public.briefing_runs SET status='running',started_at=clock_timestamp(),"
@@ -161,9 +245,18 @@ class Repository:
             (state, input_tokens, output_tokens, elapsed, cost, cutoff, ordinal),
         )
 
-    async def publish(self, artifact: Briefing) -> None:
+    async def publish(self, artifact: Briefing, base: UUID | None = None) -> None:
         validated = Briefing.model_validate_json(artifact.model_dump_json())
         async with self.connection.transaction():
+            if base is not None:
+                current = await (
+                    await self.connection.execute(
+                        "SELECT payload->>'version' FROM public.briefing_current "
+                        "WHERE singleton FOR UPDATE"
+                    )
+                ).fetchone()
+                if current != (str(base),):
+                    raise RevisionRefused("briefing_revision_base_changed")
             await self.connection.execute(
                 "INSERT INTO public.briefing_current(singleton,cutoff,payload) VALUES(true,%s,%s)"
                 " ON CONFLICT(singleton) DO UPDATE "

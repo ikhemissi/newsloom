@@ -146,7 +146,7 @@ async def test_briefing_additive_migration_and_real_role_boundaries(
     )
     async with ManagedIdentityCredential() as credential:
         assert await database.migrate(platform_database, credential) == 5
-        assert await database.migrate(config, credential) == 3
+        assert await database.migrate(config, credential) == 4
         assert await database.migrate(config, credential) == 0
         # Optional omission must leave all historical checksums and additive tables intact.
         assert await database.migrate(platform_database, credential) == 0
@@ -200,6 +200,7 @@ async def test_briefing_additive_migration_and_real_role_boundaries(
                 "DELETE FROM public.briefing_current",
                 "SELECT * FROM public.briefing_runs",
                 "SELECT * FROM public.briefing_calls",
+                "SELECT * FROM public.briefing_revisions",
             ):
                 with pytest.raises(psycopg.errors.InsufficientPrivilege):
                     await connection.execute(query)
@@ -235,7 +236,7 @@ async def test_briefing_schema_checks_and_historical_checksum_preservation(
         }
     )
     async with ManagedIdentityCredential() as credential:
-        assert await database.migrate(config, credential) == 8
+        assert await database.migrate(config, credential) == 9
         async with await database.connect(config, credential, "newsloom", "postgres") as connection:
             await connection.execute("SET ROLE newsloom_briefing")
             for query in (
@@ -244,6 +245,9 @@ async def test_briefing_schema_checks_and_historical_checksum_preservation(
                 "VALUES (now(),'unreviewed','v1','model','version')",
                 "INSERT INTO public.briefing_current VALUES (false,now(),'{}')",
                 "INSERT INTO public.briefing_current VALUES (true,now(),'[]')",
+                "INSERT INTO public.briefing_revisions"
+                "(request_id,cutoff,reason,base_version,last_call_ordinal,prior_run,prior_payload) "
+                "VALUES (gen_random_uuid(),now(),'force',gen_random_uuid(),0,'{}','{}')",
             ):
                 with pytest.raises(psycopg.errors.CheckViolation):
                     await connection.execute(query)

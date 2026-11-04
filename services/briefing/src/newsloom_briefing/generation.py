@@ -25,6 +25,8 @@ from newsloom_briefing.editorial import (
     Selection,
     Signal,
     select,
+    select_cases,
+    vendor,
 )
 from newsloom_briefing.repository import Evidence, Repository
 
@@ -292,31 +294,81 @@ def numbers_supported(text: str, evidence_texts: list[str]) -> bool:
     )
 
 
-def validate_signals(signals: tuple[Signal, ...], sources: dict[UUID, Evidence]) -> None:
-    for signal in signals:
-        if not set(signal.sources).issubset(sources):
-            raise Failure("briefing_foreign_citation")
-        texts = [(sources[s].title + " " + sources[s].summary).casefold() for s in signal.sources]
-        if not any(signal.product.casefold() in source for source in texts):
-            raise Failure("briefing_unsupported_fact")
-        if any(
-            not fact.strip() or not any(fact.casefold() in text for text in texts)
-            for fact in signal.protected_facts
-        ):
-            raise Failure("briefing_unsupported_fact")
-        if not numbers_supported(signal.change, texts):
-            raise Failure("briefing_unsupported_fact")
-        if signal.availability == "ga" and not any(
-            "generally available" in text
-            or "general availability" in text
-            or re.search(r"\bga\b", text)
-            for text in texts
-        ):
-            raise Failure("briefing_unsupported_availability")
-        if signal.availability == "preview" and not any(
-            re.search(r"\b(preview|beta|alpha)\b", text) for text in texts
-        ):
-            raise Failure("briefing_unsupported_availability")
+NORMALIZE = str.maketrans("\u2018\u2019\u201c\u201d\u2013\u2014\u00a0", "''\"\"-- ")
+
+
+def normalized(text: str) -> str:
+    text = text.translate(NORMALIZE)
+    return " ".join(text.casefold().split())
+
+
+def fact_text(fact: str) -> str:
+    return normalized(fact).strip(" \"'.,;:()")
+
+
+def product_grounded(product: str, texts: list[str]) -> bool:
+    name = normalized(product)
+    words = [w for w in re.findall(r"[\w.+-]+", name) if len(w) > 2]
+    return any(name in text or (words and all(w in text for w in words)) for text in texts)
+
+
+def grounded(signal: Signal, sources: dict[UUID, Evidence]) -> Signal | None:
+    """Return a supported signal, downgrading unsupported availability; None if ungrounded."""
+    if not set(signal.sources).issubset(sources):
+        raise Failure("briefing_foreign_citation")
+    texts = [normalized(sources[s].title + " " + sources[s].summary) for s in signal.sources]
+    if not product_grounded(signal.product, texts):
+        return None
+    facts = tuple(
+        fact.strip(" \"'\u201c\u201d\u2018\u2019.,;:()")
+        for fact in signal.protected_facts
+        if fact_text(fact) and any(fact_text(fact) in text for text in texts)
+    )
+    if not facts or not numbers_supported(normalized(signal.change), texts):
+        return None
+    services: tuple[str, ...] = ()
+    if signal.kind == "case_study":
+        services = tuple(
+            dict.fromkeys(item.strip() for item in signal.services if product_grounded(item, texts))
+        )
+        if not services:
+            return None
+    availability = signal.availability
+    if availability == "ga" and not any(
+        "generally available" in text
+        or "general availability" in text
+        or re.search(r"\bga\b", text)
+        for text in texts
+    ):
+        availability = "unknown"
+    if availability == "preview" and not any(
+        re.search(r"\b(preview|beta|alpha)\b", text) for text in texts
+    ):
+        availability = "unknown"
+    return signal.model_copy(
+        update={"protected_facts": facts, "availability": availability, "services": services}
+    )
+
+
+def validate_signals(signals: tuple[Signal, ...], sources: dict[UUID, Evidence]) -> list[Signal]:
+    return [kept for signal in signals if (kept := grounded(signal, sources)) is not None]
+
+
+def trim(sections: tuple[DraftSection, ...], budget: int) -> tuple[DraftSection, ...]:
+    """Keep leading (highest-ranked) paragraphs within a word budget."""
+    result: list[DraftSection] = []
+    for section in sections:
+        kept: list[DraftParagraph] = []
+        for p in section.paragraphs:
+            if len(p.text.split()) > budget:
+                break
+            budget -= len(p.text.split())
+            kept.append(p)
+        if kept:
+            result.append(section.model_copy(update={"paragraphs": tuple(kept)}))
+        if len(kept) < len(section.paragraphs):
+            break
+    return tuple(result)
 
 
 async def synthesize(
@@ -338,7 +390,7 @@ async def synthesize(
             editorial_policy="architect-v1",
         )
     sources = {item.id: item for item in evidence}
-    signals: list[Signal] = []
+    extracted: list[Signal] = []
     for batch in batches([item.model_dump(mode="json") for item in evidence]):
         data = json.loads(batch)
         allowed = {UUID(item["id"]) for item in data}
@@ -347,10 +399,17 @@ async def synthesize(
             allowed
         ):
             raise Failure("briefing_incomplete_review")
-        validate_signals(generated.signals, {s: sources[s] for s in allowed})
-        signals.extend(generated.signals)
-    signals = select(signals)
-    if not signals:
+        extracted.extend(validate_signals(generated.signals, {s: sources[s] for s in allowed}))
+    # A vendor describing its own product is a showcase, not a customer case study.
+    cases = select_cases(
+        [
+            case
+            for case in extracted
+            if not any(vendor(case.product) in sources[s].source.casefold() for s in case.sources)
+        ]
+    )
+    signals = select(extracted)
+    if not signals and not cases:
         return Briefing(
             version=uuid4(),
             window_start=cutoff - timedelta(days=7),
@@ -368,95 +427,124 @@ async def synthesize(
         for batch in batches([s.model_dump(mode="json") for s in signals]):
             allowed = {UUID(s) for item in json.loads(batch) for s in item["sources"]}
             chosen = await generator.generate("reduce", SELECTION_TASK, batch, Selection, deadline)
-            validate_signals(chosen.signals, {s: sources[s] for s in allowed})
-            consolidated.extend(chosen.signals)
-        signals = select(consolidated)
-        if not signals:
-            raise Failure("briefing_selection_inconsistent")
-    while True:
-        summary_input = serialized([s.model_dump(mode="json") for s in signals])
-        if (
-            request_input_tokens(
-                SUMMARY_TASK, summary_input, evidence_schema(Summary, "summary", summary_input)
-            )
-            + 4096
-            <= 9500
-        ):
-            break
-        previous_size = tokens(summary_input)
-        reduced: list[Signal] = []
-        for batch in batches([s.model_dump(mode="json") for s in signals]):
-            allowed = {UUID(s) for p in json.loads(batch) for s in p["sources"]}
-            selection = await generator.generate(
-                "reduce", SELECTION_TASK, batch, Selection, deadline
-            )
-            validate_signals(selection.signals, {s: sources[s] for s in allowed})
-            reduced.extend(selection.signals)
-        reduced = select(reduced)
-        if (
-            not reduced
-            or tokens(serialized([s.model_dump(mode="json") for s in reduced])) >= previous_size
-        ):
-            raise Failure("briefing_reduction_not_converging")
-        signals = reduced
-    summary = await generator.generate(
-        "summary",
-        SUMMARY_TASK,
-        summary_input,
-        Summary,
-        deadline,
-    )
-    paragraphs = tuple(p for section in summary.sections for p in section.paragraphs)
-    selected_sources = {s for signal in signals for s in signal.sources}
-    validate_sources(paragraphs, selected_sources)
-    if any(
-        not numbers_supported(
-            p.text, [(sources[s].title + " " + sources[s].summary).casefold() for s in p.sources]
+            consolidated.extend(validate_signals(chosen.signals, {s: sources[s] for s in allowed}))
+        signals = select(consolidated) or signals
+    case_section = (
+        DraftSection(
+            heading="Customer case studies",
+            paragraphs=tuple(
+                DraftParagraph(
+                    text=f"{case.product}: {case_line(case)} ({', '.join(case.services)}).",
+                    sources=case.sources,
+                )
+                for case in cases
+            ),
         )
-        for p in paragraphs
-    ):
-        raise Failure("briefing_unsupported_fact")
-    text = " ".join(p.text for p in paragraphs).casefold()
-    for signal in signals:
-        if any(
-            value.casefold() not in text
-            for value in (signal.product, signal.change, signal.implication)
-        ) or any(fact.casefold() not in text for fact in signal.protected_facts):
+        if cases
+        else None
+    )
+    case_words = sum(len(p.text.split()) for p in case_section.paragraphs) if case_section else 0
+    selected_texts = [
+        normalized(sources[s].title + " " + sources[s].summary)
+        for s in {s for item in [*signals, *cases] for s in item.sources}
+    ]
+    model_sections: tuple[DraftSection, ...] = ()
+    coverage: Literal["full", "limited"] = "full"
+    if signals:
+        # Signals are ranked by impact; drop the lowest-ranked until the summary fits.
+        while True:
+            summary_input = serialized([summary_view(s) for s in signals])
+            if (
+                request_input_tokens(
+                    SUMMARY_TASK, summary_input, evidence_schema(Summary, "summary", summary_input)
+                )
+                + 4096
+                <= 9500
+            ):
+                break
+            if len(signals) == 1:
+                raise Failure("briefing_request_context_limit")
+            signals = signals[:-1]
+        summary = await generator.generate(
+            "summary", SUMMARY_TASK, summary_input, Summary, deadline
+        )
+        validate_sources(
+            tuple(p for section in summary.sections for p in section.paragraphs),
+            {s for signal in signals for s in signal.sources},
+        )
+        seen: set[str] = set()
+
+        def keep(p: DraftParagraph) -> bool:
+            key = normalized(p.text)
+            if key in seen or not numbers_supported(key, selected_texts):
+                return False
+            seen.add(key)
+            return True
+
+        # Drop duplicate or unsupported paragraphs instead of failing the whole report.
+        model_sections = trim(
+            tuple(
+                section.model_copy(update={"paragraphs": kept})
+                for section in summary.sections
+                if (kept := tuple(p for p in section.paragraphs if keep(p)))
+            ),
+            1000 - case_words,
+        )
+        text = normalized(" ".join(p.text for s in model_sections for p in s.paragraphs))
+        signals = [s for s in signals if product_grounded(s.product, [text])]
+        if not signals:
             raise Failure("briefing_generic_or_missing_change")
-    words = sum(len(p.text.split()) for p in paragraphs)
-    if not 1 <= words <= 1000:
-        raise Failure("briefing_summary_word_count")
-    cited_ids = list(dict.fromkeys(source for p in paragraphs for source in p.sources))
+        coverage = summary.coverage
+    sections = (*model_sections, *((case_section,) if case_section else ()))
+    paragraphs = tuple(p for section in sections for p in section.paragraphs)
     tldr = await generator.generate(
         "tldr",
         TLDR_TASK,
-        summary.model_dump_json(),
+        Summary(coverage=coverage, sections=sections).model_dump_json(),
         Tldr,
         deadline,
     )
-    validate_sources((tldr.paragraph,), set(cited_ids))
-    if not numbers_supported(tldr.paragraph.text, [p.text for p in paragraphs]):
+    validate_sources((tldr.paragraph,), {source for p in paragraphs for source in p.sources})
+    if not numbers_supported(
+        normalized(tldr.paragraph.text), [normalized(p.text) for p in paragraphs] + selected_texts
+    ):
         raise Failure("briefing_unsupported_fact")
-    if not any(signal.product.casefold() in tldr.paragraph.text.casefold() for signal in signals):
+    if not any(
+        product_grounded(item.product, [normalized(tldr.paragraph.text)])
+        for item in [*signals, *cases]
+    ):
         raise Failure("briefing_generic_tldr")
+    remaining = (
+        *trim(model_sections, 1000 - len(tldr.paragraph.text.split()) - case_words),
+        *((case_section,) if case_section else ()),
+    )
+    if not remaining:
+        raise Failure("briefing_summary_word_count")
+    cited_ids = list(
+        dict.fromkeys(s for section in remaining for p in section.paragraphs for s in p.sources)
+    )
+    tldr_sources = tuple(s for s in tldr.paragraph.sources if s in cited_ids)
+    if not tldr_sources:
+        raise Failure("briefing_tldr_citation_trimmed")
     numbers = {identifier: index + 1 for index, identifier in enumerate(cited_ids)}
 
-    def paragraph(p: DraftParagraph) -> Paragraph:
-        return Paragraph(
-            text=p.text, references=tuple(dict.fromkeys(numbers[s] for s in p.sources))
-        )
+    def paragraph(text: str, cited: tuple[UUID, ...]) -> Paragraph:
+        return Paragraph(text=text, references=tuple(dict.fromkeys(numbers[s] for s in cited)))
 
     return Briefing(
         version=uuid4(),
         window_start=cutoff - timedelta(days=7),
         window_end=cutoff,
         generated_at=datetime.now(UTC),
-        coverage=summary.coverage,
+        coverage=coverage,
         evidence_count=len(evidence),
-        tldr=paragraph(tldr.paragraph),
+        tldr=paragraph(tldr.paragraph.text, tldr_sources),
         sections=tuple(
-            Section(heading=s.heading, paragraphs=tuple(paragraph(p) for p in s.paragraphs))
-            for s in summary.sections
+            Section(
+                heading=s.heading,
+                paragraphs=tuple(paragraph(p.text, p.sources) for p in s.paragraphs),
+            )
+            for s in remaining
         ),
         citations=tuple(
             Citation(
@@ -468,3 +556,27 @@ async def synthesize(
         ),
         editorial_policy="architect-v1",
     )
+
+
+SUMMARY_FIELDS = (
+    "product",
+    "change",
+    "implication",
+    "protected_facts",
+    "caveats",
+    "availability",
+    "sources",
+)
+
+
+def summary_view(signal: Signal) -> dict[str, object]:
+    data = signal.model_dump(mode="json")
+    return {key: data[key] for key in SUMMARY_FIELDS}
+
+
+def case_line(case: Signal) -> str:
+    """One case-study line without repeating the customer name already used as the label."""
+    line = case.change.strip().rstrip(".")
+    if line.casefold().startswith(case.product.casefold()):
+        line = line[len(case.product) :].lstrip(" :,-")
+    return line[:1].lower() + line[1:] if line else line

@@ -26,6 +26,7 @@ See [the ADRs](adrs.md) for technical choices.
 | 3.5 | `ui-http-news-catalog` (deployed early access) | HTTP-only NewsCatalog, shareable stored-item pages, explicit 20-item Load more capped at 200 displayed items; retain A2A interactions and MCP agent tools; signed-in acceptance remains open |
 | 3.6 | `daily-news-briefing` (active) | [P3-C08](prd-3-capabilities.md#p3-c08-shared-daily-weekly-news-briefing): user-requested shared 05:00 UTC seven-day briefing, summary-derived TL;DR and collapsed full summary, measured usage without a daily spending cap; acceptance remains in its owning checklist |
 | 3.7 | `architect-focused-briefing` (active) | Refine [P3-C08](prd-3-capabilities.md#p3-c08-shared-daily-weekly-news-briefing) with material architectural signals, variable up-to-five-minute output, concise metadata and no duplicate browse badges; preserve earlier open acceptance |
+| 3.7a | `guarded-briefing-refresh` (active) | User-requested audited same-day revision of the published P3-C08 artifact; ordinary once-daily scheduling and failed-run retry unchanged |
 | 3.8 | Phase tests and versioned evaluations | [P3-C05](prd-3-capabilities.md#p3-c05-inert-rendering-and-accessibility-basics)/[P3-C06](prd-3-capabilities.md#p3-c06-supported-ui-integration-and-verified-azure-hosting) deployed acceptance; return to the parked [Phase 2 evaluations](prd-2.md) after the requested briefing |
 
 Use [the development guide](development.md#openspec) to execute each slice.

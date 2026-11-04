@@ -24,7 +24,7 @@ from newsloom_briefing.generation import (
     evidence_schema,
     synthesize,
 )
-from newsloom_briefing.repository import Evidence, Repository
+from newsloom_briefing.repository import Evidence, Repository, RevisionRefused
 from newsloom_core.briefing import Briefing, BriefingRead, Paragraph, cutoff_at
 from newsloom_core.model_transport import ModelClient, ModelFailure, TransportLimits
 from pydantic import BaseModel, ValidationError
@@ -63,6 +63,8 @@ class Scripted:
                 reviewed_sources=ids,
                 signals=(
                     Signal(
+                        kind="change",
+                        services=(),
                         product="Authored",
                         event_key="published event",
                         change="Published event",
@@ -243,8 +245,9 @@ class EmptyRun(Accounting):
     async def evidence(self, cutoff: datetime, items: list[Evidence]) -> None:
         assert not items
 
-    async def publish(self, artifact: Briefing) -> None:
+    async def publish(self, artifact: Briefing, base: UUID | None = None) -> None:
         self.artifact = artifact
+        self.base = base
 
     async def fail(self, cutoff: datetime, category: str) -> None:
         self.failed.append(category)
@@ -269,6 +272,101 @@ async def test_empty_run_publishes_once_without_transport_or_duplicate_regenerat
         assert artifact is not None and artifact.coverage == "empty"
         assert not await execute(repository, generator, "authored", "1")
     assert repository.artifact is artifact and not repository.intents and not repository.failed
+
+
+class RevisionRun(EmptyRun):
+    def __init__(self, refusal: str | None = None) -> None:
+        super().__init__()
+        self.refusal = refusal
+        self.revisions: list[tuple[object, ...]] = []
+
+    async def revise_claim(
+        self,
+        cutoff: datetime,
+        request: UUID,
+        base: UUID,
+        reason: str,
+        prompt_revision: str,
+        model: str,
+        version: str,
+    ) -> int:
+        if self.refusal:
+            raise RevisionRefused(self.refusal)
+        self.revisions.append((cutoff, request, base, reason))
+        return 12
+
+
+def revision_generator(
+    repository: EmptyRun, http: httpx.AsyncClient, cutoff: datetime
+) -> FoundryGenerator:
+    return FoundryGenerator(
+        ModelClient(http, Credential(), "https://model.test", TransportLimits(5, 1)),
+        repository,
+        cutoff,
+        "briefing",
+        Decimal("1"),
+        Decimal("2"),
+        "authored",
+    )
+
+
+async def test_revision_continues_ordinals_and_publishes_against_its_base(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("newsloom_briefing.cli.JOB_LIFETIME", timedelta(days=-2))
+    repository = RevisionRun()
+    request, base = uuid4(), uuid4()
+    cutoff = cutoff_at(datetime.now(UTC))
+    async with httpx.AsyncClient() as http:
+        generator = revision_generator(repository, http, cutoff)
+        assert await execute(
+            repository,
+            generator,
+            "authored",
+            "1",
+            revision=(request, base, "editorial-policy-upgrade"),
+        )
+    assert generator.ordinal == 12 and not repository.claimed
+    assert repository.revisions == [(cutoff, request, base, "editorial-policy-upgrade")]
+    assert repository.base == base and repository.artifact is not None
+
+
+@pytest.mark.parametrize(
+    "refusal", ["briefing_revision_stale_version", "briefing_revision_request_exists"]
+)
+async def test_refused_revision_dispatches_nothing_and_keeps_last_good(
+    monkeypatch: pytest.MonkeyPatch, refusal: str
+) -> None:
+    monkeypatch.setattr("newsloom_briefing.cli.JOB_LIFETIME", timedelta(days=-2))
+    repository = RevisionRun(refusal)
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda _: pytest.fail("unexpected_model_call"))
+    ) as http:
+        generator = revision_generator(repository, http, cutoff_at(datetime.now(UTC)))
+        with pytest.raises(Failure, match=refusal):
+            await execute(
+                repository,
+                generator,
+                "authored",
+                "1",
+                revision=(uuid4(), uuid4(), "editorial-policy-upgrade"),
+            )
+    assert repository.artifact is None and not repository.failed and not repository.intents
+
+
+async def test_revision_refuses_execution_that_could_overlap_next_cutoff() -> None:
+    repository = RevisionRun()
+    async with httpx.AsyncClient() as http:
+        generator = revision_generator(repository, http, CUTOFF)
+        with pytest.raises(Failure, match="too_close_to_next_cutoff"):
+            await execute(
+                repository,
+                generator,
+                "authored",
+                "1",
+                revision=(uuid4(), uuid4(), "editorial-policy-upgrade"),
+            )
+    assert not repository.revisions and repository.artifact is None
 
 
 async def test_consumer_limit_closes_read_snapshot_before_recording_failure(

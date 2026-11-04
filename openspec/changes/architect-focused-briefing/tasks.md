@@ -24,7 +24,8 @@
 ## Workflow follow-up
 
 - The default new-content verification uses the next 05:00 UTC slot. Do not
-  delete or bypass a successful slot to force same-day regeneration; that would
-  require separately authorized audited revision behavior.
+  delete or bypass a successful slot to force same-day regeneration; the
+  separately approved [guarded refresh](../guarded-briefing-refresh/proposal.md)
+  provides the only audited same-day revision path.
 - Do not archive this or the parent while required real quality/scheduled/
   signed-in acceptance remains unverified.

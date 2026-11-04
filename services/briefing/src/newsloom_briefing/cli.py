@@ -8,7 +8,7 @@ from contextlib import aclosing
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Never
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import httpx
 import psycopg
@@ -20,9 +20,11 @@ from newsloom_core.model_transport import ModelClient, ModelFailure, TransportLi
 from pydantic import ValidationError
 
 from newsloom_briefing.generation import PROMPT_REVISION, Failure, FoundryGenerator, synthesize
-from newsloom_briefing.repository import Repository
+from newsloom_briefing.repository import Repository, RevisionRefused
 
 MAX_SNAPSHOT_BYTES = 32 * 1024 * 1024
+JOB_LIFETIME = timedelta(seconds=3600)
+Revision = tuple[UUID, UUID, str]
 
 
 class Parser(argparse.ArgumentParser):
@@ -37,9 +39,20 @@ async def execute(
     version: str,
     *,
     retry_failed: bool = False,
+    revision: Revision | None = None,
 ) -> bool:
     cutoff = generator.cutoff
-    if retry_failed:
+    if revision is not None:
+        if datetime.now(UTC) + JOB_LIFETIME >= cutoff + timedelta(days=1):
+            raise Failure("briefing_revision_too_close_to_next_cutoff")
+        request, base, reason = revision
+        try:
+            generator.ordinal = await repository.revise_claim(
+                cutoff, request, base, reason, PROMPT_REVISION, model, version
+            )
+        except RevisionRefused as error:
+            raise Failure(str(error)) from None
+    elif retry_failed:
         ordinal = await repository.retry_claim(cutoff, PROMPT_REVISION, model, version)
         if ordinal is None:
             raise Failure("briefing_retry_not_permitted")
@@ -61,9 +74,10 @@ async def execute(
                     evidence.append(item)
             await repository.evidence(cutoff, evidence)
             artifact = await synthesize(generator, evidence, cutoff, deadline)
-            await repository.publish(artifact)
+            await repository.publish(artifact, revision[1] if revision else None)
     except (
         Failure,
+        RevisionRefused,
         ModelFailure,
         ValidationError,
         AzureError,
@@ -73,7 +87,9 @@ async def execute(
         asyncio.CancelledError,
     ) as error:
         category = (
-            str(error) if isinstance(error, Failure | ModelFailure) else "briefing_execution_failed"
+            str(error)
+            if isinstance(error, Failure | ModelFailure | RevisionRefused)
+            else "briefing_execution_failed"
         )
         await repository.fail(cutoff, category)
         raise
@@ -101,12 +117,23 @@ async def inspect(
             )
         ).fetchone()
         assert usage is not None
+        revisions = await (
+            await connection.execute(
+                "SELECT count(*) FROM public.briefing_revisions WHERE cutoff=%s",
+                (artifact.window_end,),
+            )
+        ).fetchone()
+        assert revisions is not None
         words = sum(len(p.text.split()) for s in artifact.sections for p in s.paragraphs)
         event(
             "briefing_inspection",
             correlation,
             outcome="validated",
             counts={
+                "version": str(artifact.version),
+                "editorial_policy": artifact.editorial_policy or "legacy",
+                "generated_at": artifact.generated_at.isoformat(),
+                "revisions": int(str(revisions[0])),
                 "cutoff": artifact.window_end.isoformat(),
                 "evidence_count": artifact.evidence_count,
                 "summary_words": words,
@@ -149,7 +176,7 @@ async def verify_access(
     event("briefing_access", correlation, outcome="verified", counts=counts)
 
 
-async def runtime(correlation: str, command: str = "run") -> None:
+async def runtime(correlation: str, command: str = "run", revision: Revision | None = None) -> None:
     env = os.environ
     input_price = Decimal(env["BRIEFING_INPUT_PRICE_PER_MILLION"])
     output_price = Decimal(env["BRIEFING_OUTPUT_PRICE_PER_MILLION"])
@@ -203,6 +230,7 @@ async def runtime(correlation: str, command: str = "run") -> None:
                 env["BRIEFING_MODEL"],
                 env["BRIEFING_MODEL_VERSION"],
                 retry_failed=command == "retry-failed",
+                revision=revision,
             )
             event(
                 "briefing_run",
@@ -222,12 +250,23 @@ def main() -> None:
         parser = Parser(description=__doc__)
         parser.add_argument(
             "command",
-            choices=["run", "retry-failed", "inspect", "verify-access"],
+            choices=["run", "retry-failed", "revise-published", "inspect", "verify-access"],
             nargs="?",
             default="run",
         )
+        parser.add_argument("--request-id", type=UUID)
+        parser.add_argument("--expected-version", type=UUID)
+        parser.add_argument("--reason", choices=["editorial-policy-upgrade"])
         arguments = parser.parse_args()
-        asyncio.run(runtime(correlation, arguments.command))
+        options = (arguments.request_id, arguments.expected_version, arguments.reason)
+        revision: Revision | None = None
+        if arguments.command == "revise-published":
+            if any(value is None for value in options):
+                raise Failure("briefing_revision_arguments_required")
+            revision = (arguments.request_id, arguments.expected_version, arguments.reason)
+        elif any(value is not None for value in options):
+            raise Failure("briefing_invalid_arguments")
+        asyncio.run(runtime(correlation, arguments.command, revision))
     except (
         Failure,
         ModelFailure,
