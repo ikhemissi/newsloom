@@ -1,8 +1,6 @@
 import asyncio
 import hashlib
-import json
 import math
-import re
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -16,7 +14,7 @@ from azure.ai.projects.aio import AIProjectClient
 from azure.identity.aio import AzureCliCredential
 from pydantic import Field, JsonValue, StrictInt, StrictStr
 
-from agent_evaluation import grader
+from agent_evaluation import grader, native_rows
 from agent_evaluation.budget import CONTEXT_TOKEN_BOUND
 from agent_evaluation.context import Context, read_context
 from agent_evaluation.foundry import CatalogTransport, ProjectTransport, project_endpoint
@@ -52,39 +50,19 @@ class PublicationRow(MeasuredCase):
 
 
 def _wire_schema() -> dict[str, object]:
-    schema = PublicationRow.model_json_schema()
-    schema["properties"]["score"] = {"type": "string"}
-    return schema
+    return native_rows.wire_schema(PublicationRow)
 
 
 def _wire_row(row: PublicationRow) -> dict[str, object]:
-    value = row.model_dump(mode="json")
-    value["score"] = repr(row.score)
-    return value
+    return native_rows.wire_row(row)
 
 
 def _read_row(value: JsonValue) -> PublicationRow:
-    if isinstance(value, dict) and "item" in value:
-        if set(value) != {"item"} or not isinstance(value["item"], dict):
-            raise EvaluationFailure("invalid_publication_datasource_wrapper")
-        value = value["item"]
-    if isinstance(value, dict):
-        raw = value.get("score")
-        if isinstance(raw, str):
-            try:
-                score = float(raw)
-            except ValueError:
-                raise EvaluationFailure("invalid_publication_score_encoding") from None
-            if not math.isfinite(score) or not 0 <= score <= 1 or repr(score) != raw:
-                raise EvaluationFailure("invalid_publication_score_encoding")
-            value = {**value, "score": score}
-    return PublicationRow.model_validate_json(json.dumps(value))
+    return native_rows.read_row(PublicationRow, value)
 
 
 def _has_error(value: JsonValue) -> bool:
-    if isinstance(value, dict):
-        return any(_has_error(child) for child in value.values())
-    return value is not None
+    return native_rows.has_error(value)
 
 
 class PublicationState(StrictModel):
@@ -111,9 +89,7 @@ class Bundle:
 
 
 def _identifier(value: object) -> str:
-    if not isinstance(value, str) or re.fullmatch(r"[a-zA-Z0-9_-]{1,256}", value) is None:
-        raise EvaluationFailure("invalid_publication_reference")
-    return value
+    return native_rows.identifier(value)
 
 
 def _validate_accounting(result: PilotResult, approval: Approval) -> None:

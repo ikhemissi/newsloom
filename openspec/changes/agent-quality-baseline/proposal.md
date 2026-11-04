@@ -46,6 +46,27 @@ production monitoring.
   conservative chat/embedding reservations, privacy/retention and exact scopes require a
   separate explicit execution approval after local verification; none is
   granted by this proposal or inherited from the old pilot.
+- Apply the separately approved `baseline-12x8-v2` operational profile:
+  120 scoped metadata reads before capture, 60 after, and six total sign-in
+  attempts including preparation and failed attempts. Preserve consumed
+  counters and old profile semantics. This changes no model, spend, evidence,
+  publication, resource or permission bound. A resumed readiness window
+  requires fresh authorization; an expired window cannot roll forward silently.
+- Preserve v2 and admit the subsequently approved `baseline-12x8-v3` with
+  seven total sign-in attempts after browser-launch diagnosis. Its only
+  difference from v2 is one additional counted sign-in slot; all other
+  bounds and existing resource/permission scopes remain unchanged.
+- After the callback-parser diagnosis, admit the separately approved v4 with
+  nine counted sign-in attempts (five consumed, two readiness, two paid
+  capture). Retain all earlier profiles and unchanged non-sign-in limits.
+- Following measured readiness, use the explicitly approved v5 before-phase
+  read allowance of 180, carrying 99 consumed reads. Earlier profiles remain
+  unchanged; after-phase, auth/sign-in, model/spend and publication limits
+  retain their existing bounds and resource scopes.
+- Before first execution, apply the user-approved v6 USD 100 ceiling while
+  retaining v5's case/operation/time/privacy bounds and earlier USD 10 profiles.
+  Report observed tokens, estimated cost and unobserved reservations separately;
+  do not expand the suite to consume the available budget.
 
 Out of scope: candidate modifications/comparisons, automatic optimization,
 online sampling or trace harvesting, new Foundry-hosted agents, new models,

@@ -150,10 +150,55 @@ The following is a proposed execution envelope, not approval:
 | Judge bytes | 64 KiB request/response per attempt; 5 MiB each cumulatively |
 | Evidence MCP operations | 160, including binding and drift checks; 64 KiB per response, 10 MiB cumulative |
 | Query embeddings | Reserve up to 768 dispatch exposures: three attempts times 96 agent-tool operations plus 160 operator MCP operations |
-| Context/readiness | 60 scoped reads before and 60 after; 40 authentication metadata/token HTTP operations, at most four explicit PKCE flows |
+| Context/readiness | 180 scoped reads before and 60 after; 40 authentication metadata/token HTTP operations, at most nine total explicit PKCE attempts, including preparation and failures |
 | A2A readback | 12 completed-task GET slots; request-owned cancellation only within the original case window |
 | Publication | Three metric definitions/runs, six creates, 180 reads, 30-second requests, five-second polling |
-| Overall | One three-hour execution deadline and USD 10 combined agent/judge/embedding estimated admission ceiling |
+| Overall | One three-hour execution deadline and USD 100 combined agent/judge/embedding estimated admission ceiling |
+
+The user separately approved this operational revision after measured readiness
+consumed 47 before-phase reads, two auth operations and one stalled sign-in
+attempt. Version it as `baseline-12x8-v2`; keep `baseline-12x8-v1` at its
+original 60-before/60-after/four-sign-in limits. The suite and metadata
+publication protocol remain `baseline-v1`. Paid capture still requires only
+two sign-in flows. All prior counters, unknown attempts and evidence timestamps
+carry forward; versioning does not reset them.
+
+After the resumed Explorer launcher opened a file window instead of a browser,
+the user verified the Windows default-browser launcher and approved one
+additional sign-in slot. Version this as `baseline-12x8-v3` (120/60 reads,
+seven attempts); v2 retains six attempts and v1 retains four. All three
+consumed attempts remain counted. No model, spending or publication limit
+changes. Launch through Windows Start-Process without persisting authorization
+URLs or waiting for the browser to exit.
+
+After locally reproducing and fixing the rejection of Entra's `session_state`
+callback parameter, the user approved `baseline-12x8-v4`: nine total sign-in
+attempts, comprising five consumed attempts, two new readiness flows and two
+paid-capture flows. V3 retains seven, v2 six and v1 four. No other bound changes.
+The user explicitly renewed readiness for 30 minutes; original failed
+observations and their counters remain intact.
+
+With successful evidence preparation and fresh scoped no-op previews, 99
+before-phase reads were consumed. The user approved `baseline-12x8-v5` to
+provide 180 before-phase slots for context verification, periodic readiness
+refresh and live card reads. All 99 consumed reads carry forward. V4 retains
+120; after-phase remains 60, sign-ins nine, and all auth/model/spend/publication
+limits and resource scopes are unchanged.
+
+Before the first paid dispatch, the user explicitly raised the spending ceiling
+to USD 100 and requested end-of-run accounting. Version this as
+`baseline-12x8-v6`; profiles v1-v5 retain their USD 10 ceiling. V6 inherits
+v5's operation/token/time/privacy bounds, without extra cases or judge retries.
+The ceiling is not a spending target. Record observed agent/judge tokens and
+their price-based estimated cost, plus separately reserved unknown chat and
+unattributed embedding exposure; do not claim reservations as measured usage
+or the estimate as an authoritative Azure invoice.
+
+Readiness runs within a separately authorized 30-minute window. Pausing or
+resuming cannot extend that window automatically. After expiry, obtain fresh
+window authorization and link the new observation to the preserved old
+authorization/counters. This revision adds no resource, model, grant, deployment
+or inference permission and does not change the three-hour paid-run ceiling.
 
 Reserve embedding cost for every possible query-bearing operation using a
 verified conservative token bound for the existing 2,048-character query limit,
@@ -171,6 +216,20 @@ Fresh user approval is needed for another run, with the original attempt linked.
 No periodic credential renewal, mutation retry or additional sign-in silently
 extends the shared deadline. Respect enrichment windows and retained throughput.
 This ceiling is not billing enforcement and excludes infrastructure charges.
+
+For a newly approved baseline snapshot, bind the previous usage report's
+SHA-256 and full conservative model exposure into the approval. The supervisor
+includes that carried amount in every later admission/checkpoint; it is not
+reclassified as new embedding usage or reset on restart. Verify the referenced
+report and amount before any new environment/model work. New per-run counters
+belong to the new explicit approval; previous attempts/counters/expiry remain
+immutable in the linked report and journals.
+
+Snapshot version 2 retains the authored v1 question/control fixture and its
+criteria but binds fresh evidence and the corrected deployed image. The frozen
+version/hash changes before generation, never after observed answers.
+Legacy default serialization omits continuation/version fields so historical
+approval identities and snapshot-v1 shapes remain unchanged.
 
 ### 5. Publish metadata only, without an N/A score fiction
 

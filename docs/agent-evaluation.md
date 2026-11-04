@@ -117,6 +117,355 @@ publication, subject to the preservation/authorization/deletion gates. This
 adds no authority for production content, new models/capacity or broader roles.
 The judge remains the existing GPT-5.4-mini after the comparison below.
 
+## Actual-agent baseline implementation
+
+The [next baseline](../openspec/changes/agent-quality-baseline/proposal.md)
+is a separate `baseline-v1` mode, not a widening of the authored two-case pilot.
+Its accepted agent image/configuration/source and historical receipt are bound
+independently of current evaluator/capture inputs. Local provenance guards pin
+the delivered application lock and all six production package manifests;
+editing them cannot silently change production closures to accommodate tooling.
+The existing pilot fixture/hash remains authoritative and old approvals/results
+are not relabelled or renewed.
+
+The baseline is under implementation, not accepted in Azure. Its selected data
+policy permits only separately approved transient real-evidence judging and
+metadata-only saved reports. Local schema/provenance work performs no sign-in,
+Azure read, generation or publication; readiness, actual runtime binding and
+paid execution remain separate unchecked gates in its
+[task ledger](../openspec/changes/agent-quality-baseline/tasks.md).
+
+The committed authored suite has 12 live-case templates, eight judge controls
+and four separately labelled offline attack/tool controls. Semantic/citation
+eligibility is fixed to b01-b08; contract adherence covers b01-b12, including
+the two expected denials. Private bindings contain only item identities,
+fingerprints, constrained filters and hashed runtime/context provenance; oracles
+cannot silently change the expected case, coverage or applicability. Complete
+results contain exactly 12 case receipts and 28 declared case/metric scores.
+Valid low scores remain failures of quality, not rewritten execution errors.
+
+Validate only these local contracts, without authentication, network access or
+metric-library initialization:
+
+```bash
+uv run --directory tools/agent-evaluation --locked python -m agent_evaluation baseline-validate
+```
+
+Changing the same-version fixture, a frozen source/request/evidence hash, an
+oracle, a case set or metric denominator fails validation. Raw-content fields,
+booleans/nonfinite scores and duplicate JSON keys are rejected before results
+can be persisted. The CLI prints counts/fingerprints only. Actual capture,
+scoring and metadata-only publication remain separate implementation gates.
+
+The local frozen-contract/provenance integration passes 334 isolated evaluator
+tests, strict types, lint and formatting, preserving all 290 original tests.
+Pylance reports no diagnostics for the new contracts. These checks cover no
+actual baseline answer, user session, Azure capture or paid judging.
+
+The root-environment [capture worker](../scripts/agent_quality_capture.py) reuses
+the public-client flow and actual MCP/A2A SDKs. It validates the same user through
+trusted-key OID checks rather than comparing pairwise subjects, permits no
+dynamic registration or secret, and rejects semantic MCP queries in readiness.
+Callback, response, operation, sign-in and deadline limits apply before dispatch.
+Its transient result includes the already-validated research receipt and exact
+before/after evidence fingerprints. The original CLI still emits counts only.
+Seventy-one focused authored-transport/client tests pass, including wrong
+audience/expired credentials, no-consent refusal and cancellation cleanup.
+This is local capture compatibility, not a new sign-in, paid request or Azure
+quality result. Private IPC is implemented below; actual execution approval
+remains required.
+
+Private transport now uses typed protocol/case/nonce/source/request/evidence/
+payload hashes, a 256-KiB frame limit and 8-MiB cumulative wire-byte limits per
+direction, including framing. Only dedicated inherited descriptors carry data;
+child stdout/stderr are discarded, not copied into operator logs. Timeout,
+cancellation, malformed or mismatched replies close the owned process and pipes.
+The transport supports the root environment without importing agent packages
+into the DeepEval environment or changing production dependency closures.
+
+Run its authored, network-free environment/descriptor probe:
+
+```bash
+uv run --directory tools/agent-evaluation --locked python -m agent_evaluation baseline-ipc-check
+```
+
+Sixteen focused process tests pass, including noisy/crashing children and exact
+boundary checks. The probe launches the root virtual environment's Python
+directly after source/lock verification; it performs no dependency installation,
+authentication or capture. It is not a paid baseline execution command.
+
+The baseline accounting controller shares one combined agent/judge/embedding
+exposure ceiling, persists metadata intent before dispatch and carries approved
+preparation read/auth/byte counts forward. Agent requests reserve full
+262,144-input/4,096-output chat exposure plus 24 possible embedding dispatches;
+operator semantic searches reserve three embedding attempts. Valid observed
+chat usage releases only unused chat reservation, not unobserved embeddings.
+Expected denials retain their full reservation unless no model work is
+independently verified. The judge retains the existing conservative context
+reservation and shares the same total ceiling and original deadline.
+
+A separate canonical-approval registry prevents another execution even if
+approval JSON whitespace changes. Read-only inspection recovers metadata and
+unknown reservations, never inference authority. Expiry/halt stops new model
+work; only explicitly bounded publication-read recovery remains available within
+the original deadline. Twenty-seven local accounting tests cover exact limits,
+checkpoint failure, stale/unapproved inputs and unknown usage. No fresh prices,
+readiness or paid approval has yet been obtained.
+
+The scorer uses the existing real asynchronous DeepEval/SDK path, with an
+atomic one-run scoring claim and metadata-only progress. Eight fixed authored
+controls must all pass their frozen labels before live generation; missing
+usage and malformed schema responses halt further calls. Answers to eligible
+cases must match admitted request/evidence/answer fingerprints before scoring.
+Reasons stay transient. A valid low score remains publishable as failed quality
+without repair or rescoring; a release mean is computed only over the eight
+predeclared eligible cases, separately from deterministic gates.
+Fifty combined baseline/legacy judge regressions pass using scripted provider
+responses, not new Azure measurements. Actual capture and execution approval
+are still required before generating or judging the baseline.
+
+Baseline deterministic checks validate the accepted renderer's canonical footer,
+stored reference URLs/markers, rendered cited-statement minimum, selection
+coverage and missing IDs separately from the semantic score. A statement count
+is a visible-format check, not an internal claim/tool trace or proof of factual
+support. Contract adherence covers all 12 live cases; citation validity covers
+b01-b08 only. Expected denials produce contract results, not fabricated semantic
+zeros. Wrong source/request/evidence hashes stop evaluation rather than becoming
+valid low scores.
+
+The four authored local control groups reuse actual controller/schema/SDK and
+privacy assertions for unknown tools, changed endpoints, scope broadening and
+retrieved instructions. Run them in the root environment:
+
+```bash
+uv run --locked python -m scripts.agent_quality_controls
+```
+
+Only case IDs, modality, pass flags and test-source hashes are printed. Test
+stdout/stderr is not forwarded; these controlled inputs involve no Azure/model
+requests. All four groups and 137 focused root regressions passed locally.
+Their receipt explicitly makes no live indirect-attack claim. Real Azure
+baseline acceptance and metadata-only report verification remain pending.
+
+Baseline publication is a distinct `baseline-v1` protocol with strict
+metadata-only rows. It requires completed calibrated progress, matching admitted
+case receipts and frozen result/source hashes, not just a local score file.
+Three reports cover faithfulness (b01-b08, display threshold 0.8), citation
+validity (b01-b08, threshold 1.0) and contract adherence (b01-b12, threshold 1.0).
+The suite index fixes each denominator; no semantic score is fabricated for an
+inapplicable case and unrelated metrics are not averaged into overall quality.
+
+The publisher shares canonical-string score encoding, strict round-trip row
+decoding and nullable-error handling with the delivered pilot. Its finite
+native definition/run creates and reads consume the shared baseline budget.
+State is durable before dispatch; recovery rechecks exact ownership and can
+only read, not replay creates or silently create untouched reports. All 99
+baseline/legacy publication tests pass, including precision, changed schema/
+lineage, duplicate/missing pages, nested execution errors and timeout recovery.
+No actual baseline upload or UI acceptance follows from those local tests.
+
+Every baseline persistence boundary revalidates the complete metadata schema,
+including nested judge amounts and operation bounds, immediately before writing.
+This also rejects invalid Pydantic model copies without serializer warnings
+that could echo their contents. Publication revalidates measured inputs and
+rejects content-bearing report query parameters/fragments or mismatched report
+identities. Invalid data does not replace the previous valid checkpoint.
+
+The complete isolated evaluator suite passes 419 tests, strict types, lint and
+formatting. Fresh-process baseline canaries cover the actual scoring/publication
+libraries, root capture SDKs, inherited-pipe failures, provider exceptions and
+cancellation. Each process uses a disposable home/cache, rejects non-loopback
+network access and scans saved artifacts plus stdout/stderr for injected answer,
+evidence, preference, explanation and credential values. Root telemetry canaries
+exercise actual in-memory exporters rather than inheriting the judge's disabled
+SDK, so their assertions are not vacuous. All original authored-pilot privacy
+checks remain passing.
+
+No new baseline content persistence is permitted. Existing authorized A2A task
+and Azure model-service retention is unchanged; transient Python processing is
+not physical-memory erasure. Baseline reports propose manual 30-day retention,
+not automatic expiry or provider-backup erasure. Existing accepted pilot reports
+remain protected. The gated readiness/paid orchestration is still pending;
+these local results authorize no sign-in,
+Azure read, paid inference, upload or deployment.
+
+The PostgreSQL-enabled primary gate also passes: 1,594 application tests,
+one intentionally excluded live-publisher test, 419 evaluator tests, all 11
+Terraform validations and 90 mock-provider tests, plus runtime/type/format/
+identifier/feed/OpenSpec checks. All six production packages build. The owned
+loopback-only PG18/pgvector test helper was stopped and removed. These results
+validated components at that stage, before the executable command was complete.
+The capture IPC dispatch, shared admission and no-change admission gaps were
+subsequently closed by the [executable workflow](#executable-baseline-workflow);
+the [task ledger](../openspec/changes/agent-quality-baseline/tasks.md) retains
+the stage-specific evidence.
+
+The subsequent shared-admission integration adds private `admission`/`permit`
+frames. Each permit binds the original nonce/case/source/request/evidence hashes
+and a strictly ordered metadata event. The supervisor persists count, byte and
+embedding reservations before releasing the worker; denied, failed, cancelled
+or replayed events cannot dispatch. Both directions include permit/framing bytes
+and carry prior preparation totals forward. Unsafe worker error categories are
+rejected before writing. Tokens and content never enter admission events.
+
+Root MCP transport control reads, evidence calls and public authentication/card
+reads now use those admission callbacks. An MCP tool POST consumes its pending
+logical admission, so the SDK cannot silently resend it. A2A capture permits one
+streaming send and one separately admitted task readback, with bounded responses.
+The existing verification CLI retains its default behavior. Pylance verifies
+all three resolved callers of the extended client signature remain compatible.
+
+The refreshed PostgreSQL-enabled primary gate passes **430 evaluator tests and
+1,596 application tests**, with one intentional live-publisher skip, plus the
+same runtime/type/lint/format/OpenSpec/Terraform gates. All six packages build.
+Eleven real-root-process admission tests cover durable permits, carried byte
+totals, semantic embedding reservation, failed journals, cancellation, missing
+handlers, replayed events, wrong nonces and raw-error suppression; 73 focused
+root SDK/client tests pass. Fresh-process privacy canaries include these paths.
+The disposable database helper was again stopped and removed. These results
+preceded the final executable-worker/end-to-end assembly below; no readiness
+session, Azure request or paid operation occurred.
+
+## Executable baseline workflow
+
+The approved operational revision is `baseline-12x8-v2`: 120 scoped metadata
+reads before capture, 60 after, and six total sign-in attempts counting failed
+preparation attempts. The original v1 retains 60/60 reads and four attempts.
+Both profiles keep the same model/spend/publication bounds and metadata-only
+protocol. Preparation counters carry into execution; changing profile cannot
+reset them. Readiness has a separately authorized 30-minute window and must
+be renewed explicitly after expiry, including after an overnight pause.
+After browser-launch diagnosis, the user approved v3 with seven total
+sign-in attempts; v2 remains six and v1 remains four. All consumed attempts
+carry forward. The root operator worker uses Windows Start-Process in WSL
+to launch the default browser without logging authorization URLs.
+
+The MCP callback uses the already registered `http://127.0.0.1:33418/`
+root path, not `/callback`. Its listener exists only while the owned sign-in
+session is active and is closed on success/failure/cancellation. Local
+Windows-to-WSL HTTP tests verify that port is reachable. The strict parser
+accepts Entra's optional bounded `session_state` parameter without treating it
+as a credential or persisting it; duplicate/oversized values and unknown
+parameters remain invalid. Successful callbacks show only the fixed message
+"Sign-in received. Close this tab.", without echoing codes or tokens.
+Invalid callbacks receive content-free HTTP 400
+instead of a silent connection close. Live confirmation remains distinct
+from these authored callback tests.
+The subsequent user-approved v4 permits nine counted sign-in attempts after
+the parser diagnosis: five consumed, two readiness and two paid-capture.
+All earlier profile ceilings and all non-sign-in bounds stay unchanged.
+After measured readiness consumed 99 before-phase reads, user-approved v5
+raises only that ceiling to 180, carrying all counters. After-phase remains
+60; sign-ins nine and all other limits and resource scopes are unchanged.
+Before first paid dispatch, the user raised the maximum to USD 100. V6
+encodes that ceiling with v5's other bounds; v1-v5 remain at USD 10.
+End-of-run accounting reports observed tokens/estimated chat cost separately
+from unknown chat and reserved embeddings. It does not claim billing-meter
+precision or consume extra budget merely because it is available.
+The first paid baseline halted on discovery case b05 after calibration passed
+all eight controls and b01-b04 completed. No live semantic scores or report
+uploads were produced. The original expiry and all reservations are preserved,
+and no inference/create has been replayed. The old generic worker error does
+not identify the precise discovery failure cause; fixed stage categories now
+improve future content-free diagnosis without relabelling that attempt.
+Observed price-based chat cost was USD 0.033631950; unknown chat reservation
+was USD 0.236544 and unattributed embedding reservation USD 0.155320320
+(combined exposure USD 0.425496270). Reserved exposure is not measured spend
+or an Azure invoice. See the [task ledger](../openspec/changes/agent-quality-baseline/tasks.md)
+for exact calibration/token accounting and the remaining acceptance gates.
+Calibration starts before live generation. The original expiry is preserved, and
+enrichment schedule guard windows cause bounded no-dispatch waiting rather
+than silently extending the run or failing merely for crossing a half-hour.
+
+The local components are now composed by
+[`baseline-run`](../tools/agent-evaluation/agent_evaluation/baseline_runner.py)
+and the [private root worker](../scripts/agent_quality_worker.py). The command
+calibrates first, captures all 12 cases under the signed-in user, closes the
+capture session, scores/checks the transient answers and publishes three
+metadata-only reports. Questions, answers, evidence and judge explanations are
+never saved for restart. Lost content cannot authorize regeneration.
+
+A fresh approved snapshot is distinct from restarting a failed run. Snapshot
+version 2 keeps the authored v1 case/control fixture and thresholds but binds
+the corrected image and fresh evidence. When an approval binds prior model
+exposure, pass its immutable usage report with `--prior-usage`; the report's
+SHA and amount are verified before environment/model work and remain inside
+the cumulative ceiling. Prior journals/counters/expiry stay unchanged, and
+legacy serialization keeps old approval hashes intact.
+
+The fresh snapshot-2 run used the verified corrected
+image. It retains the same authored questions/controls and pass criteria,
+with new evidence/runtime provenance, an explicit new window and the prior
+USD 0.997535787 conservative exposure held inside the USD 100 ceiling.
+Calibration passed all eight labels in 32 metered calls, but capture opening
+timed out before token exchange or any live request. No new scores or reports
+were produced. The stopped run and its original expiry remain preserved;
+it is not completed baseline-quality or Foundry report/UI acceptance.
+Cumulative observed chat estimate is USD 0.056738550, with USD 0.958144512
+unmeasured reservations and USD 1.014883062 conservative exposure. A future
+operator-ready handoff must avoid starting the short browser timer merely
+because calibration finished; no stopped run or lost content is silently resumed.
+
+The final integrated local gate passes 459 evaluator tests and 1,596 application
+tests, with one intentional live-publisher skip, plus all runtime/type/lint/
+format/identifier/feed/OpenSpec/Terraform checks. All six packages build.
+Both strengthened fresh-process privacy checks pass, including the public CLI
+through the real private-pipe worker with authored transports. The owned
+loopback-only PG18 helper is stopped/removed. These are local compatibility
+results, not actual Azure baseline acceptance.
+
+This is the initial versioned baseline, not a finished evaluation programme.
+Cases, metrics and criteria should evolve with the product through subsequent
+versions; a measured version's inputs, scores and failures remain immutable.
+
+Only after separate readiness and exact paid-execution approvals:
+
+```bash
+uv run --directory tools/agent-evaluation --locked python -m agent_evaluation baseline-run \
+  --manifest .azure/dev/agent-quality-baseline/execution-approval.json \
+  --frozen .azure/dev/agent-quality-baseline/frozen.json \
+  --readiness .azure/dev/agent-quality-baseline/readiness.json \
+  --plans .azure/dev/agent-quality-baseline/no-change-plans.json \
+  --approved-sha256 "$APPROVED_BASELINE_SHA256" \
+  --output .azure/dev/agent-quality-baseline/run-v1
+```
+
+The variable is the exact manifest hash reviewed and approved by the user, not
+an automatically renewed authorization. Input parents must exist privately;
+the output directory must be new. A canonical one-time registry prevents
+re-entry even after changing JSON whitespace.
+
+The private readiness receipt binds the current evaluator/capture/IaC/provider
+lock/azd-hook source, accepted runtime image/configuration, caller context,
+capture endpoints/public-client configuration and scoped before-state evidence.
+Its three ordered layer entries bind canonical native Terraform plan and
+retained-resource hashes for `application`, `agent` and `agent-evaluation`.
+The private plan bundle maps those layer names to `plan` and `retained`
+documents. Prepare them from the actual separately authorized owning previews
+and scoped readback, not authored fixtures or self-declared pass flags.
+
+The [admission verifier](../tools/agent-evaluation/agent_evaluation/baseline_admission.py)
+permits only managed no-ops agreeing with both retained and planned state.
+Changed resource/output values, replacement/import/move intent, unknown values,
+foreign providers/resources, stale plans, failed checks or changed image/source
+block the command before authentication. No apply, scope/grant change,
+dependency change or new deployment follows from a successful admission.
+Readiness evidence must precede paid approval by no more than one hour.
+
+Control reads, model credentials and SDK calls share the original finite
+deadline and accounting. Deployment/workload readiness is cached for at most
+five minutes, while schedule-window checks remain per dispatch. After all live
+receipts arrive, further scoped readiness reads use the after-phase allowance.
+Expected denials retain unproven model/embedding exposure.
+
+A valid low score still publishes unchanged with `semantic_gate_passed:false`;
+`outcome:published` is not quality/release/UI acceptance. Calibration failure
+starts no capture worker. Publication failures preserve their exact pending
+targets and original counters; read-only reconciliation can verify already
+attempted reports after a halt, but cannot create untouched reports, replay
+creates or rerun scoring. The CLI's stdout contains only counts and fixed
+status/pass flags, never report URLs, content, identifiers or raw exceptions.
+
 ## Owning infrastructure boundary
 
 The [application root](../infra/main.tf) configures project management and a

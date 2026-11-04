@@ -4,6 +4,8 @@ import hashlib
 import json
 import subprocess
 import time
+from collections.abc import Awaitable, Callable
+from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import UUID
@@ -17,6 +19,10 @@ ARM = "https://management.azure.com"
 API = "2025-06-01"
 APP_API = "2025-07-01"
 CONTROL_RESPONSE_LIMIT = 1024 * 1024
+COMMAND_ADMISSION: ContextVar[Callable[[list[str]], Awaitable[None]] | None] = ContextVar(
+    "baseline_command_admission", default=None
+)
+COMMAND_DEADLINE: ContextVar[float | None] = ContextVar("baseline_command_deadline", default=None)
 BOUND_ENVIRONMENT = (
     "AZURE_ENV_NAME",
     "AZURE_SUBSCRIPTION_ID",
@@ -46,9 +52,29 @@ def text(value: dict[str, JsonValue], key: str) -> str:
     return result
 
 
+def schedule_window_delay() -> float:
+    within_half_hour = datetime.now(UTC).timestamp() % 1800
+    if within_half_hour < 70:
+        return 70 - within_half_hour
+    if within_half_hour > 1730:
+        return 1870 - within_half_hour
+    return 0.0
+
+
+def verify_schedule_window() -> None:
+    if schedule_window_delay():
+        raise EvaluationFailure("shared_deployment_schedule_window")
+
+
 def _read_command(arguments: list[str]) -> bytes:
+    deadline = COMMAND_DEADLINE.get()
+    timeout = 45.0 if deadline is None else min(45.0, deadline - time.monotonic())
+    if timeout <= 0:
+        raise EvaluationFailure("evaluation_control_deadline")
     try:
-        result = subprocess.run(arguments, cwd=ROOT, capture_output=True, check=False, timeout=45)
+        result = subprocess.run(
+            arguments, cwd=ROOT, capture_output=True, check=False, timeout=timeout
+        )
     except subprocess.TimeoutExpired:
         raise EvaluationFailure("evaluation_control_deadline") from None
     if result.returncode or len(result.stdout) > CONTROL_RESPONSE_LIMIT:
@@ -58,6 +84,9 @@ def _read_command(arguments: list[str]) -> bytes:
 
 async def command(arguments: list[str]) -> dict[str, JsonValue]:
     verify_privacy()
+    admit = COMMAND_ADMISSION.get()
+    if admit is not None:
+        await admit(arguments)
     data = await asyncio.to_thread(_read_command, arguments)
     json_document(data)
     try:
@@ -140,9 +169,7 @@ class Context:
             status = object_value(object_value(value).get("properties")).get("status")
             if status not in ("Succeeded", "Failed", "Stopped"):
                 raise EvaluationFailure("shared_deployment_busy")
-        within_half_hour = datetime.now(UTC).timestamp() % 1800
-        if not 70 <= within_half_hour <= 1730:
-            raise EvaluationFailure("shared_deployment_schedule_window")
+        verify_schedule_window()
 
 
 async def read_context() -> Context:

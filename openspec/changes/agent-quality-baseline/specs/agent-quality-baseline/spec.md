@@ -121,7 +121,7 @@ and cannot authorize baseline work.
 - **WHEN** local verification and scoped readiness pass and the user approves
   the exact proposed envelope
 - **THEN** at most 12 live requests, 80 judge attempts, six publication creates
-  and 180 publication reads fit one three-hour window and USD 10 estimated
+  and 180 publication reads fit one three-hour window and the approved estimated
   combined agent/judge/query-embedding model-admission ceiling
 - **AND** the existing per-request limits remain clamped, calls remain
   single-flight, unknown usage retains its reservation, and read/byte limits
@@ -130,12 +130,56 @@ and cannot authorize baseline work.
   unattributed embedding usage remains reserved rather than labelled observed
 - **AND** this estimate excludes infrastructure and is not an Azure billing cap
 
+#### Scenario: The user raises the spending ceiling before dispatch
+- **WHEN** the user approves `baseline-12x8-v6` with a USD 100 ceiling
+- **THEN** v6 retains v5's finite case/operation/token/time/privacy limits,
+  while all earlier profiles retain their USD 10 ceiling
+- **AND** end-of-run reporting separates observed agent/judge tokens and
+  estimated cost from unknown chat and unattributed embedding reservations
+- **AND** the allowance is not a spending target, additional retry approval,
+  extra evaluation cases or an authoritative billing statement
+
+#### Scenario: The approved operational profile is revised
+- **WHEN** the operator admits the separately approved `baseline-12x8-v2` profile
+- **THEN** scoped metadata reads are bounded to 120 before capture and 60 after,
+  and all preparation, failed and paid sign-in attempts count toward six total
+- **AND** the original `baseline-12x8-v1` retains its 60-before/60-after/
+  four-sign-in limits; neither profile silently changes historical approvals
+- **AND** consumed counters and unknown attempts carry forward, while the
+  USD 10, 12-case, 80-judge-attempt and publication limits remain unchanged
+- **AND** readiness requires its own explicit 30-minute authorization window;
+  resuming after expiry cannot renew or reset it without fresh authorization
+
 #### Scenario: A limit or authorization expires
 - **WHEN** remaining cost, time, identity validity or any count/byte/token
   reservation cannot cover the next operation
 - **THEN** no further corresponding request is dispatched
 - **AND** restart cannot reset counters, deadlines or unknown exposure; a new
   user-approved run must preserve the failed attempt and original baseline
+
+#### Scenario: A browser-launch failure consumes another sign-in attempt
+- **WHEN** the user explicitly approves `baseline-12x8-v3` after confirming
+  the working Windows default-browser launcher
+- **THEN** seven total sign-in attempts are permitted, including all three
+  already consumed attempts; v2 retains six and v1 retains four
+- **AND** no additional read, model, spending, publication, resource or
+  permission limit changes and no failed attempt is reset
+
+#### Scenario: Callback compatibility is fixed before another live attempt
+- **WHEN** the user approves `baseline-12x8-v4` after local callback verification
+- **THEN** nine total sign-in attempts include the five consumed attempts,
+  two new readiness flows and two later paid-capture flows
+- **AND** earlier profiles keep their original attempt ceilings and all
+  non-sign-in limits remain unchanged
+- **AND** a freshly authorized readiness window is linked to the preserved
+  failed attempt history, not substituted for it
+
+#### Scenario: Measured preparation leaves insufficient metadata-read headroom
+- **WHEN** the user approves `baseline-12x8-v5` after 99 before-phase reads
+- **THEN** the before-phase ceiling is 180 with all consumed reads retained,
+  while v4 and previous profiles keep their original limits
+- **AND** after-phase remains 60, sign-ins nine and all other authentication,
+  model, spend, publication and resource-scope limits are unchanged
 
 ### Requirement: Exact metadata-only baseline publication
 Baseline reports SHALL contain only allowlisted metadata and exact finite

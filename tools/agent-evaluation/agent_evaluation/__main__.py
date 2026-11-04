@@ -14,11 +14,27 @@ class Parser(argparse.ArgumentParser):
 
 
 def main() -> int:
-    parser = Parser(description="Synthetic-only evaluation pilot.")
+    parser = Parser(description="Operator evaluation tooling; paid work requires exact approval.")
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser(
         "validate", help="Validate frozen fixtures and provenance; no Azure access."
     )
+    commands.add_parser(
+        "baseline-validate", help="Validate authored baseline contracts; no sign-in or Azure work."
+    )
+    commands.add_parser(
+        "baseline-ipc-check", help="Check isolated worker pipes; no sign-in or Azure work."
+    )
+    baseline = commands.add_parser(
+        "baseline-run", help="Execute one frozen baseline; fresh exact paid approval required."
+    )
+    baseline.add_argument("--manifest", type=Path, required=True)
+    baseline.add_argument("--frozen", type=Path, required=True)
+    baseline.add_argument("--readiness", type=Path, required=True)
+    baseline.add_argument("--plans", type=Path, required=True)
+    baseline.add_argument("--approved-sha256", required=True)
+    baseline.add_argument("--output", type=Path, required=True)
+    baseline.add_argument("--prior-usage", type=Path)
     execute = commands.add_parser("score", help="Run only an explicitly approved private manifest.")
     execute.add_argument("--manifest", type=Path, required=True)
     execute.add_argument("--approved-sha256", required=True)
@@ -42,6 +58,42 @@ def main() -> int:
     retention.add_argument("--approved-sha256", required=True)
     retention.add_argument("--delete", action="store_true")
     args = parser.parse_args()
+    if args.command == "baseline-ipc-check":
+        from agent_evaluation.baseline_ipc import probe_capture_environment
+
+        try:
+            receipt = asyncio.run(probe_capture_environment())
+        except EvaluationFailure, OSError, ValueError:
+            print(json.dumps({"outcome": "failure", "category": "baseline_ipc_validation_error"}))
+            return 1
+        print(json.dumps(receipt, sort_keys=True))
+        return 0
+    if args.command == "baseline-validate":
+        from agent_evaluation.baseline_inputs import fixture_digest, load_fixture
+        from agent_evaluation.baseline_provenance import (
+            capture_source_digest,
+            evaluator_source_digest,
+            verify_production_inputs,
+        )
+
+        try:
+            fixture = load_fixture()
+            receipt = {
+                "outcome": "validated",
+                "protocol": "baseline-v1",
+                "cases": len(fixture.cases),
+                "controls": len(fixture.controls),
+                "fixture_sha256": fixture_digest(),
+                "evaluator_source_sha256": evaluator_source_digest(),
+                "capture_source_sha256": capture_source_digest(),
+                "production_inputs_sha256": verify_production_inputs(),
+                "model_calls": 0,
+            }
+        except EvaluationFailure, OSError, ValueError:
+            print(json.dumps({"outcome": "failure", "category": "baseline_validation_error"}))
+            return 1
+        print(json.dumps(receipt, sort_keys=True))
+        return 0
     if args.command == "validate":
         try:
             load_pilot()
@@ -71,6 +123,22 @@ def main() -> int:
     from agent_evaluation.runner import score
 
     try:
+        if args.command == "baseline-run":
+            from agent_evaluation.baseline_runner import run
+
+            receipt = asyncio.run(
+                run(
+                    args.manifest,
+                    args.frozen,
+                    args.readiness,
+                    args.plans,
+                    args.approved_sha256,
+                    args.output,
+                    prior_usage=args.prior_usage,
+                )
+            )
+            print(json.dumps(receipt, sort_keys=True))
+            return 0
         if args.command == "cleanup":
             from agent_evaluation.cleanup import cleanup
 
