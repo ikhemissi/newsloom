@@ -1,7 +1,7 @@
 from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from newsloom_platform import agent_identity, control
@@ -234,7 +234,8 @@ def test_name_collision_requires_explicit_identity(directory: Directory) -> None
 
 
 @pytest.mark.parametrize(
-    "owners", [[], [{"id": str(uuid4())}], [{"id": str(uuid4())}, {"id": str(uuid4())}]]
+    "owners",
+    [[], [{"id": str(UUID(int=1001))}], [{"id": str(UUID(int=1002))}, {"id": str(UUID(int=1003))}]],
 )
 def test_foreign_or_shared_ownership_requires_explicit_review(
     directory: Directory, owners: list[dict[str, str]]
@@ -269,7 +270,7 @@ def test_existing_registration_cannot_be_repurposed(directory: Directory, field:
         ("keyCredentials", [{"keyId": "PRIVATE_CERT_CANARY"}]),
         ("appRoles", [{"value": "news.read"}]),
         ("signInAudience", "AzureADMultipleOrgs"),
-        ("appId", str(uuid4())),
+        ("appId", str(UUID(int=1004))),
         ("displayName", "another-owned-app"),
         ("web", {"redirectUris": ["https://unapproved.invalid/callback"]}),
         ("spa", {"redirectUris": ["http://127.0.0.1:8400/callback"]}),
@@ -352,9 +353,9 @@ def test_federation_rejects_foreign_or_malformed_arm_identity_path(
     ("field", "value"),
     [
         ("scope", "news.read news.write"),
-        ("resourceId", str(uuid4())),
+        ("resourceId", str(UUID(int=1005))),
         ("consentType", "Principal"),
-        ("principalId", str(uuid4())),
+        ("principalId", str(UUID(int=1006))),
     ],
 )
 def test_consent_inventory_never_adopts_broader_or_other_user_grants(

@@ -1,7 +1,8 @@
-name: Local checks
+name: Checks
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches: [main]
   workflow_dispatch:
@@ -14,13 +15,15 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Draft PRs check only what changed; ready PRs and main run everything.
   checks:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     env:
       OPENSPEC_TELEMETRY: "0"
       TF_IN_AUTOMATION: "true"
       NEWSLOOM_TEST_POSTGRES_DSN: "host=127.0.0.1 port=5432 user=postgres dbname=postgres"
+      CHECK_MODE: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft && 'changed' || 'all' }}
     services:
       postgres:
         image: pgvector/pgvector:pg18
@@ -35,6 +38,8 @@ jobs:
           --health-retries 12
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: astral-sh/setup-uv@v6
         with:
           version: "0.13.5"
@@ -48,5 +53,54 @@ jobs:
           terraform_version: "1.15.8"
           terraform_wrapper: false
       - run: npm ci --no-audit --no-fund
-      - run: npx playwright install --with-deps chromium
-      - run: bash scripts/check.sh
+      - name: Plan
+        id: plan
+        run: |
+          if [ "$CHECK_MODE" = all ]; then
+            uv run --locked python scripts/check_plan.py --all --shell >> "$GITHUB_OUTPUT"
+          else
+            uv run --locked python scripts/check_plan.py --base "origin/${{ github.base_ref }}" --shell >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.plan.outputs.WEB == '1'
+        run: npx playwright install --with-deps chromium
+      - name: Checks
+        run: |
+          if [ "$CHECK_MODE" = all ]; then
+            bash scripts/check.sh --all
+          else
+            CHECK_BASE="origin/${{ github.base_ref }}" bash scripts/check.sh
+          fi
+
+  # Offline evals run once a PR is ready for review and again on main.
+  evals:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.13.5"
+          enable-cache: true
+      - run: uv sync --locked --all-packages
+      - name: Replay evals
+        run: bash scripts/eval.sh
+      - name: Azure sign-in for live evals
+        if: vars.EVAL_CLIENT_ID != ''
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ vars.EVAL_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          allow-no-subscriptions: true
+      - name: Live evals
+        if: vars.EVAL_CLIENT_ID != ''
+        env:
+          MODEL_ENDPOINT: ${{ vars.EVAL_MODEL_ENDPOINT }}
+          BRIEFING_DEPLOYMENT: ${{ vars.EVAL_BRIEFING_DEPLOYMENT }}
+        run: bash scripts/eval.sh --live
+      - name: Live evals not configured
+        if: vars.EVAL_CLIENT_ID == ''
+        run: echo "::notice::Live evals skipped; the CI evaluation identity is not configured yet."

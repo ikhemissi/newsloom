@@ -456,14 +456,14 @@ def test_foundry_user_exact_empty_exclusion_output(
 @pytest.mark.parametrize(
     "field,value",
     [
-        ("principal_id", str(uuid4())),
+        ("principal_id", str(UUID(int=1001))),
         ("principal_type", "ServicePrincipal"),
         ("role_definition_id", "foreign"),
         ("scope", "foreign"),
         ("condition", "foreign"),
         ("condition_version", "2.0"),
         ("delegated_managed_identity_resource_id", "foreign"),
-        ("name", str(uuid4())),
+        ("name", str(UUID(int=1002))),
         ("skip_service_principal_aad_check", True),
     ],
 )
@@ -1146,14 +1146,17 @@ def test_duplicate_json_and_oversized_evidence_rejected(evidence: verification.E
         ("writes_performed", 1),
         ("model_calls", True),
         ("news_metadata_fingerprint", "ARTICLE_TEXT_CANARY"),
-        ("verified_utc", (datetime.now(UTC) - timedelta(minutes=16)).isoformat()),
+        ("verified_utc", "stale"),
         ("prompt", "CONTENT_CANARY"),
     ],
+    ids=str,
 )
 def test_independent_data_receipt_is_strict(
     evidence: verification.Evidence, field: str, value: object
 ) -> None:
     receipt = data_receipt()
+    if value == "stale":
+        value = (datetime.now(UTC) - timedelta(minutes=16)).isoformat()
     receipt[field] = value
     path = str(evidence.directory / "data.json")
     evidence.write(path, receipt)
