@@ -31,7 +31,7 @@ preserved; this is a bounded visual refinement, not a transport or API change.
 
 ## Impact
 
-Owns a small [PRD-3](../../../docs/prd-3.md) UI refinement after the deployed
+Owns a small [PRD-3](../../../../docs/prd-3.md) UI refinement after the deployed
 HTTP catalogue. Affects App news header/toolbar markup, directly related CSS,
 component/browser assertions and a short owning UI runbook note.
 

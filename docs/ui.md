@@ -8,7 +8,7 @@ audited same-day retry: a 1,026-word summary with an 82-word TL;DR. Earlier
 rejected/incomplete attempts were retained, not hidden or reset. Actual
 scheduled execution and signed-in qualitative acceptance remain open.
 
-The [HTTP catalogue migration](../openspec/changes/ui-http-news-catalog/tasks.md)
+The [HTTP catalogue migration](../openspec/changes/archive/2026-11-04-ui-http-news-catalog/tasks.md)
 is deployed early access with stored-item pages and capped browse continuation.
 Local checks and owning image/config/asset/identity/backend preservation passed;
 new authenticated regular-browser/cache/deployed accessibility acceptance remains
@@ -26,14 +26,14 @@ On 2026-11-01 the user approved selective publication and filter implementation
 with those unavailable checks explicitly open. Automation can control the
 integrated VS Code browser, not their existing regular-browser session; another
 test-browser sign-in or exported authentication state is not permitted.
-The [owning change](../openspec/changes/ui-spike-and-shell/tasks.md) records actual
+The [owning change](../openspec/changes/archive/2026-11-04-ui-spike-and-shell/tasks.md) records actual
 checks. [PRD-3](prd-3.md) owns sequencing; [capabilities](prd-3-capabilities.md)
 and the [stack ADR](adrs.md#ui-stack-comparison) own behavior and decisions.
 PRD-2 evaluations remain open.
 
 ## Compact news toolbar
 
-The [compact-toolbar slice](../openspec/changes/ui-compact-news-toolbar/tasks.md)
+The [compact-toolbar slice](../openspec/changes/archive/2026-11-04-ui-compact-news-toolbar/tasks.md)
 removes the visible main news eyebrow/title/intro and puts Refresh alongside
 Apply/Reset in the filter toolbar. Search keeps a concise submitted-query/
 relevance/bounded-result line; Clear search occupies the same action position.
@@ -58,7 +58,7 @@ alignment in Azure; that acceptance remains explicit in the checklist.
 
 ## Browser-local timestamps
 
-The [timestamp slice](../openspec/changes/ui-browser-local-timestamps/tasks.md)
+The [timestamp slice](../openspec/changes/archive/2026-11-04-ui-browser-local-timestamps/tasks.md)
 is deployed early access. Implementation `a6d65f2` passed exact-source CI
 `41502389782`. Its immutable UI source is
 `3743b4c6bf715650e2517de2ebfc51b8eb3f4222b9d0f5bae431ea9348f251c8`.
@@ -303,7 +303,7 @@ reset the evaluation ledger during UI rollback.
 
 ## Latest news, search and optional research
 
-The [feed slice](../openspec/changes/ui-news-feed/tasks.md) is deployed for
+The [feed slice](../openspec/changes/archive/2026-11-04-ui-news-feed/tasks.md) is deployed for
 early-access verification, with unavailable automated acceptance still open and
 selective implementation/status publication verified.
 The default signed-in page shows the latest
@@ -342,7 +342,7 @@ that cannot run through that workflow remain explicitly unchecked.
 
 ## Source, category and date filters
 
-The [filters slice](../openspec/changes/ui-news-filters/tasks.md) is deployed as
+The [filters slice](../openspec/changes/archive/2026-11-04-ui-news-filters/tasks.md) is deployed as
 early access. Local/SDK/authored browser checks and owning Azure image/configuration/
 permission readback passed; regular-browser filter confirmation and unavailable
 automated signed-in Azure acceptance remain open. Its final source is

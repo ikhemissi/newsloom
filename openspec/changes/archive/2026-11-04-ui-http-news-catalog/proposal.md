@@ -47,9 +47,9 @@ transport requirements as simultaneous current contracts.
 
 ## Impact
 
-Owns [PRD-3 Step 3.5](../../../docs/prd-3.md#delivery-plan), supporting
-[P3-C04/P3-C07](../../../docs/prd-3-capabilities.md). Prerequisites are the
-published filters and deployed [HTTP API](../../../docs/news-api.md). The API's
+Owns [PRD-3 Step 3.5](../../../../docs/prd-3.md#delivery-plan), supporting
+[P3-C04/P3-C07](../../../../docs/prd-3-capabilities.md). Prerequisites are the
+published filters and deployed [HTTP API](../../../../docs/news-api.md). The API's
 authenticated live/cache acceptance and existing UI Azure checks remain open;
 this change must collect its own actual browser/API evidence, not silently
 inherit a publication exception.

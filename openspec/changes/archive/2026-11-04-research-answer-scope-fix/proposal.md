@@ -33,9 +33,9 @@ None.
 ## Impact
 
 Owns a PRD-2 research correctness slice toward
-[P2-C03/P2-C04](../../../docs/prd-2-capabilities.md).
+[P2-C03/P2-C04](../../../../docs/prd-2-capabilities.md).
 Prerequisites are the delivered research runtime and the retained failed
-[baseline](../agent-quality-baseline/tasks.md). Affects research contracts,
+[baseline](../../agent-quality-baseline/tasks.md). Affects research contracts,
 generator/controller interfaces and directly related tests/runbook.
 No dependency, resource, model, capacity, grant, database write, web or PRD-3
 change. Existing same-user access, region/model availability and USD 100

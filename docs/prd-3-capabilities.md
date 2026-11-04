@@ -60,7 +60,7 @@ See [the ADRs](adrs.md) for shared architectural decisions.
 
 ## P3-C04: Source, category, and date shortcuts
 
-**Assignment:** active [`ui-news-filters`](../openspec/changes/ui-news-filters/tasks.md),
+**Assignment:** active [`ui-news-filters`](../openspec/changes/archive/2026-11-04-ui-news-filters/tasks.md),
 deployed early access with local/owning deployment checks passed and regular-browser/
 automated signed-in Azure acceptance still open; not full phase acceptance.
 
@@ -137,12 +137,12 @@ do not add account management, saved chat history, or news-editing features.
 ## P3-C07: News feed, search and item context
 
 **Status:** latest-feed/search/context slice deployed as early access in
-[`ui-news-feed`](../openspec/changes/ui-news-feed/tasks.md). The user confirmed
+[`ui-news-feed`](../openspec/changes/archive/2026-11-04-ui-news-feed/tasks.md). The user confirmed
 the regular-browser journey; implementation/status publication is verified and
 full automated acceptance remains pending. Filters belong to the active
-[`ui-news-filters`](../openspec/changes/ui-news-filters/tasks.md) slice. Detail
+[`ui-news-filters`](../openspec/changes/archive/2026-11-04-ui-news-filters/tasks.md) slice. Detail
 routing and capped browsing pagination belong to the active
-[`ui-http-news-catalog`](../openspec/changes/ui-http-news-catalog/tasks.md)
+[`ui-http-news-catalog`](../openspec/changes/archive/2026-11-04-ui-http-news-catalog/tasks.md)
 migration over the deployed API contract; multi-selection remains subsequent work.
 
 **Outcome:** Readers can browse stored news and explicitly choose research context.
@@ -174,7 +174,7 @@ migration over the deployed API contract; multi-selection remains subsequent wor
 - Browse/metadata Load more requests 20 per click, capped at 200 displayed items
   with an explicit restart. Semantic search remains top 20 without paging.
   The display cap is not server exhaustion, and live keysets are not a snapshot.
-- The active [`cached-news-api`](../openspec/changes/cached-news-api/tasks.md)
+- The active [`cached-news-api`](../openspec/changes/archive/2026-11-04-cached-news-api/tasks.md)
   backend slice owns 60-second process-local response caching and browse-only
   keysets; semantic search stays bounded to 50. It does not deliver browser paging
   or switch the NewsCatalog adapter. Richer citations/history remain future work.

@@ -130,3 +130,8 @@ The separately planned `ui-news-feed` slice does not silently expand this change
   direct-MCP CORS/consent/protocol checks and an honest timestamp-tie/paging decision.
 - Resume versioned evaluations separately with prior costs/receipts preserved;
   this UI delivery does not restart a halted baseline.
+
+## Known gaps
+
+- Archived 2026-11-04 with the unchecked tasks above unverified; see
+  [known gaps](../../../../docs/known-gaps.md).

@@ -88,7 +88,7 @@ Completing the synthetic evaluation foundation alone is not the end of PRD-2.
 
 **Approved early-access exception (2026-10-31):** the user approved the minimal
 [PRD-3 browser journey](prd-3.md) before Step 2.3 is complete. The
-[`ui-spike-and-shell` change](../openspec/changes/ui-spike-and-shell/proposal.md)
+[`ui-spike-and-shell` change](../openspec/changes/archive/2026-11-04-ui-spike-and-shell/proposal.md)
 owns this exception. Existing evaluation receipts, costs and unchecked acceptance
 remain intact; this does not restart halted runs, complete P2-C06 or grant full
 phase acceptance. Research stays visibly early access while quality acceptance

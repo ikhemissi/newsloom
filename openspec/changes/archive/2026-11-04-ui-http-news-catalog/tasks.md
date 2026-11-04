@@ -97,3 +97,8 @@ implementation commit. Measured-status commit
 - Before future archival, reconcile current browser transport requirements with
   historical active UI deltas without rewriting their acceptance evidence.
 - No automatic archival of API/UI changes with open acceptance.
+
+## Known gaps
+
+- Archived 2026-11-04 with the unchecked tasks above unverified; see
+  [known gaps](../../../../docs/known-gaps.md).

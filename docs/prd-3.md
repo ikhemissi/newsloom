@@ -7,7 +7,7 @@ Full phase acceptance still requires [Phase 2](prd-2.md), including its final
 tests/evals slice. On 2026-10-31 the user explicitly approved a narrow sequencing
 exception: deliver the minimal signed-in research/citation journey using the
 verified Phase 2 backend while its remaining evaluation acceptance stays open.
-The [`ui-spike-and-shell` change](../openspec/changes/ui-spike-and-shell/proposal.md)
+The [`ui-spike-and-shell` change](../openspec/changes/archive/2026-11-04-ui-spike-and-shell/proposal.md)
 owns this first delivery, not a declaration that either phase is complete.
 
 This document owns phase sequencing and capability-to-slice assignments.
@@ -33,7 +33,7 @@ Use [the development guide](development.md#openspec) to execute each slice.
 
 The user approved local feed implementation while the first UI's remaining
 release evidence/publication stays open. The
-[feed checklist](../openspec/changes/ui-news-feed/tasks.md) retains that release
+[feed checklist](../openspec/changes/archive/2026-11-04-ui-news-feed/tasks.md) retains that release
 prerequisite. Filters (P3-C04), item-detail routing, multi-selection and pagination
 remain subsequent slices; this delivery does not claim the whole phase complete.
 

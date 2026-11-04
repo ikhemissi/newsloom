@@ -45,8 +45,8 @@ pagination contract applies to HTTP only.
 
 ## Impact
 
-Owns the API delivery slice in [PRD-3](../../../docs/prd-3.md#delivery-plan),
-supporting [P3-C04/P3-C07](../../../docs/prd-3-capabilities.md). Prerequisites are
+Owns the API delivery slice in [PRD-3](../../../../docs/prd-3.md#delivery-plan),
+supporting [P3-C04/P3-C07](../../../../docs/prd-3-capabilities.md). Prerequisites are
 the deployed MCP/research/UI foundation and published filters. Existing signed-in
 UI acceptance remains explicitly open; it is not retroactively completed here.
 

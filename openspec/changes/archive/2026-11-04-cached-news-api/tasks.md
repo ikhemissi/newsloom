@@ -92,3 +92,8 @@ tree were removed. Measured-status commit
 - Resume versioned evaluations only after that migration, preserving all prior
   usage receipts, reservations, failed attempts and original-source associations.
 - Do not archive this or prior UI changes while required acceptance remains open.
+
+## Known gaps
+
+- Archived 2026-11-04 with the unchecked tasks above unverified; see
+  [known gaps](../../../../docs/known-gaps.md).

@@ -45,8 +45,8 @@ evaluations, without treating that exception as phase acceptance.
 
 ## Impact
 
-Owning documents: [PRD-3](../../../docs/prd-3.md) slice 3.1 and
-[capabilities](../../../docs/prd-3-capabilities.md) P3-C01/P3-C06 plus the minimal
+Owning documents: [PRD-3](../../../../docs/prd-3.md) slice 3.1 and
+[capabilities](../../../../docs/prd-3-capabilities.md) P3-C01/P3-C06 plus the minimal
 chat, citations and accessibility portions of P3-C02/P3-C03/P3-C05.
 Prerequisites are the delivered PRD-2 transport, OBO and research runtime.
 The approved sequencing exception does not satisfy P2-C06 or full PRD-3 acceptance.

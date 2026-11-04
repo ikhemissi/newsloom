@@ -55,3 +55,8 @@
 ## Workflow follow-up
 
 - Do not archive while this or earlier acceptance remains unverified.
+
+## Known gaps
+
+- Archived 2026-11-04 with the unchecked tasks above unverified; see
+  [known gaps](../../../../docs/known-gaps.md).

@@ -32,7 +32,7 @@ unchanged; no main capability currently owns browser timestamp presentation.
 
 ## Impact
 
-A small [PRD-3](../../../docs/prd-3.md) UI slice after the compact toolbar.
+A small [PRD-3](../../../../docs/prd-3.md) UI slice after the compact toolbar.
 Touches App timestamp rendering, directly related styling, focused temporal/
 component/browser tests and the owning UI runbook.
 

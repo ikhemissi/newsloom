@@ -81,3 +81,8 @@ CI `41343382008`. Task 4.4 remains explicitly open; no archive is authorized.
   agent interactions and MCP for the agent's tools.
 - Resume versioned evaluations only after that migration, preserving all prior
   costs, consumed attempts and failed-run evidence.
+
+## Known gaps
+
+- Archived 2026-11-04 with the unchecked tasks above unverified; see
+  [known gaps](../../../../docs/known-gaps.md).

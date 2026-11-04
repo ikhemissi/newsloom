@@ -1,7 +1,7 @@
 # News HTTP API
 
 Status: deployed early access in
-[`cached-news-api`](../openspec/changes/cached-news-api/tasks.md). Local/real-database
+[`cached-news-api`](../openspec/changes/archive/2026-11-04-cached-news-api/tasks.md). Local/real-database
 checks, owning deployment readback, live API denials/preflight/health and existing
 authenticated native MCP discovery passed. Authenticated live HTTP/cache parity
 and usage acceptance remain open under an explicit user-approved publication
@@ -132,6 +132,6 @@ Rollback uses a freshly reviewed retained MCP image/flag plan, not environment
 recreation. Preserve identity, consent, origins, schemas and all existing jobs.
 No new resource or permission is part of this slice. UI migration delivery is
 tracked separately; evaluations resume only after it, with old receipts intact.
-The active [UI migration](../openspec/changes/ui-http-news-catalog/tasks.md) owns
+The active [UI migration](../openspec/changes/archive/2026-11-04-ui-http-news-catalog/tasks.md) owns
 HTTP browser composition, shareable detail pages and a 200-item display cap.
 It does not change this API's TTL, cursor, permissions or semantic-result contract.

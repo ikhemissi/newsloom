@@ -52,3 +52,8 @@
 ## Workflow follow-up
 
 - Do not archive this or earlier UI/API changes while acceptance remains open.
+
+## Known gaps
+
+- Archived 2026-11-04 with the unchecked tasks above unverified; see
+  [known gaps](../../../../docs/known-gaps.md).

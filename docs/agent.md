@@ -225,7 +225,7 @@ local authored responses, not Azure research or semantic-quality acceptance.
 
 ### Research configuration and usage observations
 
-The [coverage correctness slice](../openspec/changes/research-answer-scope-fix/proposal.md)
+The [coverage correctness slice](../openspec/changes/archive/2026-11-04-research-answer-scope-fix/proposal.md)
 binds synthesis coverage and missing-item IDs from typed controller state,
 using the same trusted-scope pattern as planning. Its final response schema
 permits only the actual coverage value and missing-ID membership/count.
@@ -257,7 +257,7 @@ Implementation publication passed its
 at `af108f171b60a757fbc3c18aaed335997a457aa9`. The separate measured-status
 publication passed [its own exact-source CI](https://github.com/ikhemissi/newsloom/actions/runs/41197818200)
 at `b07c50035367459eb91e68ab2dc0222e18d092bd`; all five fix gates are verified
-in the [owning ledger](../openspec/changes/research-answer-scope-fix/tasks.md).
+in the [owning ledger](../openspec/changes/archive/2026-11-04-research-answer-scope-fix/tasks.md).
 The failed baseline and its original accepted image are not relabelled.
 
 `AGENT_RESEARCH_ENABLED` defaults to `false`; only exact `true`/`false` values are
