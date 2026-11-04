@@ -7,7 +7,7 @@ import time
 from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from newsloom_platform import agent_evaluation, cli, control
@@ -68,7 +68,7 @@ def test_data_adoption_configuration_preserves_exact_names_without_cloud_reads(
         ("connection_name", "foreign/connection"),
         ("storage_grant_name", ""),
         ("account_user_grant_name", "invalid"),
-        ("storage_role_id", str(uuid4())),
+        ("storage_role_id", str(UUID(int=71))),
     ],
 )
 def test_data_adoption_rejects_bad_inputs_before_cloud_reads(
@@ -204,7 +204,7 @@ def test_default_disabled_preparation_has_no_azure_calls(foundation: Foundation)
     }
 
 
-@pytest.mark.parametrize("role", ["foreign", str(uuid4()), "Foundry User"])
+@pytest.mark.parametrize("role", ["foreign", str(UUID(int=207)), "Foundry User"])
 def test_unapproved_foundry_role_is_rejected_before_cloud(
     foundation: Foundation, role: str
 ) -> None:
@@ -214,7 +214,7 @@ def test_unapproved_foundry_role_is_rejected_before_cloud(
     assert not foundation.calls and not foundation.updates
 
 
-@pytest.mark.parametrize("role", ["foreign", str(uuid4()), "Foundry Project Manager"])
+@pytest.mark.parametrize("role", ["foreign", str(UUID(int=217)), "Foundry Project Manager"])
 def test_unapproved_project_manager_role_is_rejected_before_cloud(
     foundation: Foundation, role: str
 ) -> None:
@@ -227,7 +227,7 @@ def test_unapproved_project_manager_role_is_rejected_before_cloud(
 
 
 @pytest.mark.parametrize(
-    "change", [{"tid": str(uuid4())}, {"exp": 0}, {"exp": True}, {"oid": "foreign"}]
+    "change", [{"tid": str(UUID(int=230))}, {"exp": 0}, {"exp": True}, {"oid": "foreign"}]
 )
 def test_operator_binding_uses_cli_token_without_directory_reads(
     foundation: Foundation, change: dict[str, object]

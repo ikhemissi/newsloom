@@ -86,11 +86,26 @@ journey), record them in [known gaps](known-gaps.md) and archive the change with
 
 ### Checks and deployment
 
-`bash scripts/check.sh` runs the full suite once per exact source and records a
-fingerprint under the ignored `.cache/checks/`. azd hooks call it with `--reuse`,
-so deploying several layers of the same source runs the suite once; any edit
-invalidates the result. CI always runs the full suite. Use `azd env select dev`
-for the existing environment; see the [state runbook](azure-bootstrap.md).
+`bash scripts/check.sh` always runs lint, types, service startup, config and spec
+checks (about 20 s), then only the suites affected by files changed since
+`origin/main` (committed, staged or new). [`scripts/check_plan.py`](../scripts/check_plan.py)
+derives that from imports: a test runs when it, a helper it imports, a service it
+imports, or a shared core module those use changed. Dependency manifests, CI and
+check tooling, or any unrecognised path select everything. Terraform runs per
+changed layer; the evaluation tooling suite runs when its tool or the pinned
+manifests change; browser journeys run for web and web-contract changes.
+
+| Command | When |
+| --- | --- |
+| `bash scripts/check.sh` | Local work; draft PRs in CI |
+| `bash scripts/check.sh --all` | Everything, including slow privacy tests; ready PRs and `main` in CI |
+| `bash scripts/check.sh --reuse` | azd hooks: skip when this exact source already passed |
+| `bash scripts/eval.sh [--live]` | Offline evals: recorded replays ($0); `--live` adds real model evals (a few cents). CI runs them on ready PRs and `main` |
+
+Database tests run serially (they share one database) alongside the rest; the
+evaluation suite runs in parallel workers. Work on a branch with a draft PR; mark
+it ready when you want the full check and evals. Use `azd env select dev` for the
+existing environment; see the [state runbook](azure-bootstrap.md).
 
 Iterate on model-driven behavior locally before deploying. For the briefing, see
 the [preview workflow](briefing.md#local-preview).

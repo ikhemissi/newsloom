@@ -11,7 +11,7 @@ fi
 uv run --directory tools/agent-evaluation --locked ruff check .
 uv run --directory tools/agent-evaluation --locked ruff format --check .
 uv run --directory tools/agent-evaluation --locked mypy
-uv run --directory tools/agent-evaluation --locked pytest
+uv run --directory tools/agent-evaluation --locked pytest ${EVALUATION_PYTEST_ARGS:-}
 if [[ "$(sha256sum uv.lock)" != "$application_lock" ]]; then
   printf '%s\n' 'evaluation_application_lock_changed' >&2
   exit 1
