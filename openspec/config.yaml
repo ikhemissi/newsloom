@@ -22,8 +22,10 @@ rules:
     - Distinguish implemented behavior from planned phase requirements.
   tasks:
     - Keep each change small enough to finish in one sitting.
-    - Include local tests, azd deployment, Azure verification, CI evidence, and commit gates.
+    - Include local tests, azd deployment, Azure verification and CI; avoid separate evidence-only commits.
 operations:
   archive:
     guidance:
-      - Refuse archival while local, CI or Azure acceptance tasks remain unverified.
+      - Refuse archival while local, CI or runnable Azure acceptance tasks remain unverified.
+      - Checks that cannot run (for example signed-in regular-browser journeys) may stay
+        unchecked when recorded in docs/known-gaps.md; never mark them passed.

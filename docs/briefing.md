@@ -72,6 +72,24 @@ or irrelevant citations. The UI shows a concise fixed notice instead.
 Healthy presentation keeps only generation time before the TL;DR, with brief
 exceptional stale/failure notices and no read/cache/window diagnostic block.
 
+## Local preview
+
+Iterate on prompts and selection without deploying. Export the week's stored news
+as `{"items": [...]}` files (for example from the read-only MCP `search_news` tool
+in chunks under its 50-item limit), then run:
+
+```sh
+bash scripts/briefing-preview.sh --input week-*.json --cutoff 2026-11-04T05:00:00+00:00
+```
+
+It runs the production pipeline with your Azure CLI identity, never writes to the
+database, and writes `briefing.md`, `briefing.json` and `recording.jsonl` under the
+ignored `.cache/briefing-preview/`. Add `--replay .cache/briefing-preview/recording.jsonl`
+to reuse recorded stages and run only the stages after them; a TL;DR-only rerun
+takes seconds and costs well under a cent. A full week costs roughly USD 0.10.
+`tests/test_briefing_golden.py` replays a synthetic recorded week with the model
+mistakes seen in production; extend it when a new failure mode appears.
+
 ## Execution and publication
 
 The dedicated `newsloom-briefing` workload uses managed identity, the existing

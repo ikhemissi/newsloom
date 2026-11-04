@@ -70,20 +70,30 @@ npx openspec status --change "<change-name>"
 npx openspec validate --all --strict --no-interactive
 ```
 
-Choose the next slice from its phase PRD. Release and archival acceptance are
-defined by the [OpenSpec delivery contract](../openspec/specs/repository-foundation/spec.md#requirement-honest-ordered-delivery);
-the following are command-entry points, not a separate set of gates:
+### Choose a delivery track
 
-- Create the change with `npx openspec new change <change-name>`, then use
-  `/opsx-propose` or `npx openspec instructions` to author its planning artifacts.
-- Implement the change and invoke `bash scripts/check.sh`; azd hooks call that
-  script too. For initial state setup, follow the [runbook](azure-bootstrap.md).
-- Use `azd env select dev` to select an existing environment and `azd up` to deploy.
-  Service build/job hooks are added with the relevant platform capabilities.
-- Record verification commands and outcomes in the change's tasks. The
-  [bootstrap task list](../openspec/changes/archive/2026-10-22-bootstrap/tasks.md) shows this format.
-- Once acceptance is satisfied, `npx openspec archive <change-name>` publishes
-  its spec updates; include those generated changes in version control.
+Defined by the [delivery contract](../openspec/specs/repository-foundation/spec.md#requirement-lightweight-delivery-track):
+
+| Track | Use for | Steps |
+| --- | --- | --- |
+| Lightweight | Tuning, prompts, ranking, bug fixes, docs, operational commands within existing contracts | Edit, test locally, commit with a descriptive message, update the owning runbook, deploy if behavior changed |
+| OpenSpec | New capability, cloud resource, identity, permission, dependency or data contract | `npx openspec new change <name>` (or `/opsx-propose`), implement, check, deploy, archive |
+
+For OpenSpec changes, record verification outcomes in the change's tasks. When
+the only remaining checks cannot run (for example a signed-in regular-browser
+journey), record them in [known gaps](known-gaps.md) and archive the change with
+`npx openspec archive <change-name> --yes`; do not mark them passed.
+
+### Checks and deployment
+
+`bash scripts/check.sh` runs the full suite once per exact source and records a
+fingerprint under the ignored `.cache/checks/`. azd hooks call it with `--reuse`,
+so deploying several layers of the same source runs the suite once; any edit
+invalidates the result. CI always runs the full suite. Use `azd env select dev`
+for the existing environment; see the [state runbook](azure-bootstrap.md).
+
+Iterate on model-driven behavior locally before deploying. For the briefing, see
+the [preview workflow](briefing.md#local-preview).
 
 ## Feed catalogue
 

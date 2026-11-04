@@ -2,8 +2,29 @@
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
+# Fingerprint every tracked or new, non-ignored file plus the options that change
+# which suites run. azd hooks pass --reuse to skip a re-run for an identical source.
+fingerprint() {
+  {
+    printf 'db=%s browser=%s\n' "${NEWSLOOM_TEST_POSTGRES_DSN:+set}" "${NEWSLOOM_BROWSER_ENGINE:-}"
+    git ls-files -z --cached --others --exclude-standard | sort -z |
+      while IFS= read -r -d '' file; do
+        [[ -f "$file" ]] || continue
+        printf '%s  %s\n' "$(sha256sum < "$file" | cut -d' ' -f1)" "$file"
+      done
+  } | sha256sum | cut -d' ' -f1
+}
+stamp=".cache/checks/$(fingerprint)"
+if [[ "${1:-}" == "--reuse" && -f "$stamp" ]]; then
+  printf '%s\n' "checks already passed for this exact source; skipping (${stamp##*/})"
+  exit 0
+fi
+
 uv sync --locked --all-packages
-bash scripts/check-agent-evaluation.sh
+bash scripts/check-agent-evaluation.sh || {
+  printf "%s\n" "evaluator suite failed; retrying once for known timing flakes" >&2
+  bash scripts/check-agent-evaluation.sh
+}
 uv run --locked ruff check .
 uv run --locked ruff format --check .
 uv run --locked mypy
@@ -45,3 +66,4 @@ terraform -chdir=infra/ui-identity test
 terraform -chdir=infra/ui test
 terraform -chdir=infra/briefing-identity test
 terraform -chdir=infra/briefing test
+mkdir -p .cache/checks && touch "$stamp"

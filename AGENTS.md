@@ -18,10 +18,11 @@
 
 ## Working rules
 
-- Use one small OpenSpec change per delivery slice; preserve phase prerequisites.
-  Follow the [delivery contract](openspec/specs/repository-foundation/spec.md#requirement-honest-ordered-delivery)
-  and [workflow](docs/development.md#openspec). Never invent verification evidence
-  or archive a change with unverified acceptance tasks.
+- Pick the [delivery track](docs/development.md#choose-a-delivery-track): OpenSpec
+  only for new capabilities, resources, identities, permissions, dependencies or
+  data contracts; otherwise commit with a runbook update. Never invent verification
+  evidence; record checks that cannot run in [known gaps](docs/known-gaps.md).
+- Preview model-driven changes locally (record/replay) before deploying them.
 - Run local checks before deployment. Use the existing azd environment and preserve
   its state; never casually recreate infrastructure. See the
   [state runbook](docs/azure-bootstrap.md) for setup and recovery.

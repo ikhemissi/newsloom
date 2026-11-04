@@ -152,11 +152,11 @@ infra:
 hooks:
   preprovision:
     shell: sh
-    run: bash scripts/check.sh
+    run: bash scripts/check.sh --reuse
     interactive: false
     continueOnError: false
   predeploy:
     shell: sh
-    run: bash scripts/check.sh
+    run: bash scripts/check.sh --reuse
     interactive: false
     continueOnError: false

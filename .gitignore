@@ -26,3 +26,4 @@ services/web/playwright-report/
 !main.tfvars.json
 crash.log
 .DS_Store
+/.cache/

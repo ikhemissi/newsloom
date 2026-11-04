@@ -1,0 +1,76 @@
+{
+ "items": [
+  {
+   "id": "<id:1>",
+   "title": "Acme Cloud adds Model X 2.0 in EU regions",
+   "summary": "Acme Cloud now offers Model X 2.0 in EU regions with a 256K context window and data residency in the EU.",
+   "source": "acme-news",
+   "category": "models",
+   "published_at": "2026-11-02T10:00:00Z",
+   "url": "https://example.test/model"
+  },
+  {
+   "id": "<id:2>",
+   "title": "Acme Cloud Agent Gateway exposes workflows as tools",
+   "summary": "Acme Cloud Agent Gateway now lets agents call existing workflows as tools, including run lookup.",
+   "source": "acme-news",
+   "category": "agents",
+   "published_at": "2026-11-02T10:00:00Z",
+   "url": "https://example.test/gateway"
+  },
+  {
+   "id": "<id:3>",
+   "title": "Acme Cloud Batch adds quotas for training jobs",
+   "summary": "Acme Cloud Batch adds quota management for training jobs with fair-share scheduling.",
+   "source": "acme-news",
+   "category": "infrastructure",
+   "published_at": "2026-11-02T10:00:00Z",
+   "url": "https://example.test/batch"
+  },
+  {
+   "id": "<id:4>",
+   "title": "Acme Cloud SDK 3.1 in preview",
+   "summary": "Acme Cloud SDK 3.1 is in preview with async streaming.",
+   "source": "acme-news",
+   "category": "developer-tools",
+   "published_at": "2026-11-02T10:00:00Z",
+   "url": "https://example.test/sdk"
+  },
+  {
+   "id": "<id:5>",
+   "title": "Libcore 1.9.0 release was compromised",
+   "summary": "Libcore said its pipeline published a malicious libcore==1.9.0 after a leaked key; users should pin 1.8.2 and rotate credentials.",
+   "source": "libcore-blog",
+   "category": "security",
+   "published_at": "2026-11-02T10:00:00Z",
+   "url": "https://example.test/incident"
+  },
+  {
+   "id": "<id:6>",
+   "title": "How Contoso automated invoices with Acme Cloud Agents",
+   "summary": "Contoso used Acme Cloud Agents and Acme Cloud Storage with human approval to automate invoice exceptions.",
+   "source": "acme-blog",
+   "category": "agents",
+   "published_at": "2026-11-02T10:00:00Z",
+   "url": "https://example.test/case"
+  },
+  {
+   "id": "<id:7>",
+   "title": "Startup raises funding for agents",
+   "summary": "A startup raised a new funding round to build agent tooling.",
+   "source": "funding-news",
+   "category": "business",
+   "published_at": "2026-11-02T10:00:00Z",
+   "url": "https://example.test/funding"
+  },
+  {
+   "id": "<id:8>",
+   "title": "Acme describes smart cities with Acme Vision",
+   "summary": "Acme says cities use Acme Vision for resident services and digital twins.",
+   "source": "acme-blog",
+   "category": "agents",
+   "published_at": "2026-11-02T10:00:00Z",
+   "url": "https://example.test/showcase"
+  }
+ ]
+}
