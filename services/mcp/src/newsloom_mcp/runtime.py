@@ -21,6 +21,7 @@ from newsloom_mcp.app import Services, create_app
 from newsloom_mcp.auth import EntraVerifier
 from newsloom_mcp.briefing import read_briefing
 from newsloom_mcp.embedding import FoundryQueryEmbedding
+from newsloom_mcp.feedback import FeedbackRepository, FeedbackStore
 from newsloom_mcp.http_models import digest
 from newsloom_mcp.repository import NewsRepository, Repository
 from newsloom_mcp.telemetry import Telemetry
@@ -133,6 +134,11 @@ async def resources(
                 await current.execute("SELECT id FROM public.news LIMIT 0")
             return True
 
+        @asynccontextmanager
+        async def feedback() -> AsyncIterator[FeedbackStore]:
+            async with connection() as current, current.transaction():
+                yield FeedbackRepository(current)
+
         async def briefing(cutoff: datetime) -> BriefingRead:
             async with connection() as current, current.transaction():
                 await current.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
@@ -164,6 +170,7 @@ async def resources(
                         ]
                     ),
                     briefing if config.news_briefing_enabled else None,
+                    feedback,
                 ),
                 verifier,
             )

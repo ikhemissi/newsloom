@@ -8,6 +8,7 @@ from datetime import datetime
 from newsloom_core.briefing import BriefingRead
 
 from newsloom_mcp.embedding import QueryEmbedding
+from newsloom_mcp.feedback import FeedbackStore
 from newsloom_mcp.repository import NewsRepository
 
 
@@ -21,3 +22,4 @@ class Services:
     observe_api: Callable[[str, str, str, float], None] | None = None
     model_revision: str = ""
     briefing: Callable[[datetime], Awaitable[BriefingRead]] | None = None
+    feedback: Callable[[], AbstractAsyncContextManager[FeedbackStore]] | None = None

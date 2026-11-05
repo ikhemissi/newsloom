@@ -11,11 +11,10 @@ from uuid import uuid4
 
 import httpx
 import uvicorn
-from newsloom_core.auth import Claims
 from newsloom_core.categories import Category
 from newsloom_core.model_transport import Vector
 from newsloom_mcp.app import Services, create_app
-from newsloom_mcp.auth import EntraVerifier
+from newsloom_mcp.auth import Claims, EntraVerifier
 from newsloom_mcp.http_models import Position
 from newsloom_mcp.models import (
     CategoryInfo,

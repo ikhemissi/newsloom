@@ -264,6 +264,16 @@ class Repository:
                 (validated.window_end, Jsonb(json.loads(validated.model_dump_json()))),
             )
             await self.connection.execute(
+                "INSERT INTO public.briefing_history"
+                "(version,cutoff,editorial_policy,payload) VALUES (%s,%s,%s,%s)",
+                (
+                    validated.version,
+                    validated.window_end,
+                    validated.editorial_policy,
+                    Jsonb(json.loads(validated.model_dump_json())),
+                ),
+            )
+            await self.connection.execute(
                 "UPDATE public.briefing_runs SET status='ready',finished_at=clock_timestamp() "
                 "WHERE cutoff=%s AND status='running'",
                 (validated.window_end,),

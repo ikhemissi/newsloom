@@ -39,6 +39,7 @@ ERROR_CODES = frozenset(
         "invalid_input",
         "unauthorized",
         "insufficient_scope",
+        "forbidden",
         "unavailable",
         "not_found",
         "method_denied",
