@@ -173,7 +173,7 @@ async def test_research_vote_requires_bounded_snapshot(api: Client) -> None:
         "/api/v1/feedback", json={**base, "snapshot": SNAPSHOT}, headers=bearer(api)
     )
     assert ok.status_code == 201 and store.rows[-1][1].snapshot is not None
-    huge = {**SNAPSHOT, "question": "x" * 4000, "answer": {"text": "y" * 40000}}
+    huge = {**SNAPSHOT, "question": "x" * 8000, "answer": {"text": "y" * 45000}}
     assert (
         await client.post("/api/v1/feedback", json={**base, "snapshot": huge}, headers=bearer(api))
     ).status_code == 400

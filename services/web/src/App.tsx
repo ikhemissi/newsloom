@@ -9,6 +9,8 @@ import { newsRoute } from "./navigation";
 import type { NewsRoute } from "./navigation";
 import { LocalTimestamp, localDateTimeFormat, useDisplayClock } from "./timestamps";
 import { BriefingPanel } from "./BriefingPanel";
+import type { FeedbackClient, ResearchSnapshot } from "./feedback";
+import { FeedbackControls, ReviewPage } from "./Feedback";
 
 const phases: Phase[] = ["retrieving", "planning", "synthesizing", "validating"];
 const periods: { value: DatePeriod; label: string }[] = [
@@ -50,11 +52,12 @@ export function AnswerView({ answer }: { answer: Answer }) {
   </section>;
 }
 
-export function App({ auth, research, catalog }: {
-  auth: AuthSession; research: ResearchClient; catalog: NewsCatalog;
+export function App({ auth, research, catalog, feedback }: {
+  auth: AuthSession; research: ResearchClient; catalog: NewsCatalog; feedback?: FeedbackClient | undefined;
 }) {
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState<Answer | null>(null);
+  const [rated, setRated] = useState<{ id: string; snapshot: ResearchSnapshot } | null>(null);
   const [phase, setPhase] = useState<Phase | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -302,7 +305,14 @@ export function App({ auth, research, catalog }: {
         context.item ? [context.item.id] : undefined, context.snapshot.filters)) {
         if (id !== run.current) return;
         if (result.kind === "progress") setPhase(result.phase);
-        else setAnswer(result.answer);
+        else {
+          setAnswer(result.answer);
+          setRated({ id: crypto.randomUUID(), snapshot: {
+            question, answer: { paragraphs: result.answer.paragraphs },
+            citations: result.answer.citations.map(({ number, url }) => ({ number, url })),
+            filters: { ...context.snapshot.filters, ...(context.item ? { item_id: context.item.id } : {}) },
+          } });
+        }
       }
     } catch (failure) {
       if (id === run.current) {
@@ -369,6 +379,8 @@ export function App({ auth, research, catalog }: {
     </header>
     <main id="main" className={`news-page ${panelOpen ? "with-agent" : ""}`}>
       <section className="news-column">
+      {signedIn && route.kind === "feedback" && (feedback ? <ReviewPage client={feedback} />
+        : <section><h1>Feedback review</h1><p>Feedback is not available.</p></section>)}
       {signedIn && route.kind === "invalid" && <section>
         <h1>Invalid news link</h1><p>This page does not identify a stored news item.</p>
         <button className="btn btn-outline" onClick={() => navigateHome(true)}>Back to news</button>
@@ -498,7 +510,7 @@ export function App({ auth, research, catalog }: {
         tabIndex={0} hidden={!panelOpen}>
         <div className="panel-heading"><h2>Ask Newsloom</h2>
           <button className="btn btn-ghost btn-sm" onClick={closePanel}>Close agent panel</button></div>
-        <BriefingPanel catalog={catalog} active={signedIn && panelOpen} />
+        <BriefingPanel catalog={catalog} active={signedIn && panelOpen} feedback={feedback} />
         <p className="notice">Research is early access. Quality evaluation is still in progress.</p>
         {selected && <div className="context-chip">
           <span>Current news: {selected.title}</span>
@@ -537,6 +549,8 @@ export function App({ auth, research, catalog }: {
           <FilterChips snapshot={submittedContext.snapshot} />
         </section>}
         {answer && <AnswerView answer={answer} />}
+        {answer && feedback && rated && <FeedbackControls client={feedback} label="Rate this answer"
+          target={{ type: "research", ref: rated.id }} snapshot={rated.snapshot} />}
       </aside>}
       {authRequired && <div className="alert" role="alert">
         <span>Sign-in is required for {authRequired === "news" ? "news access" : "research"}.</span>

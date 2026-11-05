@@ -455,3 +455,19 @@ accessibility evidence stays open; never export credentials or request another
 test-browser sign-in. A publication exception must be explicit for this slice.
 Rollback restores the reviewed prior image and matching config mode, without
 disabling the backend API or changing identities, grants, models or schedules.
+
+## Reader feedback
+
+Readers can rate the daily briefing (under the TL;DR) and each completed research
+answer with **Helpful** / **Not helpful** and an optional comment of at most 1,000
+characters. Their current rating is shown when the item is displayed, and rating
+again replaces it. Rating an answer sends the question, answer, citations and
+applied filters shown on screen; answers are otherwise not stored. Voting never
+reads the briefing again or starts research. Feedback uses its own request lanes,
+so it cannot block or cancel news and briefing reads.
+
+The reviewer page at `/feedback` lists the latest rating per reader and item with
+rating, type and date filters, and exports JSON Lines. Only object IDs in the API's
+`FEEDBACK_REVIEWER_OBJECT_IDS` can use it; others see "You are not a feedback
+reviewer." Readers are pseudonymous and feedback text is never logged; see the
+[news API](news-api.md#reader-feedback).

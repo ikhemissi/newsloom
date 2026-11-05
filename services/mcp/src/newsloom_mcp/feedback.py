@@ -13,7 +13,7 @@ from psycopg import AsyncConnection
 from psycopg.types.json import Jsonb
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-MAX_SNAPSHOT_BYTES = 32 * 1024
+MAX_SNAPSHOT_BYTES = 48 * 1024  # answer (16 KiB) + question (8 KiB) + JSON overhead
 
 
 class Contract(BaseModel):
@@ -23,7 +23,7 @@ class Contract(BaseModel):
 class ResearchSnapshot(Contract):
     """What the browser showed: provenance is client-supplied, not verified."""
 
-    question: Annotated[str, Field(min_length=1, max_length=4000)]
+    question: Annotated[str, Field(min_length=1, max_length=8192)]
     answer: dict[str, object]
     citations: Annotated[list[dict[str, object]], Field(max_length=100)] = []
     filters: dict[str, object] = {}

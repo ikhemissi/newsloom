@@ -67,7 +67,7 @@ echoed. All responses are `Cache-Control: no-store`; no browser/CDN caching.
 
 | Route | Access | Purpose |
 | --- | --- | --- |
-| `POST /api/v1/feedback` | `news.read` + token `oid` | Record a thumbs up/down with an optional comment (at most 1,000 characters) on a briefing version or a research answer (with its client-supplied snapshot, at most 32 KB) |
+| `POST /api/v1/feedback` | `news.read` + token `oid` | Record a thumbs up/down with an optional comment (at most 1,000 characters) on a briefing version or a research answer (with its client-supplied snapshot, at most 48 KiB) |
 | `GET /api/v1/feedback/mine?target_type=&target_ref=` | `news.read` + `oid` | The caller's latest vote on one item |
 | `GET /api/v1/feedback/review` | `news.read` + object ID in `FEEDBACK_REVIEWER_OBJECT_IDS` | Latest vote per reader and item, filterable by `rating`, `target_type`, `days`, `limit` |
 | `GET /api/v1/feedback/export` | Same as review | The same items as JSON Lines for triage |

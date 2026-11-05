@@ -16,8 +16,8 @@
 
 ## 3. UI
 
-- [ ] 3.1 Add thumbs up/down and optional comment to the briefing and each completed research answer, showing the current vote; verify with component tests and browser journeys including keyboard and axe.
-- [ ] 3.2 Add the reviewer page with filters and JSONL export, visible only with the role; verify with component tests.
+- [x] 3.1 Add thumbs up/down and optional comment to the briefing and each completed research answer, showing the current vote; verify with component tests and browser journeys including keyboard and axe.
+- [x] 3.2 Add the reviewer page with filters and JSONL export, visible only with the role; verify with component tests.
 
 ## 4. Eval loop and delivery
 

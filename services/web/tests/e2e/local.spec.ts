@@ -504,3 +504,66 @@ test("shareable detail routes reload, support browser history and retain accessi
   if (results.violations.length)
     throw new Error(`ui_accessibility:${results.violations.map((item) => item.id).join(",")}`);
 });
+
+test.describe("reader feedback", () => {
+  for (const width of [1440, 390]) {
+    test(`${width}px readers rate the briefing and an answer without new generation or research`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      const posts: Record<string, unknown>[] = [];
+      await page.route("https://mcp.test/api/v1/feedback/mine?**", (route) => route.fulfill({ json: { vote: null } }));
+      await page.route("https://mcp.test/api/v1/feedback", async (route) => {
+        expect(route.request().method()).toBe("POST");
+        expect(route.request().headers()["authorization"]).toBe("Bearer authored-feedback-token");
+        posts.push(route.request().postDataJSON() as Record<string, unknown>);
+        await route.fulfill({ status: 201, json: { status: "recorded" } });
+      });
+      await page.goto("/tests/harness.html?feedback");
+      await page.getByRole("button", { name: "Ask about this: Authored news headline" }).click();
+      const briefing = page.getByRole("group", { name: "Rate this briefing" });
+      await briefing.getByRole("button", { name: /Not helpful/ }).click();
+      await expect(briefing.getByRole("button", { name: /Not helpful/ })).toHaveAttribute("aria-pressed", "true");
+      await page.getByLabel("Comment (optional)").fill("Too generic for an architect");
+      await page.getByRole("button", { name: "Send feedback" }).click();
+      await expect(page.getByText("Thanks, your feedback was recorded.")).toBeVisible();
+      expect(posts[0]).toMatchObject({ target_type: "briefing", target_ref: briefingResponse.briefing!.version,
+        rating: "down", comment: "Too generic for an architect" });
+      const briefingReads = Number(await page.evaluate(() => document.documentElement.dataset.briefingCalls));
+      await page.getByLabel("What would you like to understand?").fill("Authored fixture question");
+      await page.getByRole("button", { name: "Ask Newsloom" }).click();
+      const answer = page.getByRole("group", { name: "Rate this answer" });
+      await answer.getByRole("button", { name: /Helpful/ }).first().click();
+      await page.getByRole("button", { name: "Send feedback" }).click();
+      await expect.poll(() => posts.length).toBe(2);
+      expect(posts[1]).toMatchObject({ target_type: "research", rating: "up",
+        snapshot: { question: "Authored fixture question", filters: {} } });
+      expect(await page.evaluate(() => document.documentElement.dataset.researchCalls)).toBe("1");
+      expect(Number(await page.evaluate(() => document.documentElement.dataset.briefingCalls))).toBe(briefingReads);
+      expect(await page.locator("img").count()).toBe(0);
+      const results = await new AxeBuilder({ page }).analyze();
+      expect(results.violations.map((violation) => violation.id)).toEqual([]);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    });
+  }
+
+  test("reviewer page lists inert feedback, exports JSONL and explains denial", async ({ page }) => {
+    let denied = true;
+    await page.route("https://mcp.test/api/v1/feedback/review?**", (route) => denied
+      ? route.fulfill({ status: 403, json: { error: { code: "forbidden", request_id: "r" } } })
+      : route.fulfill({ json: { items: [{ created_at: "2026-11-05T10:00:00Z", target_type: "research",
+        target_ref: "answer-1", rating: "down", comment: "<img src=x onerror=bad()>",
+        snapshot: { question: "<svg onload=bad()>" } }] } }));
+    await page.route("https://mcp.test/api/v1/feedback/export?**", (route) => route.fulfill({
+      status: 200, contentType: "application/x-ndjson", body: '{"rating":"down"}\n' }));
+    await page.goto("/tests/harness.html?feedback&route=/feedback");
+    await expect(page.getByText("You are not a feedback reviewer.")).toBeVisible();
+    denied = false;
+    await page.getByLabel("Last").selectOption("90");
+    await expect(page.getByText("<img src=x onerror=bad()>")).toBeVisible();
+    expect(await page.locator("img, svg[onload]").count()).toBe(0);
+    const download = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Export JSONL" }).click();
+    expect((await download).suggestedFilename()).toBe("feedback.jsonl");
+    const results = await new AxeBuilder({ page }).analyze();
+    expect(results.violations.map((violation) => violation.id)).toEqual([]);
+  });
+});
