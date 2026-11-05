@@ -26,6 +26,10 @@ from agent_evaluation.judge import JudgeTransport
 from agent_evaluation.policy import EvaluationFailure
 from agent_evaluation.runner import Approval, Journal, MeasuredCase, read_approval, score
 
+# Fixture approvals are stamped a minute in the past: WSL2 clocks can step backwards
+# by about a second, which made "approved now" look like the future to the next now().
+CLOCK_MARGIN = timedelta(minutes=1)
+
 
 def approval_data() -> dict[str, object]:
     now = datetime.now(UTC)
@@ -36,9 +40,9 @@ def approval_data() -> dict[str, object]:
         "source_sha256": source_digest(),
         "fixture_sha256": FIXTURE_SHA256,
         "context_sha256": "a" * 64,
-        "approved_at": (now - timedelta(seconds=1)).isoformat(),
+        "approved_at": (now - CLOCK_MARGIN).isoformat(),
         "expires_at": (now + timedelta(hours=1)).isoformat(),
-        "price_verified_at": now.isoformat(),
+        "price_verified_at": (now - CLOCK_MARGIN).isoformat(),
         "input_per_million_usd": "0.825",
         "output_per_million_usd": "4.95",
         "publication_read_limit": 60,

@@ -79,10 +79,7 @@ if [[ "$EVALUATION" == 1 ]]; then
     --deselect tests/test_privacy.py)
   [[ "$mode" == all ]] && slow=()
   export EVALUATION_PYTEST_ARGS="-n auto -p no:cacheprovider ${slow[*]}"
-  bash scripts/check-agent-evaluation.sh || {
-    printf '%s\n' "evaluation suite failed; retrying once for a known timing flake" >&2
-    bash scripts/check-agent-evaluation.sh
-  }
+  bash scripts/check-agent-evaluation.sh
 fi
 
 if [[ -n "$PYTHON_TESTS" ]]; then
