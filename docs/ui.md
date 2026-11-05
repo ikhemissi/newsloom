@@ -263,6 +263,10 @@ uv run --locked newsloom-platform verify-ui
 The app uses the retained ACR, immutable images and its separate registry-pull
 identity. It starts at Consumption 0.25 CPU/0.5 GiB, min zero/max one replicas.
 Cold starts and hosting costs must be measured separately from chat estimates.
+The web app keeps one replica running (`min_replicas = 1`, like the agent and API).
+Scaling from zero took about 40 s on 2026-11-05: about 14 s of platform sandbox setup
+and about 25 s before the new replica received traffic; nginx itself starts in about
+1 s. Keeping it warm costs about USD 6 per month at France Central idle rates.
 Do not provision a new environment or use a deployment token as fallback.
 
 For a local static-server smoke test, use the existing container runtime:

@@ -427,7 +427,7 @@ def verify(env: dict[str, str], correlation: str) -> None:
                 else {}
             ),
         }
-        or json_object(template.get("scale")).get("minReplicas") not in (None, 0)
+        or json_object(template.get("scale")).get("minReplicas") != 1
         or json_object(template.get("scale")).get("maxReplicas") != 1
         or ingress.get("external") is not True
         or ingress.get("allowInsecure") is not False

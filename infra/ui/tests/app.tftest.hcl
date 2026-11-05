@@ -36,7 +36,7 @@ run "static_ui_has_only_registry_authority" {
   command = plan
   assert {
     condition = (
-      azurerm_container_app.ui[0].template[0].min_replicas == 0 &&
+      azurerm_container_app.ui[0].template[0].min_replicas == 1 &&
       azurerm_container_app.ui[0].template[0].max_replicas == 1 &&
       azurerm_container_app.ui[0].template[0].container[0].cpu == 0.25 &&
       azurerm_container_app.ui[0].template[0].container[0].memory == "0.5Gi" &&
@@ -104,7 +104,7 @@ run "http_news_config_uses_existing_origin_without_new_authority" {
       length(local.environment) == 4 &&
       local.environment.NEWS_ORIGIN == "https://mcp.test" &&
       !contains(keys(local.environment), "MCP_ORIGIN") &&
-      azurerm_container_app.ui[0].template[0].min_replicas == 0 &&
+      azurerm_container_app.ui[0].template[0].min_replicas == 1 &&
       azurerm_role_assignment.registry[0].role_definition_name == "AcrPull"
     )
     error_message = "HTTP UI changes only its owning configuration, not workload authority."
