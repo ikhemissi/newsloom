@@ -201,7 +201,7 @@ implementation and acceptance tracked there, not a completed phase.
   permits shorter output without padding. Combined TL;DR/narrative is at most
   1,000 words (estimated five-minute ceiling); no-material/empty states differ.
   Legacy published artifacts remain readable under their historical policy.
-  An explicitly authorized, version-bound [operator revision](../openspec/changes/guarded-briefing-refresh/proposal.md)
+  An explicitly authorized, version-bound [operator revision](../openspec/changes/archive/2026-11-05-guarded-briefing-refresh/proposal.md)
   can replace today's artifact atomically while auditing the prior publication
   and preserving all usage; it is never triggered by reads or the browser.
   Derive the TL;DR from the completed summary in the same run and atomically

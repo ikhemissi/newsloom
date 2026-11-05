@@ -35,14 +35,14 @@ artifact; deleting that slot or pretending it failed would destroy honest histor
 ### Modified Capabilities
 
 None in main specs. Briefing behavior remains in the active
-[daily](../daily-news-briefing/proposal.md) and
-[architect-focused](../architect-focused-briefing/proposal.md) slices.
+[daily](../../daily-news-briefing/proposal.md) and
+[architect-focused](../../architect-focused-briefing/proposal.md) slices.
 Implementation must reconcile their operational guidance with this separately
 authorized exception, not weaken their ordinary once-only execution contract.
 
 ## Impact
 
-A narrow [PRD-3](../../../docs/prd-3.md) / [P3-C08](../../../docs/prd-3-capabilities.md#p3-c08-shared-daily-weekly-news-briefing)
+A narrow [PRD-3](../../../../docs/prd-3.md) / [P3-C08](../../../../docs/prd-3-capabilities.md#p3-c08-shared-daily-weekly-news-briefing)
 operation following the deployed architect refinement. Affects worker
 CLI/repository execution, one additive migration, real-role and generation
 tests, and owning runbooks/acceptance artifacts.

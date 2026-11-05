@@ -18,6 +18,7 @@ not export user tokens or browser state to automation.
 | `ui-http-news-catalog` | 3.4 Signed-in HTTP news/filter/search, Load more, detail navigation and A2A context | Same as `ui-spike-and-shell` | Component and pinned browser journeys, asset parity, anonymous Azure axe |
 | `ui-compact-news-toolbar` | 2.3 Signed-in toolbar alignment and accessibility | Same as above | Local journeys, anonymous Azure desktop/mobile axe, asset parity |
 | `ui-browser-local-timestamps` | 2.3 Signed-in timestamp/offset/future-label behavior | Same as above | Component tests, local browser journeys, asset parity |
+| `guarded-briefing-refresh` | 4.2 User semantic review of the revised briefing in the regular browser | Needs the user's judgement in a signed-in session | Metadata-only inspection: policy, word/citation counts, usage; automated editorial checks |
 
 Close a gap by running the check and recording its outcome here, or by adding an
 automated check that covers it.
