@@ -21,5 +21,5 @@
 
 ## 4. Eval loop and delivery
 
-- [ ] 4.1 Add `scripts/feedback-to-evals.py` and include `.cache/eval-cases/` in `scripts/eval.sh`; verify with a synthetic export fixture test.
+- [x] 4.1 Add `scripts/feedback-to-evals.py` and include `.cache/eval-cases/` in `scripts/eval.sh`; verify with a synthetic export fixture test.
 - [ ] 4.2 Deploy migration, MCP app, identity and UI through azd (draft PR, then ready PR with full checks and evals); verify readbacks, anonymous 401, and record a real thumbs-down from the user's browser as acceptance.
