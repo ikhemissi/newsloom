@@ -13,7 +13,11 @@ comment, stored with enough context to reproduce the case, closes that loop.
   full briefing) and on each agent research answer.
 - Feedback is stored in PostgreSQL through the existing browser API, under a new
   delegated `feedback.write` scope and an insert-only database grant.
-- Briefing feedback references the published artifact version (already stored).
+- Keep every published briefing (TL;DR and full briefing) in an append-only history.
+  Today only the latest is kept: each publish overwrites one row, so older briefings
+  and their versions are lost unless a guarded refresh audited them. Backfill the
+  current briefing and the audited prior versions.
+- Briefing feedback references a briefing version from that history.
   Research feedback stores a snapshot of the question, answer, citations and filters
   only when the reader submits feedback; answers are otherwise still not persisted.
 - Readers are pseudonymous: a one-way hash of their Entra object ID allows
@@ -27,6 +31,7 @@ comment, stored with enough context to reproduce the case, closes that loop.
 
 - `user-feedback`: capture, storage, review and export of reader feedback on
   briefings and research answers.
+- `briefing-history`: retention of every published briefing for evaluation.
 
 ### Modified Capabilities
 

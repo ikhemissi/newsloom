@@ -9,7 +9,7 @@ enough context to be fixed and turned into evaluation cases.
 
 ### Requirement: Rate briefings and research answers
 A signed-in reader SHALL be able to give a thumbs up or down, with an optional
-comment of at most 1,000 characters, on the current daily briefing and on each
+comment of at most 1,000 characters, on any published briefing version and on each
 completed research answer. Submitting again for the same item SHALL replace the
 reader's previous rating for that item.
 
@@ -19,7 +19,7 @@ reader's previous rating for that item.
 - **AND** selecting thumbs up later for the same version replaces the earlier rating
 
 #### Scenario: Comment is too long or the target is unknown
-- **WHEN** a comment exceeds 1,000 characters or the briefing version does not exist
+- **WHEN** a comment exceeds 1,000 characters or the briefing version is not in the history
 - **THEN** the request is rejected with a validation error and nothing is stored
 
 ### Requirement: Research answer snapshot only on feedback

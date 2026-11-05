@@ -29,12 +29,22 @@ Alternative rejected: a new feedback service (extra app, identity and cold start
 
 ### 2. Storage
 
-Migration `008_feedback.sql` creates `public.feedback` (UUID id, created_at,
+Migration `009_feedback.sql` creates `public.feedback` (UUID id, created_at,
 reader_hash, target_type `briefing|research`, target_ref, rating, comment, snapshot
 JSONB, snapshot_source `client`). Grant `newsloom_mcp` INSERT only, plus SELECT for
 reviewer reads (the role check is in the API). Append-only: "latest wins" is
 resolved at read time by `(reader_hash, target_type, target_ref)` and `created_at`,
 so no UPDATE or DELETE grant is needed.
+
+### 2b. Briefing history
+
+`briefing_current` holds one row that each publish overwrites, so a briefing version
+cannot be resolved after the next day. Migration `008_briefing_history.sql` adds
+`public.briefing_history` (version PK, cutoff, editorial_policy, published_at,
+payload JSONB), written in the publish transaction. It backfills the current row and
+`briefing_revisions.prior_payload`. The writer gets INSERT/SELECT, the MCP role
+SELECT (to validate feedback versions and include them in exports). This also lets
+evals compare briefings over time.
 
 ### 3. Pseudonymity
 
@@ -76,5 +86,5 @@ content never enters git.
 
 ## Migration Plan
 
-Migration first, then the MCP app (accepts the new scope), then identity/consent,
+Migrations first (history, then feedback), then the briefing worker (history writes), then the MCP app (accepts the new scope), then identity/consent,
 then the UI. Rollback hides the UI buttons; the table and scope can stay unused.
