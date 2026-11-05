@@ -249,7 +249,7 @@ operator retry; a subsequent daily slot remains independent.
 
 ### Guarded editorial revision
 
-The [guarded refresh](../openspec/changes/guarded-briefing-refresh/tasks.md)
+The [guarded refresh](../openspec/changes/archive/2026-11-05-guarded-briefing-refresh/tasks.md)
 adds an explicitly authorized operator command for replacing today's published
 artifact, for example after an editorial-policy change:
 

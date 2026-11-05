@@ -14,7 +14,7 @@ package, and changes stayed active indefinitely on checks that cannot run.
 - Deployment hooks reuse a passing check result for an identical source
   fingerprint; CI still always runs the full suite.
 - Checks that cannot run (for example signed-in regular-browser acceptance) are
-  recorded in a [known-gaps register](../../../docs/known-gaps.md) and no longer
+  recorded in a [known-gaps register](../../../../docs/known-gaps.md) and no longer
   keep a change active.
 - Supporting tooling: local non-publishing briefing preview with record/replay
   and a golden replay test; reruns for the flaky evaluator suite.
