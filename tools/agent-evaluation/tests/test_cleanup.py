@@ -12,7 +12,7 @@ from fakes import Credential
 from openai import OpenAIError
 from pydantic import ValidationError
 from test_publication import Service, selected_context, setup
-from test_runner import approval_data
+from test_runner import CLOCK_MARGIN, approval_data
 
 from agent_evaluation import cleanup as module
 from agent_evaluation.cleanup import cleanup, load_cleanup
@@ -164,7 +164,7 @@ async def prepare(
         "catalog_version": None,
         "evaluation_id": "eval_pilot",
         "run_id": "run_pilot",
-        "approved_at": (now - timedelta(seconds=1)).isoformat(),
+        "approved_at": (now - CLOCK_MARGIN).isoformat(),
         "expires_at": (now + timedelta(minutes=10)).isoformat(),
         "read_limit": 60,
         "mutation_limit": 2,

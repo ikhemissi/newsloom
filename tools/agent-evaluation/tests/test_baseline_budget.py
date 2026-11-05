@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 from test_baseline_inputs import frozen_data, result_data
 from test_budget import Clock
+from test_runner import CLOCK_MARGIN
 
 from agent_evaluation.baseline_budget import (
     BYTE_LIMITS,
@@ -40,7 +41,7 @@ def approval(value: FrozenBaseline, now: datetime | None = None) -> BaselineAppr
         readiness_receipt_sha256="1" * 64,
         approved_at=start - timedelta(seconds=1),
         expires_at=start + timedelta(seconds=10799),
-        prices_verified_at=start,
+        prices_verified_at=start - CLOCK_MARGIN,
         input_per_million_usd="0.825",
         output_per_million_usd="4.95",
         embedding_input_per_million_usd="0.022",
