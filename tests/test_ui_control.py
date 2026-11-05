@@ -149,7 +149,7 @@ def ui_case(monkeypatch: pytest.MonkeyPatch) -> UiCase:
                 },
             },
             "template": {
-                "scale": {"minReplicas": 0, "maxReplicas": 1},
+                "scale": {"minReplicas": 1, "maxReplicas": 1},
                 "containers": [
                     {
                         "name": "web",
@@ -228,8 +228,8 @@ def test_exact_ui_readback_is_content_free_and_read_only(
     assert ui_case.env["AGENT_TENANT_ID"] not in output
 
 
-@pytest.mark.parametrize("minimum", [None, 0, 1])
-def test_azure_omitted_zero_minimum_replica_is_not_profile_drift(
+@pytest.mark.parametrize("minimum", [None, 0, 1, 2])
+def test_ui_keeps_exactly_one_warm_replica(
     ui_case: UiCase,
     minimum: int | None,
 ) -> None:
@@ -238,7 +238,7 @@ def test_azure_omitted_zero_minimum_replica_is_not_profile_drift(
     template = properties["template"]
     assert isinstance(template, dict)
     template["scale"] = {"minReplicas": minimum, "maxReplicas": 1}
-    if minimum in (None, 0):
+    if minimum == 1:
         ui.verify(ui_case.env, "local")
     else:
         with pytest.raises(PlatformFailure, match="ui_deployment_readback_mismatch"):
