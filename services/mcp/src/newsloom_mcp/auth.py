@@ -7,14 +7,12 @@ from mcp.server.auth.provider import AccessToken, TokenVerifier
 from newsloom_core.auth import Claims as BaseClaims
 from newsloom_core.auth import EntraTokenVerifier, TrustedKeysFailure
 from newsloom_core.diagnostics import event
-from pydantic import Field
 
 
 class Claims(BaseClaims):
-    """Delegated claims; oid and app roles are needed only for reader feedback."""
+    """Delegated claims; the object ID is needed only for reader feedback."""
 
     oid: UUID | None = None
-    roles: tuple[str, ...] = Field(default=(), max_length=50)
 
 
 class EntraVerifier(EntraTokenVerifier[Claims], TokenVerifier):

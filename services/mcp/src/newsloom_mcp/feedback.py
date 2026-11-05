@@ -14,8 +14,6 @@ from psycopg.types.json import Jsonb
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 MAX_SNAPSHOT_BYTES = 32 * 1024
-REVIEWER_ROLE = "Feedback.Reviewer"
-WRITE_SCOPE = "feedback.write"
 
 
 class Contract(BaseModel):

@@ -43,6 +43,9 @@ def prepare(env: dict[str, str], correlation: str) -> None:
     )
     control.set_environment("NEWS_API_ENABLED", flag)
     control.set_environment("NEWS_BRIEFING_ENABLED", briefing_enabled(env))
+    control.set_environment(
+        "FEEDBACK_REVIEWER_OBJECT_IDS", env.get("FEEDBACK_REVIEWER_OBJECT_IDS", "")
+    )
     event("mcp_layer", "prepared", correlation, category=revision)
 
 
@@ -88,7 +91,9 @@ def verify(env: dict[str, str], correlation: str) -> None:
         text_field(json_object(row), "name"): text_field(json_object(row), "value") for row in rows
     }
     actual.setdefault("NEWS_BRIEFING_ENABLED", "false")
+    actual.setdefault("FEEDBACK_REVIEWER_OBJECT_IDS", "")
     expected = {
+        "FEEDBACK_REVIEWER_OBJECT_IDS": env.get("FEEDBACK_REVIEWER_OBJECT_IDS", ""),
         "NEWS_API_ENABLED": api_enabled(env),
         "NEWS_BRIEFING_ENABLED": briefing_enabled(env),
         "AZURE_CLIENT_ID": identity["client_id"],

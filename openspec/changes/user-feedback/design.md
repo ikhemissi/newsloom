@@ -21,10 +21,12 @@ automatic Foundry upload, analytics dashboards.
 ### 1. API in the existing MCP app, new scope
 
 Add `POST /api/v1/feedback`, `GET /api/v1/feedback` and
-`GET /api/v1/feedback/export` to the existing HTTP API. A new delegated scope
-`feedback.write` on the MCP API app registration authorizes POST; the
-`Feedback.Reviewer` app role authorizes GET. The UI app requests `feedback.write`
-with admin consent through the existing identity layers.
+`GET /api/v1/feedback/export` (plus `GET /api/v1/feedback/mine` for the reader's
+current vote) to the existing HTTP API. All require the existing `news.read` scope
+and an `oid` claim. Review and export also require the caller's object ID to be in
+`FEEDBACK_REVIEWER_OBJECT_IDS`, set through azd and Terraform, verified by the MCP
+deployment readback. Chosen over a new scope/app role to avoid identity-layer and
+admin-consent changes; that remains a later hardening option.
 Alternative rejected: a new feedback service (extra app, identity and cold start).
 
 ### 2. Storage

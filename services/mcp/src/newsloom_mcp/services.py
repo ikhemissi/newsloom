@@ -4,6 +4,7 @@ from collections.abc import Awaitable, Callable
 from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
 from datetime import datetime
+from uuid import UUID
 
 from newsloom_core.briefing import BriefingRead
 
@@ -23,3 +24,4 @@ class Services:
     model_revision: str = ""
     briefing: Callable[[datetime], Awaitable[BriefingRead]] | None = None
     feedback: Callable[[], AbstractAsyncContextManager[FeedbackStore]] | None = None
+    feedback_reviewers: frozenset[UUID] = frozenset()

@@ -36,8 +36,9 @@ as client-supplied.
 
 ### Requirement: Pseudonymous, write-limited storage
 Feedback SHALL store a one-way hash of the reader's Entra object ID, never the ID,
-name or email. Writes SHALL require the delegated `feedback.write` scope and use an
-insert-only database grant; stored text SHALL never appear in logs or telemetry.
+name or email. Writes SHALL require the existing delegated `news.read` scope and a
+token object ID, and use an insert-only database grant; stored text SHALL never
+appear in logs or telemetry.
 
 #### Scenario: Feedback is recorded and inspected
 - **WHEN** feedback is stored
@@ -45,12 +46,13 @@ insert-only database grant; stored text SHALL never appear in logs or telemetry.
 - **AND** the API's database role can insert but not update or delete feedback
 - **AND** logs and telemetry contain only the outcome, target type and rating
 
-#### Scenario: Caller lacks the write scope
-- **WHEN** a token without `feedback.write` submits feedback
+#### Scenario: Caller lacks the read scope or object ID
+- **WHEN** a token without `news.read` or without an object ID submits feedback
 - **THEN** the API responds 403 with `insufficient_scope` and stores nothing
 
 ### Requirement: Reviewer access and export
-Only callers holding the `Feedback.Reviewer` app role SHALL list or export feedback.
+Only callers whose Entra object ID is in the configured reviewer allowlist SHALL
+list or export feedback.
 The export SHALL produce JSON Lines of the latest rating per reader and item,
 filterable by rating, target type and date, for local triage.
 
@@ -58,7 +60,7 @@ filterable by rating, target type and date, for local triage.
 - **WHEN** a reviewer exports thumbs-down feedback for the last 7 days
 - **THEN** the file contains one line per item with rating, comment, target and
   snapshot or briefing version, without reader identifiers
-- **WHEN** a reader without the role calls the list or export endpoint
+- **WHEN** a reader not in the allowlist calls the list or export endpoint
 - **THEN** the API responds 403
 
 ### Requirement: Feedback feeds evaluation

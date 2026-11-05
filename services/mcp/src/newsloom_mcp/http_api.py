@@ -22,8 +22,6 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from newsloom_mcp.auth import Claims, EntraVerifier
 from newsloom_mcp.feedback import (
-    REVIEWER_ROLE,
-    WRITE_SCOPE,
     FeedbackInput,
     ReviewQuery,
     export_lines,
@@ -69,7 +67,8 @@ FEEDBACK_ROUTES = {
 
 
 def required_scope(route: str) -> str:
-    return WRITE_SCOPE if route.startswith("feedback") else "news.read"
+    # Feedback reuses the reader's news.read sign-in; reviewers are an allowlist.
+    return "news.read"
 
 
 def api_route(path: str) -> tuple[str, str] | None:
@@ -258,7 +257,10 @@ class NewsApi:
             raise ApiFailure(403, "insufficient_scope")
         if route.startswith("feedback") and claims.oid is None:
             raise ApiFailure(403, "insufficient_scope")
-        if route in ("feedback_review", "feedback_export") and REVIEWER_ROLE not in claims.roles:
+        if (
+            route in ("feedback_review", "feedback_export")
+            and claims.oid not in self.services.feedback_reviewers
+        ):
             raise ApiFailure(403, "forbidden")
         return digest(
             {

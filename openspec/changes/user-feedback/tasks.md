@@ -7,12 +7,12 @@
 ## 1. Storage and API
 
 - [x] 1.1 Add migration `009_feedback.sql` (table, constraints, INSERT/SELECT grants to `newsloom_mcp`); verify with real-role database tests that the role cannot UPDATE or DELETE.
-- [x] 1.2 Add `POST /api/v1/feedback` with `feedback.write` scope, validation (rating, 1,000-char comment, known briefing version, bounded research snapshot) and reader hashing; verify with API tests including 403 `insufficient_scope` and no content in logs.
-- [x] 1.3 Add reviewer `GET /api/v1/feedback` and `/export` (JSONL, latest vote per reader and item, filters) gated by `Feedback.Reviewer`; verify 403 without the role and export shape.
+- [x] 1.2 Add `POST /api/v1/feedback` with the `news.read` scope, validation (rating, 1,000-char comment, known briefing version, bounded research snapshot) and reader hashing; verify with API tests including 403 `insufficient_scope` and no content in logs.
+- [x] 1.3 Add reviewer `GET /api/v1/feedback` and `/export` (JSONL, latest vote per reader and item, filters) gated by the reviewer allowlist; verify 403 when not listed and export shape.
 
 ## 2. Identity
 
-- [ ] 2.1 Add the `feedback.write` delegated scope and `Feedback.Reviewer` app role to the MCP API registration and the UI permission/consent in the identity layers; verify with Terraform tests and owning readback.
+- [x] 2.1 Wire `FEEDBACK_REVIEWER_OBJECT_IDS` through azd, the MCP Terraform layer and its deployment readback (no Entra changes); verify with Terraform tests and readback tests.
 
 ## 3. UI
 

@@ -70,6 +70,7 @@ Client = tuple[httpx.AsyncClient, Store, dict[str, object], rsa.RSAPrivateKey]
 async def api(signing_key: rsa.RSAPrivateKey) -> AsyncIterator[Client]:
     store = Store()
     tenant, audience, oid = uuid4(), uuid4(), uuid4()
+    reviewer = UUID(int=42)
 
     async def ready() -> bool:
         return True
@@ -96,10 +97,16 @@ async def api(signing_key: rsa.RSAPrivateKey) -> AsyncIterator[Client]:
             "exp": int(time.time()) + 600,
             "nbf": int(time.time()) - 1,
             "ver": "2.0",
-            "scp": "news.read feedback.write",
+            "scp": "news.read",
         }
         app = create_app(
-            Services(repository, Embeddings(), ready, feedback=feedback),
+            Services(
+                repository,
+                Embeddings(),
+                ready,
+                feedback=feedback,
+                feedback_reviewers=frozenset({reviewer}),
+            ),
             verifier,
             "https://newsloom.test/mcp",
             ["newsloom.test"],
@@ -190,8 +197,8 @@ async def test_invalid_or_unknown_targets_store_nothing(
     assert response.status_code == 400 and not store.rows
 
 
-@pytest.mark.parametrize("changes", [{"scp": "news.read"}, {"oid": None}, {"scp": ""}])
-async def test_write_scope_and_object_id_are_required(
+@pytest.mark.parametrize("changes", [{"scp": "news.agent"}, {"oid": None}, {"scp": ""}])
+async def test_read_scope_and_object_id_are_required(
     api: Client, changes: dict[str, object]
 ) -> None:
     client, store, _, _ = api
@@ -209,16 +216,16 @@ async def test_write_scope_and_object_id_are_required(
         headers = {"Authorization": "Bearer " + token}
     response = await client.post("/api/v1/feedback", json=body, headers=headers)
     assert response.status_code == 403 and not store.rows
-    assert 'scope="feedback.write"' in response.headers["WWW-Authenticate"]
+    assert 'scope="news.read"' in response.headers["WWW-Authenticate"]
 
 
-async def test_review_and_export_require_reviewer_role(api: Client) -> None:
+async def test_review_and_export_require_allowlisted_reviewer(api: Client) -> None:
     client, _, _, _ = api
     body = {"target_type": "briefing", "target_ref": VERSION, "rating": "down", "comment": "bad"}
     await client.post("/api/v1/feedback", json=body, headers=bearer(api))
     for path in ("/api/v1/feedback/review", "/api/v1/feedback/export"):
         assert (await client.get(path, headers=bearer(api))).status_code == 403
-    reviewer = bearer(api, roles=["Feedback.Reviewer"])
+    reviewer = bearer(api, oid=str(UUID(int=42)))
     listed = await client.get("/api/v1/feedback/review?rating=down", headers=reviewer)
     assert listed.status_code == 200 and listed.json()["items"][0]["comment"] == "bad"
     exported = await client.get("/api/v1/feedback/export", headers=reviewer)

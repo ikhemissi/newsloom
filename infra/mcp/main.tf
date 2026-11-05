@@ -9,19 +9,20 @@ locals {
   resource_url    = "https://${local.host}/mcp"
   browser_origins = var.allowed_origins_base64 == "" ? var.allowed_origins : toset(jsondecode(base64decode(var.allowed_origins_base64)))
   environment = {
-    NEWS_API_ENABLED      = tostring(var.news_api_enabled)
-    NEWS_BRIEFING_ENABLED = tostring(var.news_briefing_enabled)
-    AZURE_CLIENT_ID       = local.identity.client_id
-    MCP_TENANT_ID         = var.tenant_id
-    MCP_API_CLIENT_ID     = var.api_client_id
-    MCP_RESOURCE_URL      = local.resource_url
-    MCP_ALLOWED_ORIGINS   = join(",", sort(tolist(local.browser_origins)))
-    POSTGRES_HOST         = var.postgres_host
-    POSTGRES_DATABASE     = var.postgres_database
-    MODEL_ENDPOINT        = var.model_endpoint
-    EMBEDDINGS_DEPLOYMENT = var.embedding_deployment
-    EMBEDDINGS_MODEL      = var.embedding_model
-    EMBEDDINGS_VERSION    = var.embedding_version
+    NEWS_API_ENABLED             = tostring(var.news_api_enabled)
+    NEWS_BRIEFING_ENABLED        = tostring(var.news_briefing_enabled)
+    FEEDBACK_REVIEWER_OBJECT_IDS = var.feedback_reviewer_object_ids
+    AZURE_CLIENT_ID              = local.identity.client_id
+    MCP_TENANT_ID                = var.tenant_id
+    MCP_API_CLIENT_ID            = var.api_client_id
+    MCP_RESOURCE_URL             = local.resource_url
+    MCP_ALLOWED_ORIGINS          = join(",", sort(tolist(local.browser_origins)))
+    POSTGRES_HOST                = var.postgres_host
+    POSTGRES_DATABASE            = var.postgres_database
+    MODEL_ENDPOINT               = var.model_endpoint
+    EMBEDDINGS_DEPLOYMENT        = var.embedding_deployment
+    EMBEDDINGS_MODEL             = var.embedding_model
+    EMBEDDINGS_VERSION           = var.embedding_version
   }
 }
 
