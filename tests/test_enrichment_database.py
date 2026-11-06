@@ -53,6 +53,15 @@ async def seed(config: RuntimeConfig, count: int = 1, offset: int = 0) -> list[E
             await repo.decide(
                 pending[0], item, Decision("accepted", "screened", 0.1, 0.5), "fixture"
             )
+        # WSL2 clocks can step back about a second; make seeded work due immediately.
+        await connection.execute("RESET ROLE")
+        # Some tests seed before the enrichment migration adds the column.
+        await connection.execute(
+            "DO $$ BEGIN IF EXISTS (SELECT FROM information_schema.columns "
+            "WHERE table_name='ingestion_queue' AND column_name='retry_after') THEN "
+            "UPDATE ingestion_queue SET retry_after=clock_timestamp()-interval '1 minute' "
+            "WHERE status='pending'; END IF; END $$"
+        )
         return entries
 
 
