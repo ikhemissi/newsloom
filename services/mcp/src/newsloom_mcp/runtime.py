@@ -21,6 +21,7 @@ from newsloom_mcp.app import Services, create_app
 from newsloom_mcp.auth import EntraVerifier
 from newsloom_mcp.briefing import read_briefing
 from newsloom_mcp.embedding import FoundryQueryEmbedding
+from newsloom_mcp.feedback import FeedbackRepository, FeedbackStore
 from newsloom_mcp.http_models import digest
 from newsloom_mcp.repository import NewsRepository, Repository
 from newsloom_mcp.telemetry import Telemetry
@@ -42,6 +43,7 @@ class Config(BaseModel):
     allowed_origins: tuple[str, ...] = ()
     news_api_enabled: bool = Field(default=False, strict=True)
     news_briefing_enabled: bool = Field(default=False, strict=True)
+    feedback_reviewers: frozenset[UUID] = frozenset()
 
     @field_validator("allowed_origins")
     @classmethod
@@ -83,6 +85,11 @@ class Config(BaseModel):
                 "news_api_enabled": parse_api_enabled(env.get("NEWS_API_ENABLED", "false")),
                 "news_briefing_enabled": parse_api_enabled(
                     env.get("NEWS_BRIEFING_ENABLED", "false")
+                ),
+                "feedback_reviewers": frozenset(
+                    value.strip()
+                    for value in env.get("FEEDBACK_REVIEWER_OBJECT_IDS", "").split(",")
+                    if value.strip()
                 ),
                 "allowed_origins": tuple(env["MCP_ALLOWED_ORIGINS"].split(","))
                 if env.get("MCP_ALLOWED_ORIGINS")
@@ -133,6 +140,11 @@ async def resources(
                 await current.execute("SELECT id FROM public.news LIMIT 0")
             return True
 
+        @asynccontextmanager
+        async def feedback() -> AsyncIterator[FeedbackStore]:
+            async with connection() as current, current.transaction():
+                yield FeedbackRepository(current)
+
         async def briefing(cutoff: datetime) -> BriefingRead:
             async with connection() as current, current.transaction():
                 await current.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
@@ -164,6 +176,8 @@ async def resources(
                         ]
                     ),
                     briefing if config.news_briefing_enabled else None,
+                    feedback,
+                    config.feedback_reviewers,
                 ),
                 verifier,
             )

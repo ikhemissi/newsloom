@@ -93,3 +93,15 @@ h1 { font-size: clamp(2.25rem, 5vw, 3.7rem); font-weight: 650; line-height: 1.1;
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+.feedback { margin-top: 0.75rem; display: grid; gap: 0.5rem; }
+.feedback-buttons { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+.feedback-current, .feedback-count, .feedback-ref { font-size: 0.8rem; opacity: 0.8; }
+.feedback-comment { display: grid; gap: 0.25rem; }
+.feedback-comment textarea { width: 100%; min-height: 4rem; }
+.feedback-actions { display: flex; gap: 0.5rem; }
+.feedback-review { display: grid; gap: 1rem; }
+.feedback-filters { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: end; }
+.feedback-filters label { display: grid; gap: 0.25rem; }
+.feedback-items { display: grid; gap: 0.75rem; list-style: none; padding: 0; }
+.feedback-items li { border-bottom: 1px solid currentColor; padding-bottom: 0.5rem; overflow-wrap: anywhere; }

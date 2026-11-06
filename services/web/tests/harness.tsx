@@ -6,6 +6,7 @@ import { UiFailure } from "../src/domain";
 import { architectBriefing, briefing, legacyBriefing, noMaterialBriefing, newsItem, sourceCatalog, newsDetail, page, runtimeConfig } from "./fixtures";
 import { matchesFilters } from "../src/filters";
 import { HttpCatalog } from "../src/catalog";
+import { HttpFeedback } from "../src/feedback";
 import "../src/style.css";
 
 document.documentElement.dataset.researchCalls = "0";
@@ -28,6 +29,9 @@ const auth: AuthSession = {
 const briefingHttp = new HttpCatalog(runtimeConfig, {
   ...auth, token: async () => "authored-briefing-token",
 });
+const feedback = parameters.has("feedback") ? new HttpFeedback(runtimeConfig, {
+  ...auth, token: async () => "authored-feedback-token",
+}) : undefined;
 const research: ResearchClient = {
   async *ask() {
     document.documentElement.dataset.researchCalls = String(
@@ -53,7 +57,7 @@ function batch(cursor?: string) {
     title: `Authored page item ${start + offset + 1}`,
   })), start + 20 < 240 ? `page_${start + 20}` : null);
 }
-createRoot(container).render(<App auth={auth} research={research} catalog={{
+createRoot(container).render(<App auth={auth} research={research} feedback={feedback} catalog={{
   briefing: async (signal) => {
     const calls = Number(document.documentElement.dataset.briefingCalls) + 1;
     document.documentElement.dataset.briefingCalls = String(calls);

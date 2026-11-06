@@ -4,9 +4,15 @@ from uuid import UUID
 
 import httpx
 from mcp.server.auth.provider import AccessToken, TokenVerifier
-from newsloom_core.auth import Claims as Claims
+from newsloom_core.auth import Claims as BaseClaims
 from newsloom_core.auth import EntraTokenVerifier, TrustedKeysFailure
 from newsloom_core.diagnostics import event
+
+
+class Claims(BaseClaims):
+    """Delegated claims; the object ID is needed only for reader feedback."""
+
+    oid: UUID | None = None
 
 
 class EntraVerifier(EntraTokenVerifier[Claims], TokenVerifier):

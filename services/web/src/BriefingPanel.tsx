@@ -4,6 +4,8 @@ import { failureMessage } from "./domain";
 import { safeHttps } from "./config";
 import { briefingWordCount } from "./briefing";
 import { LocalTimestamp, localDateTimeFormat, useDisplayClock } from "./timestamps";
+import type { FeedbackClient } from "./feedback";
+import { FeedbackControls } from "./Feedback";
 
 const minute = 60_000;
 
@@ -50,7 +52,9 @@ function PublishedBriefing({ briefing }: { briefing: Briefing }) {
   </>;
 }
 
-export function BriefingPanel({ catalog, active }: { catalog: NewsCatalog; active: boolean }) {
+export function BriefingPanel({ catalog, active, feedback }: {
+  catalog: NewsCatalog; active: boolean; feedback?: FeedbackClient | undefined;
+}) {
   const [data, setData] = useState<BriefingResponse | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -122,6 +126,8 @@ export function BriefingPanel({ catalog, active }: { catalog: NewsCatalog; activ
       {artifact && <>
         <p className="briefing-note">Generated: <LocalTimestamp value={artifact.generated_at} formatter={formatter} /></p>
         <PublishedBriefing key={artifact.version} briefing={artifact} />
+        {feedback && <FeedbackControls client={feedback} label="Rate this briefing"
+          target={{ type: "briefing", ref: artifact.version }} />}
       </>}
     </>}
     {!data && !error && !loading && <p role="status">{active

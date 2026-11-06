@@ -150,6 +150,15 @@ Actual service RBAC scope may be account-wide for the chat operation; a fixed
 client deployment does not establish deployment-scoped RBAC isolation. Owning
 readback and real-role tests must record the supported scope honestly.
 
+### Briefing history
+
+Every published briefing (scheduled or revised) is appended to `briefing_history`
+(migration `008`) in the same transaction that publishes it, so past versions stay
+available for evaluation and for reader feedback. The writer can insert and read
+history rows but not update or delete them; the MCP role can read them. The
+migration backfilled the then-current briefing and the briefings superseded by
+guarded revisions; earlier daily briefings had already been overwritten.
+
 ## Read API and freshness
 
 `GET /api/v1/briefing` returns `{briefing, refresh, meta}` under the existing

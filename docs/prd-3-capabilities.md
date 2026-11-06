@@ -217,3 +217,18 @@ implementation and acceptance tracked there, not a completed phase.
   real signed-in Azure accessibility/behavior, leaving unavailable checks open.
 
 See the [briefing runbook](briefing.md) for operations and measured evidence.
+
+## P3-C09: Reader feedback
+
+**Assignment:** active [`user-feedback`](../openspec/changes/user-feedback/tasks.md).
+
+**Outcome:** Readers can say whether a briefing or research answer was useful, and
+reviewers can turn that into fixes and eval cases.
+
+**Acceptance criteria**
+- Thumbs up/down with an optional comment on any published briefing version and on
+  each completed research answer; the latest vote per reader and item wins.
+- Research answers are stored only as a snapshot attached to feedback.
+- Readers are pseudonymous; feedback text is never logged.
+- An allowlisted reviewer can list and export feedback as JSON Lines for triage.
+

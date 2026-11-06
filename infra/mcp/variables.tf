@@ -84,6 +84,19 @@ variable "tags" {
   default  = {}
   nullable = false
 }
+variable "feedback_reviewer_object_ids" {
+  description = "Comma-separated Entra object IDs allowed to review feedback; set via azd env, never committed."
+  type        = string
+  default     = ""
+  nullable    = false
+  validation {
+    condition = var.feedback_reviewer_object_ids == "" || alltrue([
+      for value in split(",", var.feedback_reviewer_object_ids) :
+      can(regex("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", value))
+    ])
+    error_message = "Use comma-separated lowercase Entra object IDs without spaces."
+  }
+}
 variable "news_briefing_enabled" {
   type    = bool
   default = false

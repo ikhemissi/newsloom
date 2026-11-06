@@ -145,9 +145,15 @@ async def migrate(config: RuntimeConfig, credential: AsyncTokenCredential) -> in
                 "002_ingestion",
                 "003_enrichment",
                 "004_mcp_read",
+                "009_feedback",
             )
             if config.briefing_identity is not None:
-                versions += ("005_briefing", "006_briefing_retry", "007_briefing_revisions")
+                versions += (
+                    "005_briefing",
+                    "006_briefing_retry",
+                    "007_briefing_revisions",
+                    "008_briefing_history",
+                )
             for version in versions:
                 sql = migration_sql(f"{version}.sql")
                 checksum = hashlib.sha256(sql.encode()).hexdigest()

@@ -134,3 +134,19 @@ run "reject_invalid_prepared_origin" {
   }
   expect_failures = [var.allowed_origins_base64]
 }
+
+run "feedback_reviewers_default_to_none" {
+  command = plan
+  assert {
+    condition     = local.environment.FEEDBACK_REVIEWER_OBJECT_IDS == ""
+    error_message = "No reviewer is allowed unless explicitly configured."
+  }
+}
+
+run "feedback_reviewers_must_be_object_ids" {
+  command = plan
+  variables {
+    feedback_reviewer_object_ids = "not-an-id"
+  }
+  expect_failures = [var.feedback_reviewer_object_ids]
+}

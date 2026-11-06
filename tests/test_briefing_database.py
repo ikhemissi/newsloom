@@ -1,3 +1,4 @@
+import json
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from uuid import uuid4
@@ -13,6 +14,7 @@ from newsloom_enrichment.repository import Repository as EnrichmentRepository
 from newsloom_mcp.briefing import read_briefing
 from newsloom_platform import database
 from newsloom_platform.config import RuntimeConfig
+from psycopg.types.json import Jsonb
 from test_briefing import Scripted
 from test_enrichment_database import METADATA, enriched, seed, vector
 from test_platform_database import platform_database as platform_database
@@ -39,7 +41,8 @@ async def test_real_snapshot_roles_once_only_publication_and_recovery(
                 "DO $$ BEGIN IF NOT EXISTS(SELECT FROM pg_roles WHERE rolname='newsloom_briefing') "
                 "THEN CREATE ROLE newsloom_briefing LOGIN; END IF; END $$"
             )
-            await connection.execute(database.migration_sql("005_briefing.sql"))
+            for name in ("005_briefing", "007_briefing_revisions", "008_briefing_history"):
+                await connection.execute(database.migration_sql(f"{name}.sql"))
             enrichment = EnrichmentRepository(connection)
             for _ in range(227):
                 claim = await enrichment.claim("seed")
@@ -142,8 +145,13 @@ async def test_controlled_retry_archives_failure_without_resetting_calls_or_allo
                 "DO $$ BEGIN IF NOT EXISTS(SELECT FROM pg_roles WHERE rolname='newsloom_briefing') "
                 "THEN CREATE ROLE newsloom_briefing LOGIN; END IF; END $$"
             )
-            await connection.execute(database.migration_sql("005_briefing.sql"))
-            await connection.execute(database.migration_sql("006_briefing_retry.sql"))
+            for name in (
+                "005_briefing",
+                "006_briefing_retry",
+                "007_briefing_revisions",
+                "008_briefing_history",
+            ):
+                await connection.execute(database.migration_sql(f"{name}.sql"))
             await connection.execute("SET SESSION AUTHORIZATION newsloom_briefing")
             writer = Repository(connection)
             assert await writer.claim(cutoff, PROMPT_REVISION, "authored", "1")
@@ -236,7 +244,12 @@ async def test_revision_preserves_success_accounting_and_publishes_only_against_
                 "DO $$ BEGIN IF NOT EXISTS(SELECT FROM pg_roles WHERE rolname='newsloom_briefing') "
                 "THEN CREATE ROLE newsloom_briefing LOGIN; END IF; END $$"
             )
-            for name in ("005_briefing", "006_briefing_retry", "007_briefing_revisions"):
+            for name in (
+                "005_briefing",
+                "006_briefing_retry",
+                "007_briefing_revisions",
+                "008_briefing_history",
+            ):
                 await connection.execute(database.migration_sql(f"{name}.sql"))
             await connection.execute("SET SESSION AUTHORIZATION newsloom_briefing")
             writer = Repository(connection)
@@ -343,7 +356,12 @@ async def test_revision_supersedes_known_failed_slot_while_older_report_stays_pu
                 "DO $$ BEGIN IF NOT EXISTS(SELECT FROM pg_roles WHERE rolname='newsloom_briefing') "
                 "THEN CREATE ROLE newsloom_briefing LOGIN; END IF; END $$"
             )
-            for name in ("005_briefing", "006_briefing_retry", "007_briefing_revisions"):
+            for name in (
+                "005_briefing",
+                "006_briefing_retry",
+                "007_briefing_revisions",
+                "008_briefing_history",
+            ):
                 await connection.execute(database.migration_sql(f"{name}.sql"))
             await connection.execute("SET SESSION AUTHORIZATION newsloom_briefing")
             writer = Repository(connection)
@@ -376,3 +394,79 @@ async def test_revision_supersedes_known_failed_slot_while_older_report_stays_pu
                 await connection.execute("SELECT cutoff,payload->>'version' FROM briefing_current")
             ).fetchone()
             assert current == (today, str(replacement.version))
+
+
+async def test_briefing_history_is_append_only_and_backfilled(
+    platform_database: RuntimeConfig,
+) -> None:
+    first_cutoff = datetime(2026, 10, 30, 5, tzinfo=UTC)
+    second_cutoff = first_cutoff + timedelta(days=1)
+    async with ManagedIdentityCredential() as credential:
+        await database.migrate(platform_database, credential)
+        async with await database.connect(
+            platform_database, credential, "newsloom", "postgres"
+        ) as connection:
+            await connection.execute(
+                "DO $$ BEGIN IF NOT EXISTS(SELECT FROM pg_roles WHERE rolname='newsloom_briefing') "
+                "THEN CREATE ROLE newsloom_briefing LOGIN; END IF; END $$"
+            )
+            for name in ("005_briefing", "006_briefing_retry", "007_briefing_revisions"):
+                await connection.execute(database.migration_sql(f"{name}.sql"))
+            # Before the history exists: one published briefing, then a revision of it.
+            await connection.execute(
+                "INSERT INTO briefing_runs(cutoff,status,started_at,finished_at,"
+                "prompt_revision,model,model_version) VALUES (%s,'ready',now(),now(),'p','m','1')",
+                (first_cutoff,),
+            )
+            superseded = empty_briefing(first_cutoff)
+            current = empty_briefing(first_cutoff)
+            await connection.execute(
+                "INSERT INTO briefing_current VALUES (true,%s,%s)",
+                (first_cutoff, Jsonb(json.loads(current.model_dump_json()))),
+            )
+            await connection.execute(
+                "INSERT INTO briefing_revisions(request_id,cutoff,reason,base_version,"
+                "last_call_ordinal,prior_run,prior_payload) VALUES "
+                "(gen_random_uuid(),%s,'editorial-policy-upgrade',%s,0,"
+                '\'{"status":"ready"}\',%s)',
+                (first_cutoff, superseded.version, Jsonb(json.loads(superseded.model_dump_json()))),
+            )
+            await connection.execute(database.migration_sql("008_briefing_history.sql"))
+            backfilled = await (
+                await connection.execute("SELECT version FROM briefing_history ORDER BY version")
+            ).fetchall()
+            assert {row[0] for row in backfilled} == {superseded.version, current.version}
+
+            await connection.execute("SET SESSION AUTHORIZATION newsloom_briefing")
+            writer = Repository(connection)
+            assert await writer.claim(second_cutoff, PROMPT_REVISION, "authored", "1")
+            await writer.fail(second_cutoff, "briefing_foreign_citation")
+            count = await (
+                await connection.execute("SELECT count(*) FROM briefing_history")
+            ).fetchone()
+            assert count == (2,)
+            third = second_cutoff + timedelta(days=1)
+            assert await writer.claim(third, PROMPT_REVISION, "authored", "1")
+            published = empty_briefing(third)
+            await writer.publish(published)
+            row = await (
+                await connection.execute(
+                    "SELECT cutoff,payload->>'version' FROM briefing_history WHERE version=%s",
+                    (published.version,),
+                )
+            ).fetchone()
+            assert row == (third, str(published.version))
+            for statement in (
+                "UPDATE briefing_history SET editorial_policy='x'",
+                "DELETE FROM briefing_history",
+            ):
+                with pytest.raises(psycopg.errors.InsufficientPrivilege):
+                    await connection.execute(statement)
+            await connection.execute("RESET SESSION AUTHORIZATION")
+            await connection.execute("SET SESSION AUTHORIZATION newsloom_mcp")
+            readable = await (
+                await connection.execute("SELECT count(*) FROM briefing_history")
+            ).fetchone()
+            assert readable == (3,)
+            with pytest.raises(psycopg.errors.InsufficientPrivilege):
+                await connection.execute("DELETE FROM briefing_history")

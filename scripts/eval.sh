@@ -8,6 +8,11 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 live=false
 [[ "${1:-}" == "--live" ]] && live=true
 
+if [[ -d .cache/eval-cases ]]; then
+  printf '%s\n' "== feedback-derived cases (local, not committed)"
+  uv run --locked python scripts/feedback_to_evals.py --validate
+fi
+
 printf '%s\n' "== replay evals"
 uv run --locked pytest -q -p no:cacheprovider tests/test_briefing_golden.py
 

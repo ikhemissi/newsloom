@@ -20,7 +20,13 @@ from starlette.requests import ClientDisconnect, Request
 from starlette.responses import JSONResponse, Response
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from newsloom_mcp.auth import EntraVerifier
+from newsloom_mcp.auth import Claims, EntraVerifier
+from newsloom_mcp.feedback import (
+    FeedbackInput,
+    ReviewQuery,
+    export_lines,
+    reader_hash,
+)
 from newsloom_mcp.http_models import (
     ApiFailure,
     BriefingResult,
@@ -52,7 +58,22 @@ SCOPES: dict[str, ResultScope] = {
 }
 
 
+FEEDBACK_ROUTES = {
+    PREFIX + "/feedback": ("feedback", "POST"),
+    PREFIX + "/feedback/mine": ("feedback_mine", "GET"),
+    PREFIX + "/feedback/review": ("feedback_review", "GET"),
+    PREFIX + "/feedback/export": ("feedback_export", "GET"),
+}
+
+
+def required_scope(route: str) -> str:
+    # Feedback reuses the reader's news.read sign-in; reviewers are an allowlist.
+    return "news.read"
+
+
 def api_route(path: str) -> tuple[str, str] | None:
+    if path in FEEDBACK_ROUTES:
+        return FEEDBACK_ROUTES[path]
     if path == PREFIX + "/briefing":
         return "briefing", "GET"
     if path == PREFIX + "/news":
@@ -66,12 +87,12 @@ def api_route(path: str) -> tuple[str, str] | None:
     return None
 
 
-def error_response(failure: ApiFailure, request_id: str) -> JSONResponse:
+def error_response(failure: ApiFailure, request_id: str, scope: str = "news.read") -> JSONResponse:
     headers = {"Cache-Control": "no-store"}
     if failure.status == 401:
         headers["WWW-Authenticate"] = 'Bearer error="invalid_token"'
     if failure.status == 403 and failure.code == "insufficient_scope":
-        headers["WWW-Authenticate"] = 'Bearer error="insufficient_scope", scope="news.read"'
+        headers["WWW-Authenticate"] = f'Bearer error="insufficient_scope", scope="{scope}"'
     return JSONResponse(
         {"error": {"code": failure.code, "request_id": request_id}},
         status_code=failure.status,
@@ -123,6 +144,7 @@ class NewsApi:
                 not self.enabled
                 or route is None
                 or (route[0] == "briefing" and self.services.briefing is None)
+                or (route[0].startswith("feedback") and self.services.feedback is None)
             ):
                 raise ApiFailure(404, "not_found")
             if len(scope.get("raw_path", b"")) + len(scope.get("query_string", b"")) + 1 > 8192:
@@ -141,7 +163,7 @@ class NewsApi:
                 if request.method != route[1]:
                     raise ApiFailure(405, "method_denied")
                 async with asyncio.timeout(90):
-                    partition = await self.authorize(headers)
+                    partition, claims = await self.authorize(headers, route[0])
                     body = bytearray()
                     async for chunk in request.stream():
                         if len(body) + len(chunk) > 64 * 1024:
@@ -150,7 +172,9 @@ class NewsApi:
                     if request.method == "GET" and body:
                         raise ApiFailure(400, "invalid_input")
                     operation = asyncio.create_task(
-                        self.execute(request, bytes(body), route[0], partition, started + 90)
+                        self.execute(
+                            request, bytes(body), route[0], partition, claims, started + 90
+                        )
                     )
                     disconnected = asyncio.create_task(self.disconnected(receive))
                     try:
@@ -177,7 +201,9 @@ class NewsApi:
                 if failure.status == 403
                 else "failure"
             )
-            response = error_response(failure, request_id)
+            response = error_response(
+                failure, request_id, required_scope(route[0]) if route else "news.read"
+            )
         except ValidationError, ValueError, UnicodeError, OverflowError:
             response = error_response(ApiFailure(400, "invalid_input"), request_id)
         except (
@@ -220,15 +246,22 @@ class NewsApi:
         response.headers["Cache-Control"] = "no-store"
         await response(scope, receive, send)
 
-    async def authorize(self, headers: Headers) -> str:
+    async def authorize(self, headers: Headers, route: str) -> tuple[str, Claims]:
         values = headers.getlist("authorization")
         if len(values) != 1 or values[0][:7].lower() != "bearer " or len(values[0]) > 16400:
             raise ApiFailure(401, "unauthorized")
         claims = await self.verifier.verify_claims(values[0][7:])
         if claims is None:
             raise ApiFailure(401, "unauthorized")
-        if "news.read" not in claims.scp.split():
+        if required_scope(route) not in claims.scp.split():
             raise ApiFailure(403, "insufficient_scope")
+        if route.startswith("feedback") and claims.oid is None:
+            raise ApiFailure(403, "insufficient_scope")
+        if (
+            route in ("feedback_review", "feedback_export")
+            and claims.oid not in self.services.feedback_reviewers
+        ):
+            raise ApiFailure(403, "forbidden")
         return digest(
             {
                 "policy": 1,
@@ -237,7 +270,50 @@ class NewsApi:
                 "client": str(claims.azp),
                 "scopes": sorted(set(claims.scp.split())),
             }
-        )
+        ), claims
+
+    async def feedback(self, request: Request, body: bytes, route: str, claims: Claims) -> Response:
+        """Personal or reviewer data: never cached, never logged beyond the route outcome."""
+        if self.services.feedback is None or claims.oid is None:
+            raise ApiFailure(404, "not_found")
+        reader = reader_hash(claims.tid, claims.oid)
+        if route == "feedback":
+            if request.query_params:
+                raise ApiFailure(400, "invalid_input")
+            types = request.headers.getlist("content-type")
+            if len(types) != 1 or types[0].split(";")[0].strip().lower() != "application/json":
+                raise ApiFailure(415, "unsupported_media_type")
+            entry = FeedbackInput.model_validate(json_input(body))
+        elif route == "feedback_mine":
+            params = dict(request.query_params)
+            if set(params) != {"target_type", "target_ref"}:
+                raise ApiFailure(400, "invalid_input")
+        else:
+            query = ReviewQuery.model_validate(dict(request.query_params))
+        try:
+            async with asyncio.timeout(1):
+                await self.semaphore.acquire()
+        except TimeoutError:
+            raise ApiFailure(429, "overloaded") from None
+        try:
+            async with self.services.feedback() as store:
+                if route == "feedback":
+                    if not await store.record(reader, entry):
+                        raise ApiFailure(400, "invalid_input")
+                    return JSONResponse({"status": "recorded"}, status_code=201)
+                if route == "feedback_mine":
+                    vote = await store.mine(reader, params["target_type"], params["target_ref"])
+                    return JSONResponse({"vote": vote.model_dump() if vote else None})
+                items = await store.review(query)
+        finally:
+            self.semaphore.release()
+        if route == "feedback_export":
+            return Response(
+                export_lines(items),
+                media_type="application/x-ndjson",
+                headers={"Content-Disposition": 'attachment; filename="feedback.jsonl"'},
+            )
+        return JSONResponse({"items": [item.model_dump(mode="json") for item in items]})
 
     @staticmethod
     async def disconnected(receive: Receive) -> None:
@@ -251,8 +327,11 @@ class NewsApi:
         body: bytes,
         route: str,
         partition: str,
+        claims: Claims,
         deadline: float,
     ) -> tuple[Response, str, Entry | None, str]:
+        if route.startswith("feedback"):
+            return await self.feedback(request, body, route, claims), "", None, "bypass"
         cutoff = cutoff_at(datetime.now(UTC))
         args, after, identifier = None, None, None
         if route == "news":
