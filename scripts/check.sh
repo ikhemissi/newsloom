@@ -74,12 +74,19 @@ terraform fmt -check -recursive infra
 
 if [[ "$EVALUATION" == 1 ]]; then
   stage "evaluation tooling"
-  # Process-isolation privacy tests are slow; they run on full checks only.
-  slow=(--deselect tests/test_baseline_privacy.py --deselect tests/test_baseline_workflow.py
-    --deselect tests/test_privacy.py)
-  [[ "$mode" == all ]] && slow=()
-  export EVALUATION_PYTEST_ARGS="-n auto -p no:cacheprovider ${slow[*]}"
-  bash scripts/check-agent-evaluation.sh
+  # Tests that spawn real processes have tight deadlines: run them serially so parallel
+  # workers cannot starve them. The slowest privacy files run on full checks only.
+  process=(tests/test_baseline_capture_admission.py tests/test_baseline_cli.py
+    tests/test_baseline_inputs.py tests/test_baseline_ipc.py tests/test_compatibility.py
+    tests/test_runner.py)
+  slow=(tests/test_baseline_privacy.py tests/test_baseline_workflow.py tests/test_privacy.py)
+  deselect=()
+  for file in "${process[@]}" "${slow[@]}"; do deselect+=(--deselect "$file"); done
+  serial=("${process[@]}")
+  [[ "$mode" == all ]] && serial+=("${slow[@]}")
+  EVALUATION_PYTEST_ARGS="-n auto -p no:cacheprovider ${deselect[*]}" \
+    bash scripts/check-agent-evaluation.sh
+  uv run --directory tools/agent-evaluation --locked pytest -q -p no:cacheprovider "${serial[@]}"
 fi
 
 if [[ -n "$PYTHON_TESTS" ]]; then
