@@ -144,3 +144,16 @@ test("HTTP client posts the API contract and maps 400 and 403", async () => {
   await expect(http.review({ days: 30 }, new AbortController().signal))
     .rejects.toMatchObject({ category: "authorization" });
 });
+
+test("Enter sends the feedback and Shift+Enter keeps typing", async () => {
+  const feedback = client();
+  render(<FeedbackControls client={feedback} label="Rate" target={{ type: "briefing", ref: "v" }} />);
+  fireEvent.click(screen.getByRole("button", { name: /Not helpful/ }));
+  const box = screen.getByLabelText("Comment (optional)");
+  fireEvent.change(box, { target: { value: "Line one" } });
+  fireEvent.keyDown(box, { key: "Enter", shiftKey: true });
+  expect(feedback.sent).toHaveLength(0);
+  fireEvent.keyDown(box, { key: "Enter" });
+  await screen.findByText("Thanks, your feedback was recorded.");
+  expect(feedback.sent).toEqual([{ target: { type: "briefing", ref: "v" }, rating: "down", comment: "Line one" }]);
+});
