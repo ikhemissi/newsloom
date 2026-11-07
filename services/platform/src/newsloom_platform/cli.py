@@ -104,6 +104,7 @@ def main() -> None:
                 "ingestion-status",
                 "build-ingestion",
                 "execute-ingestion",
+                "backfill-articles",
                 "calibrate-ingestion",
                 "read-ingestion",
                 "enrichment-status",

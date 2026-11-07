@@ -6,7 +6,7 @@
 
 ## 2. Storage and resolution
 
-- [ ] 2.1 Add migration `010_announcements.sql` (tables, `news.article_kind`, indexes, grants) with real-database tests for privileges and append-only behaviour.
+- [ ] 2.1 Add migration `011_announcements.sql` (tables, `news.article_kind`, indexes, grants) with real-database tests for privileges and append-only behaviour.
 - [ ] 2.2 Implement entity resolution with `config/entities.json` (seeded with major vendors and known renames) and batched embeddings; tests cover curated, exact, similar same-vendor, cross-vendor separation and alias addition.
 - [ ] 2.3 Write announcements, links and relations in the news transaction; add token-aware admission; enrichment tests for roundups, opinion pieces, invalid output and partial grounding drops.
 

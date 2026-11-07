@@ -27,7 +27,7 @@ from newsloom_ingestion.evaluation import (
     private_path,
     review_entries,
 )
-from newsloom_ingestion.job import process_items, run, select_sources
+from newsloom_ingestion.job import backfill, process_items, run, select_sources
 from newsloom_ingestion.models import IngestionFailure, Limits, source_counts
 from newsloom_ingestion.repository import Repository
 from newsloom_ingestion.retrieval import PublicClient
@@ -71,10 +71,11 @@ async def runtime(args: argparse.Namespace, correlation: str) -> None:
     env = os.environ
     client_id = env["AZURE_CLIENT_ID"]
     threshold_text = env.get("SCANNER_THRESHOLD", "")
-    threshold = float(threshold_text) if threshold_text and args.command == "run" else None
-    if args.command == "run" and (threshold is None or not math.isfinite(threshold)):
+    screening = args.command in ("run", "backfill-articles")
+    threshold = float(threshold_text) if threshold_text and screening else None
+    if screening and (threshold is None or not math.isfinite(threshold)):
         raise IngestionFailure("scanner_threshold_required")
-    if args.command == "run" and threshold is not None:
+    if screening and threshold is not None:
         expected = calibration_id(
             env["MODEL_ENDPOINT"],
             env["SCREENING_DEPLOYMENT"],
@@ -128,6 +129,10 @@ async def runtime(args: argparse.Namespace, correlation: str) -> None:
             telemetry = Telemetry(env["APPLICATIONINSIGHTS_CONNECTION_STRING"], client_id)
             start = time.monotonic()
             try:
+                if args.command == "backfill-articles":
+                    counts = await backfill(repository, scanner, correlation)
+                    event("backfill", correlation, outcome="completed", counts=counts)
+                    return
                 counts = await run(sources, repository, scanner, correlation, force=args.force)
                 telemetry.record(correlation, counts, time.monotonic() - start)
             finally:
@@ -240,7 +245,7 @@ def main() -> None:
         parser.add_argument(
             "command",
             nargs="?",
-            choices=["run", "fetch", "calibrate", "evaluate", "evaluate-job"],
+            choices=["run", "fetch", "calibrate", "evaluate", "evaluate-job", "backfill-articles"],
             default="run",
         )
         parser.add_argument("--catalogue", type=Path, default=Path("config/feeds.json"))

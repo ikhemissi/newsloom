@@ -5,6 +5,7 @@ import ipaddress
 import socket
 import time
 import zlib
+from dataclasses import dataclass
 from urllib.parse import urljoin, urlsplit
 from urllib.robotparser import RobotFileParser
 
@@ -14,7 +15,8 @@ from newsloom_core.retry import retry_delay as shared_retry_delay
 
 from newsloom_ingestion.models import DEFAULT_LIMITS, Document, IngestionFailure, Limits
 
-USER_AGENT = "Newsloom/0.1"
+USER_AGENT = "Newsloom/0.2 (+https://github.com/ikhemissi/newsloom)"
+ROBOTS_TOKEN = "Newsloom"
 RETRYABLE = {408, 429, 500, 502, 503, 504}
 
 
@@ -72,6 +74,49 @@ class PublicResolver(AbstractResolver):
         return None
 
 
+def content_signals(text: str) -> dict[str, str]:
+    """Content-Signal values of the robots group that applies to Newsloom, else `*`."""
+    groups: list[tuple[list[str], dict[str, str]]] = []
+    agents: list[str] = []
+    signals: dict[str, str] = {}
+    shared: dict[str, str] = {}
+    previous_agent = False
+    for raw in text.splitlines():
+        line = raw.split("#", 1)[0].strip()
+        if ":" not in line:
+            continue
+        key, value = (part.strip() for part in line.split(":", 1))
+        key = key.casefold()
+        if key == "user-agent":
+            if not previous_agent:
+                agents, signals = [], {}
+                groups.append((agents, signals))
+            agents.append(value.casefold())
+            previous_agent = True
+            continue
+        previous_agent = False
+        if key == "content-signal":
+            target = signals if groups else shared
+            for item in value.split(","):
+                name, _, setting = item.partition("=")
+                if name.strip() and setting.strip():
+                    target[name.strip().casefold()] = setting.strip().casefold()
+    token = ROBOTS_TOKEN.casefold()
+    chosen = next(
+        (found for names, found in groups if any(n != "*" and n in token for n in names)), None
+    )
+    if chosen is None:
+        chosen = next((found for names, found in groups if "*" in names), {})
+    return {**shared, **chosen}
+
+
+@dataclass(frozen=True)
+class RobotsDecision:
+    policy: RobotFileParser | None
+    failure: str | None = None
+    ai_input: bool = True
+
+
 def retry_delay(value: str | None, attempt: int) -> float:
     try:
         return shared_retry_delay(value, attempt)
@@ -82,15 +127,31 @@ def retry_delay(value: str | None, attempt: int) -> float:
 class PublicClient:
     def __init__(self, limits: Limits = DEFAULT_LIMITS) -> None:
         self.limits = limits
+        self.robots_cache: dict[str, RobotsDecision] = {}
+        self.robots_locks: dict[str, asyncio.Lock] = {}
+        self.host_locks: dict[str, asyncio.Lock] = {}
 
     async def article(self, url: str, deadline: float) -> Document:
         check_url(url)
-        async with asyncio.timeout_at(deadline):
-            await self.robots(url, deadline)
-            try:
-                response = await self.request(url, {}, self.limits.body_bytes)
-            except aiohttp.ClientError, OSError:
-                raise IngestionFailure("article_unavailable") from None
+        host = urlsplit(url).netloc.casefold()
+        async with asyncio.timeout_at(deadline), self.host_locks.setdefault(host, asyncio.Lock()):
+            await self.robots(url, deadline, article=True)
+            for attempt in range(2):
+                try:
+                    response = await self.request(url, {}, self.limits.body_bytes)
+                except aiohttp.ClientError, OSError:
+                    raise IngestionFailure("article_unavailable") from None
+                if response.status not in (429, 503) or attempt:
+                    break
+                # One polite retry when the publisher asks us to wait briefly.
+                delay = retry_delay(response.headers.get("retry-after"), attempt)
+                if delay > 60 or time.monotonic() + delay >= deadline:
+                    raise IngestionFailure("article_throttled")
+                await asyncio.sleep(delay)
+        if response.status in (429, 503):
+            raise IngestionFailure("article_throttled")
+        if response.status in (301, 302, 303, 307, 308):
+            raise IngestionFailure("article_redirect")
         if response.status != 200:
             raise IngestionFailure(f"article_http_{response.status}")
         content_type = response.headers.get("content-type", "text/html").split(";", 1)[0].strip()
@@ -152,18 +213,32 @@ class PublicClient:
                 {key.lower(): value for key, value in response.headers.items()},
             )
 
-    async def robots(self, url: str, deadline: float) -> None:
+    async def robots(self, url: str, deadline: float, *, article: bool = False) -> None:
         parts = urlsplit(url)
-        policy_url = f"{parts.scheme}://{parts.netloc}/robots.txt"
-        response = await self.fetch(policy_url, {}, deadline, robots=True)
+        origin = f"{parts.scheme}://{parts.netloc}".casefold()
+        async with self.robots_locks.setdefault(origin, asyncio.Lock()):
+            decision = self.robots_cache.get(origin)
+            if decision is None:
+                decision = await self.load_robots(origin, deadline)
+                self.robots_cache[origin] = decision
+        if decision.failure is not None:
+            raise IngestionFailure(decision.failure)
+        if decision.policy is not None and not decision.policy.can_fetch(ROBOTS_TOKEN, url):
+            raise IngestionFailure("robots_denied")
+        if article and not decision.ai_input:
+            raise IngestionFailure("content_signal_denied")
+
+    async def load_robots(self, origin: str, deadline: float) -> RobotsDecision:
+        """One robots.txt per origin per run; transient failures are not cached."""
+        response = await self.fetch(f"{origin}/robots.txt", {}, deadline, robots=True)
         if response.status in (404, 410):
-            return
+            return RobotsDecision(None)
         if response.status != 200:
             raise IngestionFailure(f"robots_http_{response.status}")
+        text = response.body.decode("utf-8", errors="replace")
         policy = RobotFileParser()
-        policy.parse(response.body.decode("utf-8", errors="replace").splitlines())
-        if not policy.can_fetch(USER_AGENT, url):
-            raise IngestionFailure("robots_denied")
+        policy.parse(text.splitlines())
+        return RobotsDecision(policy, ai_input=content_signals(text).get("ai-input") != "no")
 
     async def fetch(
         self, url: str, headers: dict[str, str], deadline: float, *, robots: bool = False

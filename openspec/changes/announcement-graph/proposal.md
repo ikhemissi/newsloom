@@ -70,7 +70,7 @@ Decisions surfaced:
 ## Impact
 
 - `ENRICHMENT_CAPACITY` 10 → 100 on the existing deployment (application layer).
-- Migration `010_announcements.sql` (tables, `news.article_kind`, grants:
+- Migration `011_announcements.sql` (tables, `news.article_kind`, grants:
   enrichment insert/select, MCP select).
 - `services/enrichment` (schema, prompt, grounding, resolution, backfill
   command), `services/mcp` (detail, search), `services/web` types if the

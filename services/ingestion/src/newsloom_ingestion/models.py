@@ -48,6 +48,9 @@ SOURCE_COUNTERS = (
     "recovery_attempted",
     "recovery_failed",
     "recovery_deferred",
+    "article_attempted",
+    "article_body_selected",
+    "feed_text_kept",
 )
 
 

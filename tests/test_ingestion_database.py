@@ -358,6 +358,7 @@ async def test_mixed_item_counts_paths_validator_and_replay(repository: Reposito
 
     client = Client(
         [
+            document(body=b"<p>Short page</p>"),
             document(
                 body=b'<meta property="og:title" content="Metadata">'
                 b'<meta property="og:description" content="Description">'
@@ -396,9 +397,10 @@ async def test_transient_recovery_keeps_validator_and_siblings(repository: Repos
         ) -> Document:
             return document(404) if robots else document(body=body, etag="new")
 
-    counts = await ingest_source(
-        source(), Client([document(503)]), repository, "deferred", False, DEFAULT_LIMITS
-    )
+    from test_ingestion_articles import throttled
+
+    client = Client([document(body=b"<p>Short page</p>"), throttled(503), throttled(503)])
+    counts = await ingest_source(source(), client, repository, "deferred", False, DEFAULT_LIMITS)
     assert counts["staged"] == counts["recovery_deferred"] == 1
     assert counts["malformed_rejected"] == counts["security_rejected"] == 0
     assert await repository.source(source()) == {"If-None-Match": "old"}
@@ -507,3 +509,100 @@ async def test_decision_counters_and_rejected_replay(
     assert counts[key] == 1 and counts["accepted"] == 0
     assert not await repository.stage(item, "replay")
     assert (await repository.source_statistics(source().id, "decisions"))[key] == 1
+
+
+async def accept(
+    repository: Repository, item: Entry, acquisition: str, feed_text: str | None
+) -> None:
+    assert await repository.stage(item, "run", acquisition, feed_text)
+    pending = await repository.deferred([source().id])
+    assert pending is not None
+    await repository.decide(
+        pending[0], pending[1], Decision("accepted", "screened", 0.1, 0.5), "run"
+    )
+    await repository.connection.execute(
+        "UPDATE ingestion_queue SET status='completed', completed_at=clock_timestamp() "
+        "WHERE canonical_url=%s",
+        (item.url,),
+    )
+
+
+async def test_acquisition_and_feed_text_follow_the_item_into_the_queue(
+    repository: Repository,
+) -> None:
+    await repository.finish_source(source().id, "run", "fetched", {})
+    item = entry().model_copy(update={"text": "Full article body"})
+    await accept(repository, item, "article_body", "Teaser")
+    row = await (
+        await repository.connection.execute(
+            "SELECT acquisition, feed_text, acquired_at IS NOT NULL, entry->>'text' "
+            "FROM ingestion_queue WHERE canonical_url=%s",
+            (item.url,),
+        )
+    ).fetchone()
+    assert row == ("article_body", "Teaser", True, "Full article body")
+    cleared = await (
+        await repository.connection.execute(
+            "SELECT feed_text FROM quarantine WHERE canonical_url=%s", (item.url,)
+        )
+    ).fetchone()
+    assert cleared == (None,)
+
+
+async def test_article_text_is_retired_after_90_days(repository: Repository) -> None:
+    await repository.finish_source(source().id, "run", "fetched", {})
+    item = entry().model_copy(update={"text": "Full article body"})
+    await accept(repository, item, "article_body", "Teaser")
+    assert await repository.retain_feed_text() == 0
+    await repository.connection.execute(
+        "UPDATE ingestion_queue SET acquired_at=clock_timestamp() - interval '91 days'"
+    )
+    assert await repository.retain_feed_text() == 1
+    row = await (
+        await repository.connection.execute(
+            "SELECT entry->>'text', feed_text, acquisition FROM ingestion_queue"
+        )
+    ).fetchone()
+    assert row == ("Teaser", None, "article_body")
+    assert await repository.retain_feed_text() == 0
+
+
+async def test_backfill_acquires_recent_legacy_items_once(repository: Repository) -> None:
+    from datetime import UTC, datetime, timedelta
+
+    from newsloom_ingestion.job import backfill
+    from test_ingestion_articles import ROUNDUP
+    from test_ingestion_feeds import FakeClient, document
+
+    class Scanner:
+        async def scan(self, item: Entry, deadline: float) -> Decision:
+            return Decision("accepted", "screened", 0.1, 0.5)
+
+    await repository.finish_source(source().id, "run", "fetched", {})
+    now = datetime.now(UTC)
+    recent = entry().model_copy(update={"text": "Our monthly roundup is out.", "published_at": now})
+    old = entry().model_copy(
+        update={
+            "guid": "old",
+            "url": "https://example.com/old",
+            "published_at": now - timedelta(days=30),
+        }
+    )
+    for item in (recent, old):
+        await accept(repository, item, "feed_item", None)
+    await repository.connection.execute("UPDATE ingestion_queue SET acquisition=NULL")
+    client = FakeClient([document(404), document(body=ROUNDUP)])
+    counts = await backfill(repository, Scanner(), "backfill", client=client)
+    assert counts["candidates"] == counts["article_body"] == 1
+    assert client.urls == ["https://example.com/robots.txt", recent.url]
+    row = await (
+        await repository.connection.execute(
+            "SELECT acquisition, feed_text, entry->>'title', entry->>'text' LIKE '%%Feature 39%%' "
+            "FROM ingestion_queue WHERE canonical_url=%s",
+            (recent.url,),
+        )
+    ).fetchone()
+    assert row == ("article_body", "Our monthly roundup is out.", recent.title, True)
+    again = FakeClient([])
+    counts = await backfill(repository, Scanner(), "backfill", client=again)
+    assert counts["candidates"] == 0 and again.urls == []

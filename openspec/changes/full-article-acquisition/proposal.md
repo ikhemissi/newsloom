@@ -66,6 +66,11 @@ None.
 
 - `services/ingestion` (job, articles, retrieval), ingestion telemetry
   categories, tests and fixtures.
-- Retention runs inside the existing ingestion job; no new resource, identity,
-  permission or migration (the queue `entry` already stores bounded text).
+- Migration `010_article_acquisition.sql` adds nullable `acquisition` and
+  `feed_text` columns to quarantine and the queue (plus `acquired_at` on the
+  queue), covered by the ingestion role's existing table grants. The feed text
+  cannot live inside `entry`, because enrichment sends the whole entry to the
+  model. No new resource, identity or permission.
+- `newsloom-platform backfill-articles` runs the backfill inside the existing
+  ingestion job.
 - `docs/ingestion.md`; PRD-1 capability notes.

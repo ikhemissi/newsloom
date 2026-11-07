@@ -14,7 +14,13 @@ RUN_LOCK = 736981072
 
 
 class IngestionRepository(Protocol):
-    async def stage(self, entry: Entry, correlation: str) -> bool: ...
+    async def stage(
+        self,
+        entry: Entry,
+        correlation: str,
+        acquisition: str = "feed_item",
+        feed_text: str | None = None,
+    ) -> bool: ...
 
     async def decide(
         self, identifier: UUID, entry: Entry, decision: Decision, correlation: str
@@ -82,14 +88,20 @@ class Repository:
         ).fetchone()
         return row is not None
 
-    async def stage(self, entry: Entry, correlation: str) -> bool:
+    async def stage(
+        self,
+        entry: Entry,
+        correlation: str,
+        acquisition: str = "feed_item",
+        feed_text: str | None = None,
+    ) -> bool:
         async with self.lock, self.connection.transaction():
             if await self._known(entry):
                 return False
             await self.connection.execute(
                 "INSERT INTO quarantine(source, guid, canonical_url, entry, disposition, reason, "
-                "model, model_version, correlation_id) "
-                "VALUES (%s,%s,%s,%s,'deferred','awaiting_screening',%s,%s,%s)",
+                "model, model_version, correlation_id, acquisition, feed_text) "
+                "VALUES (%s,%s,%s,%s,'deferred','awaiting_screening',%s,%s,%s,%s,%s)",
                 (
                     entry.source,
                     entry.guid,
@@ -98,6 +110,8 @@ class Repository:
                     self.model,
                     self.version,
                     correlation,
+                    acquisition,
+                    feed_text,
                 ),
             )
         return True
@@ -143,16 +157,19 @@ class Repository:
         async with self.lock, self.connection.transaction():
             row = await (
                 await self.connection.execute(
-                    "SELECT disposition FROM quarantine WHERE id=%s FOR UPDATE", (identifier,)
+                    "SELECT disposition,acquisition,feed_text FROM quarantine "
+                    "WHERE id=%s FOR UPDATE",
+                    (identifier,),
                 )
             ).fetchone()
-            if row != ("deferred",):
+            if row is None or row[0] != "deferred":
                 raise IngestionFailure("screening_state_changed")
             if decision.disposition == "accepted":
                 cursor = await self.connection.execute(
                     "INSERT INTO ingestion_queue(source,guid,canonical_url,entry,score,threshold,"
-                    "model,model_version,correlation_id) "
-                    "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
+                    "model,model_version,correlation_id,acquisition,feed_text,acquired_at) "
+                    "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,"
+                    "CASE WHEN %s::text IS NULL THEN NULL ELSE clock_timestamp() END) RETURNING id",
                     (
                         entry.source,
                         entry.guid,
@@ -163,6 +180,9 @@ class Repository:
                         self.model,
                         self.version,
                         correlation,
+                        row[1],
+                        row[2],
+                        row[1],
                     ),
                 )
                 accepted = await cursor.fetchone()
@@ -170,7 +190,8 @@ class Repository:
                     raise IngestionFailure("accepted_row_missing")
                 await self.connection.execute(
                     "UPDATE quarantine SET disposition='resolved', reason='accepted', "
-                    "entry='{}', resolved_queue_id=%s, updated_at=clock_timestamp(), "
+                    "entry='{}', feed_text=NULL, resolved_queue_id=%s, "
+                    "updated_at=clock_timestamp(), "
                     "score=%s,threshold=%s,attempts=attempts+1 WHERE id=%s",
                     (accepted[0], decision.score, decision.threshold, identifier),
                 )
@@ -198,6 +219,53 @@ class Repository:
             )
             if cursor.rowcount != 1:
                 raise IngestionFailure("source_run_changed")
+
+    async def retain_feed_text(self) -> int:
+        """Drop article text kept longer than 90 days; feed text and published news stay."""
+        async with self.lock:
+            cursor = await self.connection.execute(
+                "UPDATE ingestion_queue SET entry=jsonb_set(entry,'{text}',to_jsonb(feed_text)),"
+                "feed_text=NULL,updated_at=clock_timestamp() WHERE id IN (SELECT id FROM "
+                "ingestion_queue WHERE status='completed' AND feed_text IS NOT NULL "
+                "AND acquired_at < clock_timestamp() - interval '90 days' LIMIT 500)"
+            )
+            return max(cursor.rowcount, 0)
+
+    async def backfill_candidates(self, limit: int) -> list[tuple[UUID, Entry]]:
+        async with self.lock:
+            rows = await (
+                await self.connection.execute(
+                    "SELECT id, entry FROM ingestion_queue WHERE status='completed' "
+                    "AND acquisition IS NULL AND (entry->>'published_at')::timestamptz >= "
+                    "clock_timestamp() - interval '14 days' ORDER BY created_at, id LIMIT %s",
+                    (limit,),
+                )
+            ).fetchall()
+        result: list[tuple[UUID, Entry]] = []
+        for identifier, entry in rows:
+            if not isinstance(identifier, UUID):
+                raise IngestionFailure("invalid_entry_identifier")
+            result.append((identifier, Entry.model_validate(entry)))
+        return result
+
+    async def record_backfill(
+        self, identifier: UUID, acquisition: str, entry: Entry | None, feed_text: str | None
+    ) -> bool:
+        async with self.lock:
+            if entry is None:
+                cursor = await self.connection.execute(
+                    "UPDATE ingestion_queue SET acquisition=%s WHERE id=%s "
+                    "AND status='completed' AND acquisition IS NULL",
+                    (acquisition, identifier),
+                )
+            else:
+                cursor = await self.connection.execute(
+                    "UPDATE ingestion_queue SET entry=%s,feed_text=%s,acquisition=%s,"
+                    "acquired_at=clock_timestamp(),updated_at=clock_timestamp() "
+                    "WHERE id=%s AND status='completed' AND acquisition IS NULL",
+                    (Jsonb(entry.model_dump(mode="json")), feed_text, acquisition, identifier),
+                )
+            return cursor.rowcount == 1
 
     async def counts(self) -> dict[str, int]:
         row = await (

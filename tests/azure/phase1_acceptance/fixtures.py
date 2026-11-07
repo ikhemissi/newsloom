@@ -6,7 +6,7 @@ from xml.etree.ElementTree import Element, SubElement, tostring
 
 from newsloom_core.feeds import FeedSource
 from newsloom_core.phase1_contracts import AcceptanceFailure, Fixtures, load_fixtures
-from newsloom_ingestion.models import Document, Limits
+from newsloom_ingestion.models import Document, IngestionFailure, Limits
 from newsloom_ingestion.retrieval import PublicClient
 from pydantic import HttpUrl
 
@@ -79,3 +79,7 @@ class FixtureClient(PublicClient):
         if robots or url not in self.documents:
             raise AcceptanceFailure("unexpected_acceptance_network_request")
         return Document(200, url, self.documents[url], {})
+
+    async def article(self, url: str, deadline: float) -> Document:
+        # Acceptance fixtures are complete feed items; articles stay offline and keep feed text.
+        raise IngestionFailure("acceptance_article_offline")

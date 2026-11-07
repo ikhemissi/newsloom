@@ -36,7 +36,7 @@ search that use them; measured cost before deployment.
   similarity of "vendor: name" embeddings ≥ 0.92 within the same vendor → new
   entity. All mentions of an item are embedded in one batched request. New exact
   or similar matches add an alias. Method recorded per link.
-- **Schema (migration 010):** `entities(id, kind, vendor_id, canonical_name,
+- **Schema (migration 011):** `entities(id, kind, vendor_id, canonical_name,
   embedding, created_at)`, `entity_aliases(entity_id, alias_normalised UNIQUE per
   vendor, method)`, `announcements(id, news_id, ordinal, statement, change_type,
   status, effective_date, deadline)`, `announcement_entities(announcement_id,
@@ -74,7 +74,7 @@ search that use them; measured cost before deployment.
 1. Local preview on the most recent week; user reviews announcements (including
    the Foundry October roundup) and the cost report.
 2. Merge; raise `ENRICHMENT_CAPACITY` to 100 through the application layer
-   (preview must show only that capacity change); apply migration 010 via the migrations job; deploy enrichment then MCP
+   (preview must show only that capacity change); apply migration 011 via the migrations job; deploy enrichment then MCP
    (previews show only images and the migration job).
 3. Run the 30-day backfill in bounded runs; verify counts and detail output.
 Rollback: redeploy previous images; new tables are additive and unused by old code.

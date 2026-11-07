@@ -26,27 +26,39 @@ the 32 KiB bound, rendering scripts, following redirects.
   unpredictability.
 - **Text selection rule:** use the visible body when it has at least 150 words
   and at least twice the words of the best feed/metadata text; otherwise keep the
-  feed text. Store the feed text alongside (`entry.feed_text`) so retention can
-  revert to it and evaluations can compare. Alternative: always prefer the body;
+  feed text. Store the replaced feed text in a `feed_text` column (not inside
+  `entry`, which enrichment sends to the model whole) so retention can revert
+  to it and evaluations can compare. An `acquisition` column records the path
+  or failure category; legacy rows keep NULL, which the backfill uses for
+  idempotence. Alternative: always prefer the body;
   rejected because some feeds (release notes, changelogs) already carry the full
   entry while pages add navigation noise.
 - **Per-run robots cache** keyed by scheme+host inside the retrieval client,
-  holding the parsed policy, Content-Signal values and robots outcome. Missing
-  file allows; other failures deny for the run (unchanged semantics).
+  holding the parsed policy and Content-Signal values. Missing file allows; a
+  disallow denies. Transient robots failures are not cached, so the next item
+  retries them (unchanged semantics per request).
 - **Content-Signal parsing:** read `Content-Signal:` lines inside the group that
   applies to `Newsloom`, else `*`, with the same group matching as robots rules.
   Only `ai-input=no` blocks acquisition. Unknown keys are ignored.
-- **Politeness:** an article semaphore per host (1), `Retry-After` honoured up to
-  60 s within the job deadline, otherwise the item is deferred via the existing
-  deferred-recovery path. User agent:
+- **Politeness:** an article lock per host, one retry on 429/503 when
+  `Retry-After` is at most 60 s and fits the deadline, otherwise
+  `article_throttled` defers the item via the existing deferred-recovery path
+  (the feed validator is not advanced, so the next run retries it). User agent:
   `Newsloom/0.2 (+https://github.com/ikhemissi/newsloom)`; the robots matching
   token stays `Newsloom`.
-- **Retention in the ingestion job:** one bounded UPDATE per run sets
-  `entry.text = entry.feed_text` and removes article fields for completed rows
-  older than 90 days; counts only are reported. No migration is needed.
-- **Telemetry:** reuse acquisition-path counts; add fixed categories
-  `content_signal_denied`, `article_redirect`, `article_no_body`,
-  `article_throttled`, `article_body_selected`, `feed_text_kept`.
+- **Retention in the ingestion job:** one bounded UPDATE per run (at most 500
+  rows) sets `entry.text` back to `feed_text` and clears `feed_text` for
+  completed rows whose article was acquired more than 90 days ago; only the
+  count is reported.
+- **Backfill:** `backfill-articles` (ingestion CLI, dispatched by
+  `newsloom-platform backfill-articles` into the ingestion job) processes
+  completed queue rows with NULL `acquisition` published in the last 14 days,
+  screens any richer text with the production scanner before storing it, and
+  records an outcome for every attempted row.
+- **Telemetry:** reuse acquisition-path counts; add per-source counters
+  `article_attempted`, `article_body_selected`, `feed_text_kept` and the run
+  counter `article_text_retired`; failure categories include
+  `content_signal_denied`, `article_redirect` and `article_throttled`.
 
 ## Risks / Trade-offs
 
@@ -61,8 +73,9 @@ the 32 KiB bound, rendering scripts, following redirects.
 
 ## Migration Plan
 
-Ship code with tests, deploy the ingestion image through the existing azd layer
-(preview shows only the image/revision change), run one manual ingestion and
+Ship code with tests, apply migration 010 through the migrations job, deploy
+the ingestion image through the existing azd layer (preview shows only the
+image/revision change), run one manual ingestion and
 compare acquisition outcomes per source. Rollback: redeploy the previous image;
 stored items remain valid either way.
 

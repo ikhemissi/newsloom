@@ -896,13 +896,20 @@ def control(command: str, correlation: str, *, force: bool = False, limit: int =
         )
         set_environment(f"{prefix}_LAST_EXECUTION", name)
         set_environment(f"{prefix}_LAST_RUN_ID", correlation)
-    elif command in ("execute-ingestion", "calibrate-ingestion", "read-ingestion"):
+    elif command in (
+        "execute-ingestion",
+        "calibrate-ingestion",
+        "read-ingestion",
+        "backfill-articles",
+    ):
         reading = command == "read-ingestion"
         arguments = (
             ["ingestion-status"]
             if reading
             else ["calibrate"]
             if command == "calibrate-ingestion"
+            else ["backfill-articles"]
+            if command == "backfill-articles"
             else ["run", "--force"]
             if force
             else ["run"]
@@ -917,6 +924,8 @@ def control(command: str, correlation: str, *, force: bool = False, limit: int =
             if reading
             else "INGESTION_CALIBRATION"
             if command == "calibrate-ingestion"
+            else "INGESTION_BACKFILL"
+            if command == "backfill-articles"
             else "INGESTION"
         )
         set_environment(f"{prefix}_LAST_EXECUTION", name)

@@ -24,15 +24,55 @@ XML/DTD/entities and document size/item limits still fail the document. Closing
 the HTML normalizer preserves ordinary final text such as ampersand-containing
 titles.
 
-For new eligible items with missing title/text, preserve usable feed fields, then
-try JSON-LD article fields/OpenGraph, then visible article text from the same
-direct HTML response. Article GETs never follow redirects, execute JavaScript,
-fetch assets or resolve remote JSON-LD contexts. The existing HTTPS/public pinned
-DNS, robots, streamed/decompressed byte and shared feed/job time limits apply.
-Known duplicates and category-filtered items do not trigger article recovery.
-Recovered text is screened as untrusted publisher data before acceptance.
-Ingestion does not generate summaries; enrichment remains the next slice.
-An otherwise valid title-only item remains usable if extra text is unavailable.
+### Article acquisition
+
+Every new eligible item (not a known duplicate, not category-filtered) gets one
+article GET, defined by the
+[`full-article-acquisition` change](../openspec/changes/full-article-acquisition/proposal.md).
+Feed identity fields (title, URL, GUID, dates) stay authoritative. Missing
+title/text is still filled from JSON-LD/OpenGraph, then visible article text.
+The stored text becomes the visible article body when it has at least 150 words
+and at least twice the words of the feed/metadata text; otherwise the feed text
+is kept. The replaced feed text is stored in `feed_text` and the outcome in
+`acquisition` (queue and quarantine columns, migration 010), not inside the
+entry, because enrichment sends the whole entry to the model.
+
+Article GETs never follow redirects, execute JavaScript, fetch assets, resolve
+remote JSON-LD contexts, rewrite hosts or bypass sign-in. The existing
+HTTPS/public pinned DNS, robots, byte and time limits apply. A failed, denied,
+redirected or script-only article leaves a complete item with its feed text;
+an incomplete item keeps the previous recovery rules. Acquired text is screened
+as untrusted publisher data and is model input only: it is never returned by
+the UI, HTTP or MCP APIs, logs or telemetry.
+
+**Publisher rules.** robots.txt is read once per origin per run (transient
+failures are retried on the next use, not cached). The robots token is
+`Newsloom`; the user agent is
+`Newsloom/0.2 (+https://github.com/ikhemissi/newsloom)` and never imitates a
+browser. A `Content-Signal` line in the group that applies to `Newsloom` (else
+`*`) with `ai-input=no` blocks article requests for that host; the item keeps its
+feed text. Articles are requested one at a time per host; a 429/503 is retried
+once when `Retry-After` is at most 60 s and fits the deadline, otherwise the item
+is deferred to a later run (`article_throttled`).
+
+Audit on 2026-11-07 against each source's article host: 40 of 41 sources allow
+`Newsloom`. Comet's feed links to a staging host that disallows all crawlers, so
+it keeps feed text (no host rewriting). Six sites publish `Content-Signal`; all
+allow `ai-input`, and Giskard disallows `ai-train` (Newsloom never trains on content).
+
+**Retention and backfill.** Each run restores the feed text and clears
+`feed_text` for completed items whose article was acquired more than 90 days
+ago (at most 500 rows per run, count `article_text_retired`). To acquire
+articles for items stored before this change, run once:
+
+```bash
+uv run --locked newsloom-platform backfill-articles
+```
+
+It runs inside the ingestion job under its identity, processes completed items
+published in the last 14 days whose `acquisition` is still empty, screens any
+richer text with the production scanner, records an outcome for every attempted
+item and is safe to repeat. Published news rows and summaries are unchanged.
 
 `feed_sources.counts` holds **latest-run activity**, tied to `last_run`, not lifetime
 totals. Existing found/filtered/duplicate/staged counters are joined by:
@@ -43,6 +83,7 @@ totals. Existing found/filtered/duplicate/staged counters are joined by:
 | `malformed_rejected` | Individual parsing/normalization drops, not model rejection. |
 | `feed_item`, `article_metadata`, `article_body` | New staged items, once each by the deepest tier needed; mixed metadata/body uses article-body. |
 | `recovery_attempted`, `recovery_failed`, `recovery_deferred` | Recovery attempts (including authorization), failures, and necessary recovery awaiting retry. |
+| `article_attempted`, `article_body_selected`, `feed_text_kept` | Article GETs for items whose feed fields were complete, and whether the article body replaced the feed text. |
 
 New acquisition counts exclude duplicates, filtering and malformed drops.
 Screening an older deferred item can increment a decision counter even after 304

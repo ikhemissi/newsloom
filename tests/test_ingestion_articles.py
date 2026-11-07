@@ -8,6 +8,10 @@ from newsloom_ingestion.parsing import parse
 from test_ingestion_feeds import NOW, FakeClient, document, rss, source
 
 
+def throttled(status: int, after: str = "0") -> Document:
+    return Document(status, "https://example.com/article", b"", {"retry-after": after})
+
+
 def test_article_metadata_and_body_selection_and_bounds() -> None:
     body = b"""<html><head>
     <meta property="og:title" content="OG title">
@@ -91,7 +95,7 @@ async def test_preserves_feed_fields_and_never_follows_article_links() -> None:
 @pytest.mark.parametrize("status", [301, 302, 303, 307, 308])
 async def test_article_redirects_are_not_followed(status: int) -> None:
     client = FakeClient([document(404), document(status, location="https://127.0.0.1/")])
-    with pytest.raises(IngestionFailure, match=f"article_http_{status}"):
+    with pytest.raises(IngestionFailure, match="article_redirect"):
         await client.article("https://example.com/article", time.monotonic() + 60)
     assert client.urls == ["https://example.com/robots.txt", "https://example.com/article"]
 
@@ -109,20 +113,23 @@ async def test_article_robots_denial_and_nonpublic_destination() -> None:
 @pytest.mark.parametrize("status", [408, 429, 500, 502, 503, 504])
 async def test_retryable_article_status_is_not_malformed(status: int) -> None:
     candidate = parse(source(), rss(""), str(source().url), NOW).candidates[0]
-    client = FakeClient([document(404), document(status)])
+    retried = status in (429, 503)
+    responses = [document(404), throttled(status)]
+    client = FakeClient(responses + ([throttled(status)] if retried else []))
     with pytest.raises(RecoveryDeferred):
         await recover(candidate, client, time.monotonic() + 60, "fixture")
-    assert len(client.urls) == 2
+    assert len(client.urls) == (3 if retried else 2)
 
 
-async def test_sufficient_feed_fields_do_not_request_article() -> None:
-    client = FakeClient([])
+async def test_complete_feed_item_still_acquires_and_keeps_richer_feed_text() -> None:
+    client = FakeClient([document(404), document(body=b"<article>Short page</article>")])
     counts = source_counts()
     await process_items(
         source(), document(body=rss()), client, counts, time.monotonic() + 60, "fixture"
     )
-    assert client.urls == []
-    assert counts["entries"] == counts["feed_item"] == 1
+    assert client.urls == ["https://example.com/robots.txt", "https://example.com/article#part"]
+    assert counts["entries"] == counts["feed_item"] == counts["feed_text_kept"] == 1
+    assert counts["article_attempted"] == 1 and counts["recovery_attempted"] == 0
 
 
 async def test_recovery_failure_retains_title_only_entry_and_logs_no_content(
@@ -141,7 +148,8 @@ async def test_recovery_failure_retains_title_only_entry_and_logs_no_content(
 async def test_missing_title_transient_recovery_and_permanent_failure() -> None:
     body = rss().replace(b"News title", b"")
     for status, counter in [(503, "recovery_deferred"), (404, "malformed_rejected")]:
-        client = FakeClient([document(404), document(status)])
+        repeat = [throttled(status)] if status == 503 else []
+        client = FakeClient([document(404), throttled(status), *repeat])
         counts = source_counts()
         await process_items(
             source(), document(body=body), client, counts, time.monotonic() + 60, "fixture"
@@ -188,3 +196,115 @@ async def test_article_uses_existing_byte_limit_and_rejects_non_html() -> None:
     )
     with pytest.raises(IngestionFailure, match="article_content_type"):
         await client.article("https://example.com/article", time.monotonic() + 60)
+
+
+ROUNDUP = (
+    b'<html><head><meta property="og:description" content="Our monthly roundup is out.">'
+    b"</head><body><nav>Menu</nav><article><h1>What is new this month</h1>"
+    + b"".join(
+        f"<p>Feature {index} is now generally available with new limits and regions.</p>".encode()
+        for index in range(40)
+    )
+    + b"</article></body></html>"
+)
+
+
+async def test_teaser_is_replaced_by_richer_article_body() -> None:
+    from newsloom_ingestion.articles import acquire
+
+    candidate = parse(source(), rss("Our monthly roundup is out."), str(source().url), NOW)
+    client = FakeClient([document(404), document(body=ROUNDUP)])
+    acquired = await acquire(candidate.candidates[0], client, time.monotonic() + 60, "fixture")
+    assert acquired.path == "article_body"
+    assert acquired.feed_text == "Our monthly roundup is out."
+    assert "Feature 39 is now generally available" in acquired.candidate.text
+    assert acquired.candidate.title == "News title"
+    assert acquired.candidate.url == candidate.candidates[0].url
+
+
+async def test_short_or_script_only_page_keeps_feed_text() -> None:
+    from newsloom_ingestion.articles import acquire
+
+    candidate = parse(source(), rss("A complete feed entry " * 20), str(source().url), NOW)
+    for page in (b"<html><body><script>render()</script></body></html>", ROUNDUP[:400]):
+        client = FakeClient([document(404), document(body=page)])
+        acquired = await acquire(candidate.candidates[0], client, time.monotonic() + 60, "x")
+        assert acquired.path == "feed_item" and acquired.feed_text is None
+        assert acquired.candidate.text == candidate.candidates[0].text
+
+
+async def test_robots_is_fetched_once_per_origin_per_run() -> None:
+    client = FakeClient([document(404), document(body=ROUNDUP), document(body=ROUNDUP)])
+    for path in ("one", "two"):
+        await client.article(f"https://example.com/{path}", time.monotonic() + 60)
+    assert client.urls == [
+        "https://example.com/robots.txt",
+        "https://example.com/one",
+        "https://example.com/two",
+    ]
+
+
+async def test_transient_robots_failure_is_not_cached() -> None:
+    client = FakeClient([document(500), document(500), document(500), document(404), document()])
+    with pytest.raises(IngestionFailure, match="http_500"):
+        await client.article("https://example.com/one", time.monotonic() + 60)
+    await client.article("https://example.com/two", time.monotonic() + 60)
+    assert client.urls.count("https://example.com/robots.txt") == 4
+
+
+def test_content_signal_group_selection() -> None:
+    from newsloom_ingestion.retrieval import content_signals
+
+    robots = (
+        "Content-Signal: search=yes\n"
+        "User-agent: *\nContent-Signal: ai-input=yes, ai-train=no\nAllow: /\n\n"
+        "User-agent: GPTBot\nUser-agent: Newsloom\nContent-Signal: ai-input=no\n"
+    )
+    assert content_signals(robots) == {"search": "yes", "ai-input": "no"}
+    assert content_signals(robots.split("User-agent: GPTBot")[0])["ai-input"] == "yes"
+    assert content_signals("User-agent: *\nDisallow:\n") == {}
+
+
+async def test_ai_input_refusal_blocks_articles_but_not_feeds() -> None:
+    robots = b"User-agent: *\nContent-Signal: ai-input=no, search=yes\nAllow: /\n"
+    client = FakeClient([document(body=robots), document(body=b"<rss/>")])
+    with pytest.raises(IngestionFailure, match="content_signal_denied"):
+        await client.article("https://example.com/article", time.monotonic() + 60)
+    assert (await client.fetch("https://example.com/feed", {}, time.monotonic() + 60)).status == 200
+    assert client.urls == ["https://example.com/robots.txt", "https://example.com/feed"]
+    counts = source_counts()
+    client = FakeClient([document(body=robots)])
+    await process_items(
+        source(), document(body=rss()), client, counts, time.monotonic() + 60, "fixture"
+    )
+    assert counts["entries"] == counts["feed_text_kept"] == 1
+
+
+async def test_throttled_article_defers_the_item_and_long_waits_are_not_slept() -> None:
+    counts = source_counts()
+    client = FakeClient([document(404), throttled(429, "3600")])
+    await process_items(
+        source(), document(body=rss()), client, counts, time.monotonic() + 60, "fixture"
+    )
+    assert counts["recovery_deferred"] == 1 and counts.get("entries", 0) == 0
+    assert len(client.urls) == 2
+
+
+async def test_user_agent_identifies_newsloom_without_imitating_a_browser() -> None:
+    from newsloom_ingestion.retrieval import ROBOTS_TOKEN, USER_AGENT
+
+    assert (
+        USER_AGENT.startswith(ROBOTS_TOKEN + "/") and "github.com/ikhemissi/newsloom" in USER_AGENT
+    )
+    assert "Mozilla" not in USER_AGENT
+
+
+async def test_acquired_article_text_never_reaches_logs(capsys: pytest.CaptureFixture[str]) -> None:
+    page = ROUNDUP.replace(b"Feature 1 ", b"NEWSLOOM_ARTICLE_CANARY ")
+    counts = source_counts()
+    client = FakeClient([document(404), document(body=page)])
+    await process_items(
+        source(), document(body=rss("Teaser")), client, counts, time.monotonic() + 60, "fixture"
+    )
+    assert counts["article_body"] == counts["article_body_selected"] == 1
+    assert "CANARY" not in capsys.readouterr().out

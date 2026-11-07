@@ -21,7 +21,7 @@ from psycopg.types.json import Jsonb
 from newsloom_platform import database
 from newsloom_platform.config import RuntimeConfig
 
-VERSIONS = ("002_ingestion", "003_enrichment", "004_mcp_read")
+VERSIONS = ("002_ingestion", "003_enrichment", "004_mcp_read", "010_article_acquisition")
 
 
 def bootstrap_sql() -> str:
