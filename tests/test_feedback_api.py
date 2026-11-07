@@ -247,3 +247,70 @@ async def test_feedback_text_is_never_logged(api: Client, caplog: pytest.LogCapt
         await client.post("/api/v1/feedback", json=body, headers=bearer(api))
     ).status_code == 201
     assert "COMMENT_CANARY" not in caplog.text and "agent gateways" not in caplog.text
+
+
+def test_every_api_route_is_a_valid_telemetry_category() -> None:
+    from newsloom_mcp.http_api import FEEDBACK_ROUTES, SCOPES
+    from newsloom_mcp.telemetry import API_ROUTES
+
+    routes = {name for name, _ in FEEDBACK_ROUTES.values()} | set(SCOPES)
+    assert routes <= API_ROUTES
+
+
+async def test_anonymous_feedback_is_401_with_production_telemetry_checks(
+    signing_key: rsa.RSAPrivateKey,
+) -> None:
+    from newsloom_mcp.telemetry import Telemetry
+
+    recorded: list[str] = []
+
+    def observe(route: str, outcome: str, cache: str, elapsed: float) -> None:
+        # Run the production validation without exporting anything.
+        Telemetry.record_api(_Recorder(recorded), route, outcome, cache, elapsed)  # type: ignore[arg-type]
+
+    async def ready() -> bool:
+        return True
+
+    @asynccontextmanager
+    async def repository() -> AsyncIterator[NewsRepository]:
+        yield Reader()
+
+    @asynccontextmanager
+    async def feedback() -> AsyncIterator[Store]:
+        yield Store()
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda _: httpx.Response(200, json=jwks(signing_key)))
+    ) as trusted_keys:
+        app = create_app(
+            Services(repository, Embeddings(), ready, observe_api=observe, feedback=feedback),
+            EntraVerifier(trusted_keys, uuid4(), uuid4()),
+            "https://newsloom.test/mcp",
+            ["newsloom.test"],
+            ["https://vscode.dev"],
+            news_api_enabled=True,
+        )
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app), base_url="https://newsloom.test"
+        ) as client:
+            for method, path in (
+                ("POST", "/api/v1/feedback"),
+                ("GET", "/api/v1/feedback/mine"),
+                ("GET", "/api/v1/feedback/review"),
+                ("GET", "/api/v1/feedback/export"),
+            ):
+                assert (await client.request(method, path)).status_code == 401
+    assert recorded == ["feedback", "feedback_mine", "feedback_review", "feedback_export"]
+
+
+class _Recorder:
+    def __init__(self, recorded: list[str]) -> None:
+        self.recorded = recorded
+        self.api_calls = self
+        self.api_latency = self
+
+    def add(self, value: int, attributes: dict[str, str]) -> None:
+        self.recorded.append(attributes["route"])
+
+    def record(self, value: float, attributes: dict[str, str]) -> None:
+        return None
