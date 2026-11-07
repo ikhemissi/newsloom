@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from newsloom_core.feeds import FeedSource
 from pydantic import ValidationError
 
-from newsloom_ingestion.articles import RecoveryDeferred, recover
+from newsloom_ingestion.articles import RecoveryDeferred, acquire
 from newsloom_ingestion.models import (
     DEFAULT_LIMITS,
     Document,
@@ -52,22 +52,37 @@ async def process_items(
             counts["duplicates"] += 1
             continue
         path = "feed_item"
-        if not candidate.title or not candidate.text:
-            counts["recovery_attempted"] += 1
-            try:
-                candidate, path = await recover(candidate, client, deadline, correlation)
-            except IngestionFailure as error:
-                retryable = isinstance(error, RecoveryDeferred) and not candidate.title
+        acquisition = "feed_item"
+        feed_text: str | None = None
+        incomplete = not candidate.title or not candidate.text
+        counts["recovery_attempted" if incomplete else "article_attempted"] += 1
+        try:
+            acquired = await acquire(candidate, client, deadline, correlation)
+        except IngestionFailure as error:
+            # A complete feed item keeps its feed text; only throttling defers it to a later run.
+            deferred = isinstance(error, RecoveryDeferred)
+            retryable = deferred and (not candidate.title or str(error) == "article_throttled")
+            if incomplete:
                 counts["recovery_deferred" if retryable else "recovery_failed"] += 1
-                event(
-                    "article",
-                    correlation,
-                    source=source.id,
-                    outcome="deferred" if retryable else "failed",
-                    category=str(error),
-                )
-                if retryable:
-                    continue
+            elif retryable:
+                counts["recovery_deferred"] += 1
+            else:
+                counts["feed_text_kept"] += 1
+            acquisition = str(error)
+            event(
+                "article",
+                correlation,
+                source=source.id,
+                outcome="deferred" if retryable else "failed",
+                category=acquisition,
+            )
+            if retryable:
+                continue
+        else:
+            candidate, path, feed_text = acquired.candidate, acquired.path, acquired.feed_text
+            acquisition = path
+            if not incomplete:
+                counts["article_body_selected" if feed_text is not None else "feed_text_kept"] += 1
         try:
             entry = candidate.entry()
         except ValidationError:
@@ -83,7 +98,7 @@ async def process_items(
         if repository is None:
             counts["entries"] = counts.get("entries", 0) + 1
             counts[path] += 1
-        elif await repository.stage(entry, correlation):
+        elif await repository.stage(entry, correlation, acquisition, feed_text):
             counts["staged"] += 1
             counts[path] += 1
         else:
@@ -174,6 +189,7 @@ async def run(
     semaphore = asyncio.Semaphore(limits.concurrency)
     if client is None:
         client = PublicClient(limits)
+    totals["article_text_retired"] = await repository.retain_feed_text()
 
     async def fetch(source: FeedSource) -> dict[str, int]:
         async with semaphore:
@@ -227,3 +243,48 @@ async def run(
         return totals
     finally:
         await repository.release()
+
+
+async def backfill(
+    repository: Repository,
+    scanner: ContentSecurityScanner,
+    correlation: str,
+    *,
+    limits: Limits = DEFAULT_LIMITS,
+    client: PublicClient | None = None,
+) -> dict[str, int]:
+    """Acquire articles for recent stored items once; screened like new items."""
+    await repository.acquire()
+    deadline = time.monotonic() + limits.job_seconds - 20
+    client = client or PublicClient(limits)
+    counts = dict.fromkeys(
+        ("candidates", "article_body", "feed_text_kept", "failed", "deferred", "rejected"), 0
+    )
+    for identifier, entry in await repository.backfill_candidates(400):
+        if time.monotonic() + 2 * limits.request_seconds >= deadline:
+            break
+        counts["candidates"] += 1
+        try:
+            acquired = await acquire(entry, client, deadline, correlation)
+        except RecoveryDeferred:
+            counts["deferred"] += 1
+            continue
+        except IngestionFailure as error:
+            await repository.record_backfill(identifier, str(error), None, None)
+            counts["failed"] += 1
+            continue
+        if acquired.feed_text is None:
+            await repository.record_backfill(identifier, acquired.path, None, None)
+            counts["feed_text_kept"] += 1
+            continue
+        richer = acquired.candidate.entry()
+        decision = await scanner.scan(richer, deadline)
+        if decision.disposition == "accepted":
+            await repository.record_backfill(identifier, "article_body", richer, acquired.feed_text)
+            counts["article_body"] += 1
+        elif decision.disposition == "rejected":
+            await repository.record_backfill(identifier, "backfill_rejected", None, None)
+            counts["rejected"] += 1
+        else:
+            counts["deferred"] += 1
+    return counts

@@ -1,4 +1,4 @@
-"""Missing-field recovery from one bounded article response, never a crawler."""
+"""Article acquisition from one bounded response per item, never a crawler."""
 
 import json
 from dataclasses import dataclass
@@ -128,16 +128,58 @@ def extract(body: bytes, limits: Limits) -> ArticleFields:
     )
 
 
-async def recover(
+MIN_BODY_WORDS = 150
+
+
+def words(value: str) -> int:
+    return len(value.split())
+
+
+@dataclass(frozen=True)
+class Acquired:
+    candidate: Candidate
+    path: AcquisitionPath
+    feed_text: str | None
+
+
+def select(candidate: Candidate, fields: ArticleFields) -> Acquired:
+    """Feed identity stays; the visible body replaces a teaser only when clearly richer."""
+    title = candidate.title or fields.title
+    path: AcquisitionPath = "feed_item" if title == candidate.title else "article_metadata"
+    if not title and fields.heading:
+        title, path = fields.heading, "article_body"
+    known = candidate.text or fields.text
+    feed_text: str | None = None
+    if words(fields.body) >= MIN_BODY_WORDS and words(fields.body) >= 2 * words(known):
+        text, path, feed_text = fields.body, "article_body", candidate.text
+    elif candidate.text:
+        text = candidate.text
+    elif fields.text:
+        text = fields.text
+        path = "article_metadata" if path == "feed_item" else path
+    else:
+        text = fields.body
+        if text:
+            path = "article_body"
+    return Acquired(candidate.model_copy(update={"title": title, "text": text}), path, feed_text)
+
+
+async def acquire(
     candidate: Candidate, client: PublicClient, deadline: float, correlation: str
-) -> tuple[Candidate, AcquisitionPath]:
+) -> Acquired:
     try:
         document = await client.article(candidate.url, deadline)
     except TimeoutError:
         raise RecoveryDeferred("article_timeout") from None
     except IngestionFailure as error:
         category = str(error)
-        transient = {"retrieval_failed", "retry_deferred", "feed_deadline", "article_unavailable"}
+        transient = {
+            "retrieval_failed",
+            "retry_deferred",
+            "feed_deadline",
+            "article_unavailable",
+            "article_throttled",
+        }
         transient.update(
             f"{prefix}_{status}"
             for prefix in ("http", "robots_http", "article_http")
@@ -155,15 +197,16 @@ async def recover(
             outcome="warning",
             category="invalid_article_metadata",
         )
-    title = candidate.title or fields.title
-    text = candidate.text or fields.text
-    path: AcquisitionPath = "article_metadata"
-    if not title and fields.heading:
-        title = fields.heading
-        path = "article_body"
-    if not text and fields.body:
-        text = fields.body
-        path = "article_body"
-    if title == candidate.title and text == candidate.text:
+    acquired = select(candidate, fields)
+    if (not candidate.title or not candidate.text) and (
+        acquired.candidate.title == candidate.title and acquired.candidate.text == candidate.text
+    ):
         raise IngestionFailure("article_fields_missing")
-    return candidate.model_copy(update={"title": title, "text": text}), path
+    return acquired
+
+
+async def recover(
+    candidate: Candidate, client: PublicClient, deadline: float, correlation: str
+) -> tuple[Candidate, AcquisitionPath]:
+    acquired = await acquire(candidate, client, deadline, correlation)
+    return acquired.candidate, acquired.path

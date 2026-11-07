@@ -171,6 +171,6 @@ async def test_local_fetch_command_uses_shared_recovery(
         argparse.Namespace(catalogue=Path("unused"), source=[], command="fetch"), "fixture"
     )
     events = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
-    assert len(requests) == 1
+    assert len(requests) == 2
     assert [item["counts"]["entries"] for item in events] == [1, 1]
     assert events[0]["counts"]["article_metadata"] == 1

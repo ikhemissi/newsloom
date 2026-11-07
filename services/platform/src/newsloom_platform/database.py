@@ -146,6 +146,7 @@ async def migrate(config: RuntimeConfig, credential: AsyncTokenCredential) -> in
                 "003_enrichment",
                 "004_mcp_read",
                 "009_feedback",
+                "010_article_acquisition",
             )
             if config.briefing_identity is not None:
                 versions += (

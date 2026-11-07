@@ -48,6 +48,10 @@ giving publishers access to internal networks or unrestricted processing.
   without following article redirects. Ingestion extracts text; P1-C05 owns summaries.
 - The existing feed catalogue rows record latest-run malformed, screening and
   acquisition-path counts, distinguishing duplicate occurrences and backlog work.
+- Every new eligible item also gets one protected article GET; the visible body
+  replaces a teaser feed text when clearly richer, under robots, `Content-Signal`
+  (`ai-input=no` keeps feed text) and per-host politeness rules
+  ([full-article acquisition](../openspec/changes/full-article-acquisition/proposal.md)).
 
 ## P1-C03: Content screening and quarantine
 

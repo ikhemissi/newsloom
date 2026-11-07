@@ -12,6 +12,7 @@ from newsloom_ingestion.models import Decision
 from newsloom_ingestion.repository import Repository as IngestionRepository
 from newsloom_platform import database
 from newsloom_platform.config import RuntimeConfig
+from psycopg.types.json import Jsonb
 from test_ingestion_database import entry
 from test_ingestion_feeds import source
 from test_platform_database import platform_database as platform_database
@@ -70,6 +71,36 @@ async def seed(config: RuntimeConfig, count: int = 1, offset: int = 0) -> list[E
         return entries
 
 
+async def legacy_seed(config: RuntimeConfig) -> list[Entry]:
+    """Rows as written by ingestion before later migrations added columns."""
+    item = entry().model_copy(update={"guid": "entry-0", "url": "https://example.com/entry-0"})
+    async with (
+        ManagedIdentityCredential() as credential,
+        await database.connect(config, credential, "newsloom", "postgres") as connection,
+    ):
+        await connection.execute("SET ROLE newsloom_ingestion")
+        await IngestionRepository(connection, "Microsoft-Decision-1", "1").source(
+            source(), "fixture"
+        )
+        queued = await (
+            await connection.execute(
+                "INSERT INTO ingestion_queue(source,guid,canonical_url,entry,score,threshold,"
+                "model,model_version,correlation_id) VALUES (%s,%s,%s,%s,0.1,0.5,"
+                "'Microsoft-Decision-1','1','fixture') RETURNING id",
+                (item.source, item.guid, item.url, Jsonb(item.model_dump(mode="json"))),
+            )
+        ).fetchone()
+        assert queued is not None
+        await connection.execute(
+            "INSERT INTO quarantine(source,guid,canonical_url,entry,disposition,reason,score,"
+            "threshold,model,model_version,correlation_id,resolved_queue_id) VALUES "
+            "(%s,%s,%s,'{}','resolved','accepted',0.1,0.5,'Microsoft-Decision-1','1',"
+            "'fixture',%s)",
+            (item.source, item.guid, item.url, queued[0]),
+        )
+    return [item]
+
+
 @pytest.fixture
 async def repository(platform_database: RuntimeConfig) -> AsyncIterator[Repository]:
     async with ManagedIdentityCredential() as credential:
@@ -98,9 +129,9 @@ async def test_migration_preserves_existing_ingestion_and_replays(
     async with ManagedIdentityCredential() as credential:
         with pytest.raises(RuntimeError):
             await database.migrate(platform_database, credential)
-        entries = await seed(platform_database)
+        entries = await legacy_seed(platform_database)
         monkeypatch.setattr(database, "record", original)
-        assert await database.migrate(platform_database, credential) == 3
+        assert await database.migrate(platform_database, credential) == 4
         assert await database.migrate(platform_database, credential) == 0
         async with await database.connect(
             platform_database, credential, "newsloom", "postgres"
