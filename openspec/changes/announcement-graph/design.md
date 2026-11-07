@@ -6,8 +6,8 @@ See proposal.md (Why). Enrichment makes one structured generation call per item
 (`Enrichment`: 2-3 summary sentences, category, 3-5 tags; strict closed schema)
 and one embedding call (`text-embedding-3-large`, 1536 dimensions) before an
 atomic insert into `news`. Recent volume is about 100 items per week at about
-2,550 input tokens per generation call. The enrichment deployment allows 10k
-tokens and 10 requests per minute; embeddings 10k tokens/minute and 10 requests
+2,550 input tokens per generation call. The enrichment deployment currently
+allows 10k tokens and 10 requests per minute (raised to 100 units by this change); embeddings 10k tokens/minute and 10 requests
 per 10 seconds. Search (`repository.py`) ranks eligible rows by cosine only.
 The briefing preview already shows the value of record/replay for model work.
 
@@ -24,7 +24,7 @@ search that use them; measured cost before deployment.
 - **One generation call, extended schema.** Add `article_kind` and
   `announcements[]` to the closed schema. Alternative: a second call only for
   roundups; rejected because classification needs the same call and it doubles
-  request count against a 10-requests/minute limit. The prompt keeps the
+  request count. The prompt keeps the
   untrusted-data rules and forbids external knowledge.
 - **Grounding drops, not fails.** Lesson from the briefing: one bad element must
   not discard a whole item. Product mentions must appear (case-insensitive,
@@ -73,11 +73,12 @@ search that use them; measured cost before deployment.
 
 1. Local preview on the most recent week; user reviews announcements (including
    the Foundry October roundup) and the cost report.
-2. Merge; apply migration 010 via the migrations job; deploy enrichment then MCP
+2. Merge; raise `ENRICHMENT_CAPACITY` to 100 through the application layer
+   (preview must show only that capacity change); apply migration 010 via the migrations job; deploy enrichment then MCP
    (previews show only images and the migration job).
 3. Run the 30-day backfill in bounded runs; verify counts and detail output.
 Rollback: redeploy previous images; new tables are additive and unused by old code.
 
 ## Open Questions
 
-- Whether to raise enrichment capacity for a faster backfill (not required).
+None blocking.

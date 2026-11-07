@@ -21,7 +21,8 @@ therefore cannot see the news the post exists to announce.
 - robots.txt stays mandatory. It is fetched once per host per run and cached
   for that run (RFC 9309 allows up to 24 hours) instead of once per request.
 - `Content-Signal` lines in robots.txt are honoured: `ai-input=no` for our
-  group skips the article fetch (feed text only).
+  group skips the article fetch and the item uses its feed text only (user
+  decision 2026-11-07). A feed blocked by robots.txt is still not fetched at all.
 - Politeness: one request at a time per host, `Retry-After` honoured, a
   descriptive user agent with the public repository URL as contact.
 - An explicit operator backfill acquires articles for items published in the

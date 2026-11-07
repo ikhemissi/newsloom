@@ -36,7 +36,8 @@ Owning slice: PRD-1 enrichment (P1-C05) and search (P1-C07), as the data
 foundation for the PRD-3 radar home page. Prerequisite: `full-article-acquisition`.
 
 Out of scope: the radar UI, follow/snooze state, cross-vendor `competes_with`
-grouping (home-page change), re-summarising existing news, a graph extension
+grouping and all UI beyond a plain announcement list in item detail (the
+`architect-radar-home` change), re-summarising existing news, a graph extension
 such as Apache AGE, new model deployments.
 
 Decisions surfaced:
@@ -45,11 +46,12 @@ Decisions surfaced:
   per week, plus small embedding cost, roughly USD 4 per month. The 30-day backfill
   (about 430 items) is about USD 2 once. Task 1.1 measures this on a real week
   locally before anything is deployed.
-- **Capacity:** the enrichment deployment allows 10k tokens per minute, so
-  about one long article per minute. Steady state (about 15 items a day) fits; the
-  backfill and long-item runs need token-aware admission per run. Optional:
-  raise enrichment capacity (pay-per-token, quota permitting) to speed up the
-  backfill; not required.
+- **Capacity (user decision 2026-11-07):** raise the existing enrichment
+  deployment from 10 to 100 capacity units (100k tokens and 100 requests per
+  minute) through the application layer's `ENRICHMENT_CAPACITY`. Data Zone
+  quota for this model in France Central had 120 of 1,000 units used. Billing
+  stays per token, so cost is unchanged; the 30-day backfill drops from about
+  9 hours to about 30 minutes. Token-aware admission stays as a safeguard.
 - **Graph storage:** relational tables with recursive queries, not a graph
   extension; our queries are one or two hops over thousands of nodes.
 
@@ -67,6 +69,7 @@ Decisions surfaced:
 
 ## Impact
 
+- `ENRICHMENT_CAPACITY` 10 → 100 on the existing deployment (application layer).
 - Migration `010_announcements.sql` (tables, `news.article_kind`, grants:
   enrichment insert/select, MCP select).
 - `services/enrichment` (schema, prompt, grounding, resolution, backfill

@@ -18,4 +18,4 @@
 ## 4. Deliver
 
 - [ ] 4.1 Add the 30-day backfill command; update `docs/enrichment.md`, `docs/news-api.md` and capability notes; run `bash scripts/check.sh --all` and `npm run spec:check`.
-- [ ] 4.2 Apply the migration, deploy enrichment, MCP and web through azd previews, run the backfill in bounded runs, and verify detail for the Foundry October roundup and an "agentcore" search; record measured weekly cost.
+- [ ] 4.2 Raise enrichment capacity to 100 units through the application layer (preview shows only that change; read back the rate limits), apply the migration, deploy enrichment, MCP and web through azd previews, run the backfill in bounded runs, and verify detail for the Foundry October roundup and an "agentcore" search; record measured weekly cost.
