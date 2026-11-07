@@ -22,4 +22,6 @@
 ## 4. Eval loop and delivery
 
 - [x] 4.1 Add `scripts/feedback-to-evals.py` and include `.cache/eval-cases/` in `scripts/eval.sh`; verify with a synthetic export fixture test.
-- [ ] 4.2 Deploy migration, MCP app, identity and UI through azd (draft PR, then ready PR with full checks and evals); verify readbacks, anonymous 401, and record a real thumbs-down from the user's browser as acceptance.
+- [x] 4.2 Deploy migration, MCP app, identity and UI through azd (draft PR, then ready PR with full checks and evals); verify readbacks, anonymous 401, and record a real thumbs-down from the user's browser as acceptance.
+  - Evidence (2026-11-07, dev): migrations 008/009 applied; briefing worker, MCP and UI deployed with readbacks passing and a preservation check showing only the intended image, UI revision and reviewer-setting changes. Anonymous feedback routes return 401 and the browser preflight 204. The user's signed-in briefing vote was recorded, listed on `/feedback` and exported. Briefing history was backfilled for Nov 7 because the old worker published it before the update.
+  - Follow-ups found during acceptance: production telemetry rejected the new route names (500 in Azure only), fixed in #8; Enter did not send a comment, fixed in #9 and confirmed live by the user.
