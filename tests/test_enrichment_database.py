@@ -48,6 +48,11 @@ async def seed(config: RuntimeConfig, count: int = 1, offset: int = 0) -> list[E
         ]
         for item in entries:
             assert await repo.stage(item, "fixture")
+            # WSL2 clocks can step back about a second; make staged entries due immediately.
+            await connection.execute(
+                "UPDATE quarantine SET retry_after=clock_timestamp()-interval '1 minute' "
+                "WHERE disposition='deferred'"
+            )
             pending = await repo.deferred([item.source])
             assert pending is not None
             await repo.decide(
