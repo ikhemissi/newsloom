@@ -51,7 +51,7 @@ giving publishers access to internal networks or unrestricted processing.
 - Every new eligible item also gets one protected article GET; the visible body
   replaces a teaser feed text when clearly richer, under robots, `Content-Signal`
   (`ai-input=no` keeps feed text) and per-host politeness rules
-  ([full-article acquisition](../openspec/changes/full-article-acquisition/proposal.md)).
+  ([full-article acquisition](../openspec/changes/archive/2026-11-08-full-article-acquisition/proposal.md)).
 
 ## P1-C03: Content screening and quarantine
 
