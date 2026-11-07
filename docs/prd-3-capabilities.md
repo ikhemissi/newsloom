@@ -220,7 +220,8 @@ See the [briefing runbook](briefing.md) for operations and measured evidence.
 
 ## P3-C09: Reader feedback
 
-**Assignment:** active [`user-feedback`](../openspec/changes/user-feedback/tasks.md).
+**Assignment:** delivered [`user-feedback`](../openspec/changes/archive/2026-11-07-user-feedback/tasks.md); deployed to dev and accepted
+in the user's signed-in browser (vote, review list and export).
 
 **Outcome:** Readers can say whether a briefing or research answer was useful, and
 reviewers can turn that into fixes and eval cases.
