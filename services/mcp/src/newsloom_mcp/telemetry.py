@@ -21,6 +21,20 @@ from newsloom_mcp.models import McpFailure
 
 TOOLS = {"get_recent_news", "get_news_item", "list_sources", "search_news"}
 METHODS = {"initialize", "tools/list", "tools/call", "ping", "notifications/initialized"}
+API_ROUTES = frozenset(
+    {
+        "news",
+        "detail",
+        "sources",
+        "search",
+        "briefing",
+        "feedback",
+        "feedback_mine",
+        "feedback_review",
+        "feedback_export",
+        "other",
+    }
+)
 OUTCOMES = {"success", "failure", "cancelled", "unauthorized", "forbidden", "overloaded", "other"}
 
 
@@ -143,8 +157,9 @@ class Telemetry:
             self.credential.close()
 
     def record_api(self, route: str, outcome: str, cache: str, elapsed: float) -> None:
+        """Only known route names become metric attributes; anything else is a bug."""
         if (
-            route not in ("news", "detail", "sources", "search", "briefing", "other")
+            route not in API_ROUTES
             or outcome not in OUTCOMES
             or cache not in ("none", "miss", "hit", "bypass")
         ):
