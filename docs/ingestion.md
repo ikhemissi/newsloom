@@ -28,7 +28,7 @@ titles.
 
 Every new eligible item (not a known duplicate, not category-filtered) gets one
 article GET, defined by the
-[`full-article-acquisition` change](../openspec/changes/full-article-acquisition/proposal.md).
+[`full-article-acquisition` change](../openspec/changes/archive/2026-11-08-full-article-acquisition/proposal.md).
 Feed identity fields (title, URL, GUID, dates) stay authoritative. Missing
 title/text is still filled from JSON-LD/OpenGraph, then visible article text.
 The stored text becomes the visible article body when it has at least 150 words
@@ -73,6 +73,11 @@ It runs inside the ingestion job under its identity, processes completed items
 published in the last 14 days whose `acquisition` is still empty, screens any
 richer text with the production scanner, records an outcome for every attempted
 item and is safe to repeat. Published news rows and summaries are unchanged.
+
+Measured on 2026-11-07: of 190 items from the previous 14 days, 48 (25%) were
+feed teasers and now store the article body (about 1,800 words on average); 128
+already had complete feed text; 14 kept feed text after 9 article redirects and
+5 robots denials. Screening rejected none.
 
 `feed_sources.counts` holds **latest-run activity**, tied to `last_run`, not lifetime
 totals. Existing found/filtered/duplicate/staged counters are joined by:
