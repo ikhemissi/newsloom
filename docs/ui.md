@@ -88,7 +88,7 @@ remains open in the checklist, and earlier phase/API acceptance is unchanged.
 
 ## Daily shared briefing
 
-The [daily briefing change](../openspec/changes/daily-news-briefing/specs/daily-news-briefing/spec.md)
+The [daily briefing change](../openspec/changes/archive/2026-11-07-daily-news-briefing/specs/daily-news-briefing/spec.md)
 owns the contract. The Agent panel reads `GET /api/v1/briefing` using the news
 audience and delegated `news.read`, only when signed in and open. Its independent
 HTTP lane never calls A2A, generates content or changes research snapshots.
@@ -112,7 +112,7 @@ last successfully read publication remains visible after a later read failure,
 with an explicit freshness warning. Operational window/cutoff/read/cache values
 remain in the protected DTO, not an expanded diagnostics block.
 
-The [architect-focused refinement](../openspec/changes/architect-focused-briefing/specs/architect-focused-briefing/spec.md)
+The [architect-focused refinement](../openspec/changes/archive/2026-11-07-architect-focused-briefing/specs/architect-focused-briefing/spec.md)
 adds optional `editorial_policy: "architect-v1"`. Its TL;DR plus narrative have
 no minimum and a combined maximum of 1,000 whitespace-delimited words, excluding
 headings and citations. Omitted/null policy retains the historical full

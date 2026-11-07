@@ -68,7 +68,7 @@ for the dated API readings and completed acceptance checks.
 
 ### Additive daily briefing layer
 
-The approved [daily briefing change](../openspec/changes/daily-news-briefing/proposal.md)
+The approved [daily briefing change](../openspec/changes/archive/2026-11-07-daily-news-briefing/proposal.md)
 adds native `briefing-identity` and `briefing` layers; both default off through
 `BRIEFING_ENABLED=false`. `BRIEFING_SCHEDULE_ENABLED=false` creates a manual job
 when the workload is enabled. Do not alter the four-entry `WORKLOAD_IDENTITIES`

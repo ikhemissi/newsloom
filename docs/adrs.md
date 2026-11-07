@@ -99,7 +99,7 @@ the current transition, not retroactive completion of those acceptance ledgers.
 
 ## Scheduled shared briefing, separate from interactive research
 
-The [daily briefing](../openspec/changes/daily-news-briefing/proposal.md) is a
+The [daily briefing](../openspec/changes/archive/2026-11-07-daily-news-briefing/proposal.md) is a
 shared product artifact, not an unattended delegated-user A2A request. A dedicated
 managed-identity writer reads a frozen seven-day stored-news snapshot and
 publishes one atomic summary/TL;DR pair for each 05:00 UTC slot. Hierarchical

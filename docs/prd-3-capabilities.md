@@ -181,9 +181,11 @@ migration over the deployed API contract; multi-selection remains subsequent wor
 
 ## P3-C08: Shared daily weekly-news briefing
 
-**Assignment:** active
-[`daily-news-briefing`](../openspec/changes/daily-news-briefing/tasks.md);
-implementation and acceptance tracked there, not a completed phase.
+**Assignment:** delivered
+[`daily-news-briefing`](../openspec/changes/archive/2026-11-07-daily-news-briefing/tasks.md)
+and [`architect-focused-briefing`](../openspec/changes/archive/2026-11-07-architect-focused-briefing/tasks.md);
+the user's 2026-11-07 review found it not yet useful enough, so quality work continues
+(see [known gaps](known-gaps.md#signed-in-run-2026-11-07)).
 
 **Outcome:** Readers can scan a shared weekly overview without asking a question.
 
@@ -196,7 +198,7 @@ implementation and acceptance tracked there, not a completed phase.
 **Acceptance criteria**
 - Generate once daily at 05:00 UTC from the preceding seven-day stored-news
   snapshot, independent of filters or selected articles; exclude the cutoff.
-- The [architect-focused refinement](../openspec/changes/architect-focused-briefing/tasks.md)
+- The [architect-focused refinement](../openspec/changes/archive/2026-11-07-architect-focused-briefing/tasks.md)
   prioritizes concrete architecture-relevant changes, excludes routine news and
   permits shorter output without padding. Combined TL;DR/narrative is at most
   1,000 words (estimated five-minute ceiling); no-material/empty states differ.

@@ -42,7 +42,7 @@ not an archived main capability.
 ## Impact
 
 A small [PRD-3](../../../docs/prd-3.md) refinement over the deployed
-[daily briefing](../daily-news-briefing/proposal.md). Affects worker editorial
+[daily briefing](../2026-11-07-daily-news-briefing/proposal.md). Affects worker editorial
 contracts/prompts/selection, shared and browser length/outcome validation,
 panel/main-page markup, focused tests and owning documentation.
 

@@ -1073,7 +1073,11 @@ def snapshot(reader: Reader, env: dict[str, str]) -> dict[str, object]:
     models = indexed(
         reader.listing(env["MODEL_ACCOUNT_ID"] + "/deployments", agent_evaluation.ARM_API), "id"
     )
-    if len(models) != 3:
+    # The daily briefing deployment (briefing-identity layer) is the only allowed addition.
+    briefing = env.get("BRIEFING_DEPLOYMENT", "")
+    if len(models) != 3 + bool(briefing) or (
+        briefing and f"{env['MODEL_ACCOUNT_ID']}/deployments/{briefing}" not in models
+    ):
         raise PlatformFailure("evaluation_verification_model_inventory")
     chat_id = f"{env['MODEL_ACCOUNT_ID']}/deployments/{env['ENRICHMENT_DEPLOYMENT']}"
     chat = models.get(chat_id)
@@ -1208,15 +1212,21 @@ def runtime_snapshot(
                 }
         elif kind == "microsoft.dbforpostgresql/flexibleservers":
             data_boundaries[identifier] = database_boundary(reader, identifier, env)
+    # Later-delivered workloads (web UI, daily briefing job) are the only allowed additions.
+    later = {
+        f"web-newsloom-{env['AZURE_ENV_NAME']}",
+        f"brief-newsloom-{env['AZURE_ENV_NAME']}",
+    }
+    runtime = [
+        identifier.rsplit("/", 1)[-1]
+        for identifier, item in resources.items()
+        if text_field(item, "type").casefold()
+        in ("microsoft.app/containerapps", "microsoft.app/jobs")
+    ]
     if (
         len(workload_principals) != 5
         or len(data_boundaries) != 1
-        or sum(
-            text_field(item, "type").casefold()
-            in ("microsoft.app/containerapps", "microsoft.app/jobs")
-            for item in resources.values()
-        )
-        != 6
+        or len(runtime) != 6 + len(later.intersection(runtime))
     ):
         raise PlatformFailure("evaluation_verification_runtime_inventory")
     projects = indexed(reader.listing(env["MODEL_ACCOUNT_ID"] + "/projects", PROJECT_API), "id")

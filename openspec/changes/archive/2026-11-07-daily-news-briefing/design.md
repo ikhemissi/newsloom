@@ -25,7 +25,7 @@ operation without a speculative dollar budget.
 **Non-Goals:** A new chat agent, user impersonation, personalization, web search,
 public regeneration, a briefing-history UI or changes to parked evaluations.
 
-The [architect-focused refinement](../architect-focused-briefing/design.md)
+The [architect-focused refinement](../2026-11-07-architect-focused-briefing/design.md)
 supersedes the initial thematic compression and forced 900-1,100-word policy
 below for new architect-v1 artifacts. It introduces factual signal selection,
 no prose minimum, a combined five-minute ceiling and concise reader metadata.
