@@ -1536,6 +1536,31 @@ def test_live_snapshot_reads_complete_runtime_inventory(
     with pytest.raises(PlatformFailure, match="runtime_inventory"):
         verification.snapshot(verification.Reader(env), env)
     resources.append(missing)
+    template = verification.group_id(env) + "/providers/Microsoft.App/jobs/app-0"
+    for name, kind in (
+        (f"web-newsloom-{env['AZURE_ENV_NAME']}", "containerApps"),
+        (f"brief-newsloom-{env['AZURE_ENV_NAME']}", "jobs"),
+    ):
+        identifier = verification.group_id(env) + f"/providers/Microsoft.App/{kind}/{name}"
+        resources.append({"id": identifier, "type": "Microsoft.App/" + kind})
+        native[identifier] = native[template]
+        native[identifier + "/executions"] = {"value": []}
+    verification.snapshot(verification.Reader(env), env)
+    unknown = verification.group_id(env) + "/providers/Microsoft.App/containerApps/unknown"
+    resources.append({"id": unknown, "type": "Microsoft.App/containerApps"})
+    native[unknown] = native[template]
+    with pytest.raises(PlatformFailure, match="runtime_inventory"):
+        verification.snapshot(verification.Reader(env), env)
+    resources.pop()
+    briefing = dict(models[0], id=account_id + "/deployments/briefing", name="briefing")
+    models.append(briefing)
+    with pytest.raises(PlatformFailure, match="model_inventory"):
+        verification.snapshot(verification.Reader(env), env)
+    monkeypatch.setitem(env, "BRIEFING_DEPLOYMENT", "briefing")
+    verification.snapshot(verification.Reader(env), env)
+    monkeypatch.setitem(env, "BRIEFING_DEPLOYMENT", "other")
+    with pytest.raises(PlatformFailure, match="model_inventory"):
+        verification.snapshot(verification.Reader(env), env)
     properties = json_object(native[account_id])["properties"]
     assert isinstance(properties, dict)
     properties["disableLocalAuth"] = False

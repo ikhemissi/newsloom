@@ -1,12 +1,12 @@
 # Daily news briefing
 
 Status: worker, protected API and panel UI deployed as early access in the
-[owning change](../openspec/changes/daily-news-briefing/tasks.md). The corrected
+[owning change](../openspec/changes/archive/2026-11-07-daily-news-briefing/tasks.md). The corrected
 job is scheduled for 05:00 UTC daily. A first full artifact was published by an
 explicitly authorized controlled retry on 2026-11-03; actual scheduled execution
 and signed-in qualitative acceptance remain open. Earlier failed attempts and
 their costs remain in append-only history and the original call rows.
-The [architect-focused refinement](../openspec/changes/architect-focused-briefing/tasks.md)
+The [architect-focused refinement](../openspec/changes/archive/2026-11-07-architect-focused-briefing/tasks.md)
 is now deployed consumer-first. Its new editorial policy takes effect at the
 next valid 05:00 UTC slot; deployment does not rewrite today's successful report.
 [PRD-3](prd-3.md) owns sequencing; [capabilities](prd-3-capabilities.md) own

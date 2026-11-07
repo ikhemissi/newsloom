@@ -19,13 +19,14 @@
 
 - [x] 4.1 Run focused worker/Core/API/UI tests, strict types/lint/build, real database/permission checks where affected, the primary repository gate and strict OpenSpec validation. Verify unchanged schedule/models/resources/identity/consent/accounting and selectively commit the refinement with exact-source CI, preserving parked work.
 - [x] 4.2 Prepare fresh compatible immutable images and review owning native azd previews; deploy consumers before the architect-policy worker. Verify exact assets/configuration/geometry, old-artifact read compatibility and unchanged backend/job/grant fingerprints; record actual Azure evidence and passing publication CI.
-- [ ] 4.3 Observe the next valid daily slot and review its actual TL;DR/briefing against the architectural rubric and reading ceiling in the permitted regular browser. Verify named supported changes, materiality, factual caveats/citations and no padding; preserve prior successful/failed attempts and measured usage, keeping unavailable semantic/scheduled/signed-in acceptance open.
+- [x] 4.3 Observe the next valid daily slot and review its actual TL;DR/briefing against the architectural rubric and reading ceiling in the permitted regular browser. Verify named supported changes, materiality, factual caveats/citations and no padding; preserve prior successful/failed attempts and measured usage, keeping unavailable semantic/scheduled/signed-in acceptance open.
+  - Review (2026-11-07, user, regular browser): scheduled briefings published daily under the architect policy. Verdict: "a beginning but not very useful", leaning towards AWS. The rubric is not yet met; prompt/selection tuning (vendor balance, usefulness) and clickable TL;DR citations continue as new work rather than in this change.
 
 ## Workflow follow-up
 
 - The default new-content verification uses the next 05:00 UTC slot. Do not
   delete or bypass a successful slot to force same-day regeneration; the
-  separately approved [guarded refresh](../archive/2026-11-05-guarded-briefing-refresh/proposal.md)
+  separately approved [guarded refresh](../2026-11-05-guarded-briefing-refresh/proposal.md)
   provides the only audited same-day revision path.
 - Do not archive this or the parent while required real quality/scheduled/
   signed-in acceptance remains unverified.

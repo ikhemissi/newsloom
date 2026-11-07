@@ -11,14 +11,28 @@ not export user tokens or browser state to automation.
 
 | Change (archived) | Unverified check | Why it could not run | What did run |
 | --- | --- | --- | --- |
-| `ui-spike-and-shell` | 5.4 Signed-in research/progress/citation journey, deployed keyboard/axe while signed in, live authorization failure | Needs the user's regular-browser sign-in | Local/pinned browser journeys, anonymous Azure axe, API/agent readbacks |
-| `ui-news-feed` | 1.1 Prerequisite ledger of `ui-spike-and-shell` (now archived with the gap above); 4.4 signed-in feed/search/panel/citation journey | Same as above | Component, browser and anonymous Azure checks |
-| `ui-news-filters` | 4.4 Signed-in source/category/date and combined-search journey with applied A2A constraints | Same as above | Component, browser and anonymous Azure checks |
-| `cached-news-api` | 4.3 Authorized deployed HTTP/MCP parity, warm-cache denial, TTL and semantic hit/miss counts | Needs a delegated `news.read` user token | Real-role database tests, anonymous 401, readiness, exact-origin preflight |
-| `ui-http-news-catalog` | 3.4 Signed-in HTTP news/filter/search, Load more, detail navigation and A2A context | Same as `ui-spike-and-shell` | Component and pinned browser journeys, asset parity, anonymous Azure axe |
-| `ui-compact-news-toolbar` | 2.3 Signed-in toolbar alignment and accessibility | Same as above | Local journeys, anonymous Azure desktop/mobile axe, asset parity |
-| `ui-browser-local-timestamps` | 2.3 Signed-in timestamp/offset/future-label behavior | Same as above | Component tests, local browser journeys, asset parity |
-| `guarded-briefing-refresh` | 4.2 User semantic review of the revised briefing in the regular browser | Needs the user's judgement in a signed-in session | Metadata-only inspection: policy, word/citation counts, usage; automated editorial checks |
+| `ui-news-filters` | 4.4 Relevant results for combined source/category/date and search filters | Run on 2026-11-07, see below: a search for "agentcore" returned unrelated items | Component, browser and anonymous Azure checks; signed-in filtering ran |
+| `cached-news-api` | 4.3 Search cache hit on a repeated identical query; TTL | Signed-in run produced briefing hits but no search hit | Authorized HTTP routes and delegated MCP search succeeded on 2026-11-07 |
+
+## Signed-in run, 2026-11-07
+
+The user ran one signed-in pass in their regular browser. Verified: feed, Load
+more, item detail and source link; local timestamps; toolbar (a Custom dates
+selection wraps one button, accepted); keyboard use; research with citations and
+an answer rating; narrow-window news list; sign-out returns to the sign-in
+prompt. Telemetry showed only successful authorized API calls, with briefing cache
+hits and misses. This closes the signed-in checks of `ui-spike-and-shell`,
+`ui-news-feed`, `ui-http-news-catalog`, `ui-compact-news-toolbar`,
+`ui-browser-local-timestamps` and the review in `guarded-briefing-refresh`.
+
+Findings, tracked as product work rather than gaps:
+
+- The briefing is "a beginning but not very useful" and leans towards AWS.
+- TL;DR citations are not clickable; checking a source needs several steps.
+- Search relevance: "agentcore" returns unrelated items.
+- A research answer appears below the fold, and follow-up questions have no
+  conversation model.
+- On narrow screens the research panel sits at the bottom of the page.
 
 Close a gap by running the check and recording its outcome here, or by adding an
 automated check that covers it.

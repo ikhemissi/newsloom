@@ -35,8 +35,8 @@ artifact; deleting that slot or pretending it failed would destroy honest histor
 ### Modified Capabilities
 
 None in main specs. Briefing behavior remains in the active
-[daily](../../daily-news-briefing/proposal.md) and
-[architect-focused](../../architect-focused-briefing/proposal.md) slices.
+[daily](../2026-11-07-daily-news-briefing/proposal.md) and
+[architect-focused](../2026-11-07-architect-focused-briefing/proposal.md) slices.
 Implementation must reconcile their operational guidance with this separately
 authorized exception, not weaken their ordinary once-only execution contract.
 
