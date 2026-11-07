@@ -523,7 +523,7 @@ test.describe("reader feedback", () => {
       await briefing.getByRole("button", { name: /Not helpful/ }).click();
       await expect(briefing.getByRole("button", { name: /Not helpful/ })).toHaveAttribute("aria-pressed", "true");
       await page.getByLabel("Comment (optional)").fill("Too generic for an architect");
-      await page.getByRole("button", { name: "Send feedback" }).click();
+      await page.getByLabel("Comment (optional)").press("Enter");
       await expect(page.getByText("Thanks, your feedback was recorded.")).toBeVisible();
       expect(posts[0]).toMatchObject({ target_type: "briefing", target_ref: briefingResponse.briefing!.version,
         rating: "down", comment: "Too generic for an architect" });

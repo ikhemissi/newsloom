@@ -52,6 +52,12 @@ export function FeedbackControls({ client, target, snapshot, label }: {
         <span>Comment (optional)</span>
         <textarea className="textarea textarea-sm" value={comment} maxLength={MAX_COMMENT}
           onChange={(event) => setComment(event.target.value)}
+          onKeyDown={(event) => {
+            // Enter sends; Shift+Enter adds a line; IME composition is left alone.
+            if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+              event.preventDefault(); void send();
+            }
+          }}
           placeholder={choice === "down" ? "What was wrong or missing?" : "What was useful?"} />
       </label>
       <span className="feedback-count" aria-live="polite">{length}/{MAX_COMMENT}</span>
