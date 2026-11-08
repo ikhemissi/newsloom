@@ -9,6 +9,7 @@ from newsloom_core.entries import Entry
 from psycopg import AsyncConnection
 from psycopg.errors import InsufficientPrivilege
 
+from newsloom_enrichment.entities import Curated, GraphWriter, load_curated
 from newsloom_enrichment.models import (
     DEFAULT_LIMITS,
     Claim,
@@ -38,6 +39,7 @@ class EnrichmentRepository(Protocol):
         vector: Vector,
         metadata: ModelMetadata,
         correlation: str,
+        mentions: dict[str, Vector] | None = None,
     ) -> None: ...
     async def fail(
         self,
@@ -51,10 +53,15 @@ class EnrichmentRepository(Protocol):
 
 class Repository:
     def __init__(
-        self, connection: AsyncConnection[tuple[object, ...]], limits: Limits = DEFAULT_LIMITS
+        self,
+        connection: AsyncConnection[tuple[object, ...]],
+        limits: Limits = DEFAULT_LIMITS,
+        curated: Curated | None = None,
     ) -> None:
         self.connection = connection
         self.limits = limits
+        self.curated = curated or load_curated()
+        self.graph = dict.fromkeys(("announcements", "curated", "exact", "similar", "new"), 0)
 
     async def verify_access(self) -> int:
         row = await (
@@ -133,6 +140,7 @@ class Repository:
         vector: Vector,
         metadata: ModelMetadata,
         correlation: str,
+        mentions: dict[str, Vector] | None = None,
     ) -> None:
         async with self.connection.transaction():
             owned = await (
@@ -149,9 +157,9 @@ class Repository:
                 "INSERT INTO news(id,source,guid,canonical_url,title,published_at,date_origin,"
                 "author,publisher_categories,summary,category,tags,embedding,generation_model,"
                 "generation_version,embedding_model,embedding_version,prompt_revision,"
-                "taxonomy_revision,enrichment_run_id) "
+                "taxonomy_revision,enrichment_run_id,article_kind) "
                 "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::vector,"
-                "%s,%s,%s,%s,%s,%s,%s)",
+                "%s,%s,%s,%s,%s,%s,%s,%s)",
                 (
                     claim.id,
                     item.source,
@@ -173,8 +181,10 @@ class Repository:
                     metadata.prompt_revision,
                     metadata.taxonomy_revision,
                     correlation,
+                    result.article_kind.value,
                 ),
             )
+            await self.write_graph(claim.id, result, mentions or {})
             cursor = await self.connection.execute(
                 "UPDATE ingestion_queue SET status='completed',completed_at=clock_timestamp(),"
                 "updated_at=clock_timestamp(),lease_token=NULL,lease_until=NULL,last_error=NULL "
@@ -184,6 +194,53 @@ class Repository:
             )
             if cursor.rowcount != 1:
                 raise EnrichmentFailure("enrichment_lease_lost")
+
+    async def write_graph(
+        self, news_id: UUID, result: Enrichment, mentions: dict[str, Vector]
+    ) -> None:
+        if not result.announcements:
+            return
+        writer = GraphWriter(self.connection, self.curated)
+        await writer.write(news_id, result.announcements, mentions)
+        self.graph["announcements"] += len(result.announcements)
+        for key, value in writer.counts.items():
+            self.graph[key] += value
+
+    async def backfill_candidates(self, limit: int) -> list[tuple[UUID, Entry]]:
+        """Published news from the last 30 days that predates announcement extraction."""
+        rows = await (
+            await self.connection.execute(
+                "SELECT n.id,q.entry FROM news n JOIN ingestion_queue q ON q.id=n.id "
+                "WHERE n.article_kind IS NULL AND n.published_at>=clock_timestamp()-interval "
+                "'30 days' ORDER BY n.published_at DESC,n.id LIMIT %s",
+                (limit,),
+            )
+        ).fetchall()
+        result: list[tuple[UUID, Entry]] = []
+        for identifier, entry in rows:
+            if not isinstance(identifier, UUID):
+                raise EnrichmentFailure("invalid_news_identifier")
+            result.append((identifier, Entry.model_validate(entry)))
+        return result
+
+    async def store_backfill(
+        self, news_id: UUID, result: Enrichment, mentions: dict[str, Vector]
+    ) -> bool:
+        async with self.connection.transaction():
+            row = await (
+                await self.connection.execute(
+                    "SELECT 1 FROM news WHERE id=%s AND article_kind IS NULL FOR UPDATE",
+                    (news_id,),
+                )
+            ).fetchone()
+            if row is None:
+                return False
+            await self.connection.execute(
+                "UPDATE news SET article_kind=%s WHERE id=%s",
+                (result.article_kind.value, news_id),
+            )
+            await self.write_graph(news_id, result, mentions)
+        return True
 
     async def fail(
         self,

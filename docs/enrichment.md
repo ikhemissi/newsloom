@@ -15,6 +15,54 @@ at most 100 whitespace-separated words, one category ID and 3-5 unique lowercase
 tags. Whitespace/case normalization does not supply missing fields or facts.
 The generated result must pass its closed schema before embedding.
 
+### Announcements and the product graph
+
+The same generation call also returns an article kind (announcement, roundup,
+security, retirement, regulation, case_study, opinion, tutorial, other) and up to
+30 announcements: one factual statement each, change type, status, exact dates
+only when stated, and the products named with their vendor
+([`announcement-graph` change](../openspec/changes/announcement-graph/proposal.md)).
+Announcements that name a product absent from the entry, carry an impossible
+date or exceed 40 words are dropped and counted (`dropped_*`); the item is still
+published. The structured-output schema sent to the model has every field
+required and no `default` keywords, which Azure rejects next to `$ref`.
+
+Product mentions resolve, in order, through the curated
+[entity catalogue](../config/entities.json), a normalised exact match (also
+without a leading vendor alias), then embedding similarity of at least 0.92 to a
+product of the same vendor with identical version numbers; otherwise a new
+product is created. Vendors are never merged automatically. Each link records its
+method (`graph_curated`, `graph_exact`, `graph_similar`, `graph_new` counters).
+Fix a wrong merge or a missing rename by adding an alias to the catalogue.
+Curated `part_of`/`replaces` relations are added when their product first appears.
+Graph rows are insert-only and written in the news transaction under an advisory
+lock; migration 011 owns the tables and grants.
+
+Generation admission reserves `bytes/3 + 6,000` tokens per item within a
+90,000-token sliding minute. Announcements for news enriched before this change
+come from a one-off, repeatable backfill of the last 30 days (summaries are not
+changed; run it again until `candidates` is 0):
+
+```bash
+uv run --locked newsloom-platform backfill-announcements
+```
+
+Preview extraction locally before changing the prompt or schema. It rebuilds a
+real recent week from the catalogue feeds and articles, runs the production
+extraction with your Azure CLI identity, writes nothing to Azure and keeps a
+private review in the ignored `.cache/announcement-preview/`:
+
+```bash
+bash scripts/announcement-preview.sh --days 7      # live, about USD 0.45 per week
+bash scripts/announcement-preview.sh --reuse-entries  # same items, new model run
+bash scripts/announcement-preview.sh --replay       # grounding/report changes only, free
+```
+
+Measured on 2026-11-08 over 98 items from the previous week: 92 extracted, 315
+announcements kept, 8 dropped as unsupported, 345k input and 34k output tokens,
+about USD 0.45. Four items failed the existing summary/tag rules and are retried
+by the normal queue attempts.
+
 ## Database ownership and states
 
 The migration job applies the additive enrichment migration. Previously applied
@@ -175,7 +223,10 @@ clear state, or recreate the shared platform to bypass this transient conflict.
 
 ## Quota and compute cost observations
 
-The verified existing generation deployment advertised 10 requests/minute and
+The generation deployment was raised on 2026-11-08 from 10 to 100 capacity units
+(read back as 100 requests and 100,000 tokens per minute) through the application
+layer's `ENRICHMENT_CAPACITY`, for announcement extraction and its backfill; billing
+stays per token. Before that it advertised 10 requests/minute and
 10,000 tokens/minute; embeddings advertised 10 requests/10 seconds and 10,000
 tokens/minute. These are observations for the selected deployments/capacities,
 not universal capacity-unit conversions. Retry-After delays are included in the

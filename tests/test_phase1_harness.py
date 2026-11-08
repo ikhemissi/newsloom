@@ -42,6 +42,9 @@ class Embeddings:
     async def embed(self, entry: Entry, result: Enrichment, deadline: float) -> Vector:
         return vector()
 
+    async def embed_texts(self, texts: list[str], deadline: float) -> list[Vector]:
+        return [vector() for _ in texts]
+
 
 class QueryEmbedding:
     async def embed(self, query: str, deadline: float) -> Vector:

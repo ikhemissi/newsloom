@@ -61,11 +61,11 @@ Curated aliases override automatic matches.
 - **THEN** they remain separate entities
 
 ### Requirement: Relational product graph
-Announcements, entities, aliases, announcement-to-entity links and stated
-relations (`part_of`, `replaces`) with their evidence announcement SHALL be
+Announcements, vendor and product entities, aliases, announcement-to-entity
+links and `part_of`/`replaces` relations from the curated catalogue SHALL be
 stored in the existing database through a migration, readable by the MCP
-service and writable only by enrichment. Deleting nothing is required for
-normal operation; rows are append-only except for adding aliases.
+service and insert-only for enrichment; only `news.article_kind` may be updated,
+by the backfill.
 
 #### Scenario: Product timeline
 - **WHEN** a reader asks what changed for a product since a date

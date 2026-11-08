@@ -21,7 +21,13 @@ from psycopg.types.json import Jsonb
 from newsloom_platform import database
 from newsloom_platform.config import RuntimeConfig
 
-VERSIONS = ("002_ingestion", "003_enrichment", "004_mcp_read", "010_article_acquisition")
+VERSIONS = (
+    "002_ingestion",
+    "003_enrichment",
+    "004_mcp_read",
+    "010_article_acquisition",
+    "011_announcements",
+)
 
 
 def bootstrap_sql() -> str:
@@ -244,7 +250,9 @@ async def prepare(
                     sql.SQL(
                         "GRANT USAGE ON SCHEMA public,newsloom_acceptance_admin TO {}; "
                         "GRANT SELECT,INSERT,UPDATE,DELETE ON public.feed_sources,"
-                        "public.ingestion_queue,public.quarantine,public.news TO {}; "
+                        "public.ingestion_queue,public.quarantine,public.news,"
+                        "public.entities,public.entity_aliases,public.announcements,"
+                        "public.announcement_entities,public.entity_relations TO {}; "
                         "GRANT SELECT ON newsloom_acceptance_admin.manifest,"
                         "newsloom_acceptance_admin.schema_migrations TO {}; "
                         "GRANT UPDATE(started) ON newsloom_acceptance_admin.manifest TO {}"

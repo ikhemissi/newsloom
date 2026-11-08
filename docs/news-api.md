@@ -35,8 +35,16 @@ ranking and model/vector validation.
 
 `meta` contains UTC `read_at`, nonnegative `cache_age_seconds` and `result_scope`
 (`page`, `bounded`, `item`, `catalogue`, or `briefing`). Only the public projections
-are returned. Detail adds stored author/date origin/publisher categories;
-valid absent UUIDs return 404, malformed UUIDs 400.
+are returned. Detail adds stored author/date origin/publisher categories, the
+article kind (null before extraction) and its announcements (statement, change
+type, status, dates, canonical product names; never article text); valid absent
+UUIDs return 404, malformed UUIDs 400.
+
+Semantic search ranks first the eligible items that name a known product
+matching the query (via stored product aliases, so "agentcore" finds Amazon Bedrock
+AgentCore) or whose title, summary or announcements contain the query words; the
+rest follow by cosine similarity. Filters still apply before ranking and no
+similarity cutoff is used.
 
 The [daily briefing](briefing.md) extension is deployed early access, with
 successful artifact and authenticated read/quality acceptance still open.

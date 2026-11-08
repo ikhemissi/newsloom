@@ -12,6 +12,10 @@ import { BriefingPanel } from "./BriefingPanel";
 import type { FeedbackClient, ResearchSnapshot } from "./feedback";
 import { FeedbackControls, ReviewPage } from "./Feedback";
 
+const STATUS: Record<string, string> = {
+  announced: "Announced", preview: "Preview", ga: "GA", updated: "Updated",
+  deprecated: "Deprecated", retired: "Retired",
+};
 const phases: Phase[] = ["retrieving", "planning", "synthesizing", "validating"];
 const periods: { value: DatePeriod; label: string }[] = [
   { value: "any", label: "Any time" }, { value: "today", label: "Today" },
@@ -397,6 +401,13 @@ export function App({ auth, research, catalog, feedback }: {
           <p>{detail.source} · {detail.category}</p>
           <LocalTimestamp value={detail.publishedAt} formatter={dateTimeFormatter} now={now} />
           <p className="news-summary">{detail.summary}</p>
+          {!!detail.announcements?.length && <ul className="announcements" aria-label="Announcements">
+            {detail.announcements.map((entry, index) => <li key={index}>
+              {entry.status !== "none" && <span className="badge badge-ghost badge-sm">{STATUS[entry.status] ?? entry.status}</span>}{" "}
+              {entry.statement}
+              {entry.deadline && <> <strong>By {entry.deadline}</strong></>}
+            </li>)}
+          </ul>}
           <dl className="detail-metadata">
             <dt>Author</dt><dd>{detail.author || "Not supplied"}</dd>
             <dt>Date origin</dt><dd>{detail.dateOrigin}</dd>

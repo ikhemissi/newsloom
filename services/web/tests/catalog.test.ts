@@ -122,3 +122,21 @@ test("stored microsecond ordering is preserved and uncached read ages above TTL 
   expect(result.items.map((item) => item.id)).toEqual(ids);
   expect(result.cacheAgeSeconds).toBe(61);
 });
+
+test("detail maps stored announcements and treats older items as having none", async () => {
+  const announcement = { statement: "Widget reached GA.", change_type: "launch", status: "ga",
+    effective_date: "2026-11-02", deadline: null, products: ["Widget"] };
+  let inject = true;
+  const client = catalog(async (input, options) => {
+    const response = await fetch(input, options);
+    if (!new URL(String(input)).pathname.includes("/news/")) return response;
+    const body = await response.json() as { item: Record<string, unknown> };
+    if (inject) body.item.announcements = [announcement];
+    return new Response(JSON.stringify(body), { status: 200, headers: response.headers });
+  });
+  const id = (await client.recent(signal())).items[0]?.id ?? "";
+  expect((await client.detail(id, signal()))?.announcements).toEqual([{ statement: "Widget reached GA.",
+    status: "ga", effectiveDate: "2026-11-02", deadline: null, products: ["Widget"] }]);
+  inject = false;
+  expect((await client.detail(id, signal()))?.announcements).toEqual([]);
+});

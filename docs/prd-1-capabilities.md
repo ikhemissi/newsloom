@@ -123,6 +123,9 @@ or publish duplicate news.
 - The implemented [enrichment contract](../openspec/specs/news-enrichment/spec.md)
   uses the [approved category catalogue](../config/categories.json).
   Governance covers AI-agent governance and AI gateways, separately from Regulations.
+- The same call also extracts the article kind and grounded announcements linked to
+  canonical vendors and products in the database
+  ([announcement graph](../openspec/changes/announcement-graph/proposal.md)).
 
 ## P1-C06: Recent news, item details, and source discovery
 
@@ -161,6 +164,8 @@ or publish duplicate news.
   metadata-only search, semantic search, or both.
 - A supplied query is embedded and ranked by pgvector cosine similarity within
   the requested filters, not ranked globally and filtered afterward.
+- Items naming a known product or containing the query words rank before purely
+  semantic neighbours ([announcement graph](../openspec/changes/announcement-graph/proposal.md)).
 - Stored embeddings use `vector(1536)` and an HNSW index; source, category, tags,
   and publication date have supporting indexes.
 - Frozen-query evaluations measure recall@k with and without filters.

@@ -107,7 +107,7 @@ async def platform_database(monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[Ru
 
 async def test_migration_replay_and_vector_contract(platform_database: RuntimeConfig) -> None:
     async with ManagedIdentityCredential() as credential:
-        assert await database.migrate(platform_database, credential) == 7
+        assert await database.migrate(platform_database, credential) == 8
         assert await database.migrate(platform_database, credential) == 0
         async with await database.connect(
             platform_database, credential, "newsloom", "postgres"
@@ -132,6 +132,11 @@ async def test_migration_replay_and_vector_contract(platform_database: RuntimeCo
                 ("public", "quarantine"),
                 ("public", "news"),
                 ("public", "feedback"),
+                ("public", "entities"),
+                ("public", "entity_aliases"),
+                ("public", "entity_relations"),
+                ("public", "announcements"),
+                ("public", "announcement_entities"),
             }
 
 
@@ -146,7 +151,7 @@ async def test_briefing_additive_migration_and_real_role_boundaries(
         }
     )
     async with ManagedIdentityCredential() as credential:
-        assert await database.migrate(platform_database, credential) == 7
+        assert await database.migrate(platform_database, credential) == 8
         assert await database.migrate(config, credential) == 5
         assert await database.migrate(config, credential) == 0
         # Optional omission must leave all historical checksums and additive tables intact.
@@ -222,7 +227,7 @@ async def test_concurrent_migrations_serialize(platform_database: RuntimeConfig)
             database.migrate(platform_database, credential),
             database.migrate(platform_database, credential),
         )
-    assert sorted(outcomes) == [0, 7]
+    assert sorted(outcomes) == [0, 8]
 
 
 async def test_briefing_schema_checks_and_historical_checksum_preservation(
@@ -237,7 +242,7 @@ async def test_briefing_schema_checks_and_historical_checksum_preservation(
         }
     )
     async with ManagedIdentityCredential() as credential:
-        assert await database.migrate(config, credential) == 12
+        assert await database.migrate(config, credential) == 13
         async with await database.connect(config, credential, "newsloom", "postgres") as connection:
             await connection.execute("SET ROLE newsloom_briefing")
             for query in (
@@ -313,7 +318,7 @@ async def test_failed_sql_phase_rolls_back(
             ).fetchone()
             assert row == (0,)
         monkeypatch.setattr(database, "record", original)
-        assert await database.migrate(platform_database, credential) == 6
+        assert await database.migrate(platform_database, credential) == 7
 
 
 async def test_ingestion_migration_rolls_back_atomically_and_replays(
@@ -347,7 +352,7 @@ async def test_ingestion_migration_rolls_back_atomically_and_replays(
                 )
             ).fetchone() == (0,)
         monkeypatch.setattr(database, "migration_sql", original)
-        assert await database.migrate(platform_database, credential) == 5
+        assert await database.migrate(platform_database, credential) == 6
         assert await database.migrate(platform_database, credential) == 0
 
 

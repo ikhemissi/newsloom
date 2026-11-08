@@ -1,7 +1,7 @@
 """Public MCP contracts, strict inputs and bounded safe failures."""
 
 import re
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
@@ -116,10 +116,21 @@ class NewsItem(Contract):
         return utc_timestamp(value)
 
 
+class AnnouncementDetail(Contract):
+    statement: str
+    change_type: str
+    status: str
+    effective_date: date | None
+    deadline: date | None
+    products: tuple[str, ...]
+
+
 class NewsDetail(NewsItem):
     author: str
     date_origin: Literal["published", "updated", "retrieved"]
     publisher_categories: tuple[str, ...]
+    article_kind: str | None = None
+    announcements: tuple[AnnouncementDetail, ...] = ()
 
 
 class RankedItem(NewsItem):
