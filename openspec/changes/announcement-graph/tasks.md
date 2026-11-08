@@ -2,7 +2,8 @@
 
 ## 1. Measure before building further
 
-- [ ] 1.1 Add the extended schema, prompt and grounding checks behind a local record/replay preview command; run it on the most recent week of real items (article text acquired locally under the acquisition rules) and record tokens, cost, announcements per kind, drops by category and new entities. User reviews the private announcement file, including the Foundry October roundup, before work continues.
+- [x] 1.1 Add the extended schema, prompt and grounding checks behind a local record/replay preview command; run it on the most recent week of real items (article text acquired locally under the acquisition rules) and record tokens, cost, announcements per kind, drops by category and new entities. User reviews the private announcement file, including the Foundry October roundup, before work continues.
+  - Evidence (2026-11-08): local preview over 98 real items from the previous week: 92 extracted, 315 announcements kept, 8 dropped as unsupported, 345k input and 34k output tokens, about USD 0.45 per week (USD 3.24 in a first run was a concurrency over-count in the preview's token accounting, fixed by per-item clients). The Foundry October roundup yields 11 announcements with status and dates. A prompt fix removed invented dates ("by 2027") and customer-project announcements in case studies. The user reviewed the private review file and approved deployment; graph relations are reviewed after the backfill from the real database.
 
 ## 2. Storage and resolution
 
