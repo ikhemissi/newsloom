@@ -248,3 +248,42 @@ def test_closed_final_answer_contract() -> None:
         ).outcome
         == "no_match"
     )
+
+
+def test_detail_announcements_are_optional_and_omitted_when_empty() -> None:
+    from uuid import UUID
+
+    from newsloom_agent.research_models import NewsDetail
+
+    base = {
+        "id": str(UUID(int=1)),
+        "title": "Widget GA",
+        "summary": "Widget is generally available.",
+        "source": "example",
+        "category": "models",
+        "tags": ["a", "b", "c"],
+        "published_at": "2026-11-01T00:00:00Z",
+        "url": "https://example.com/widget",
+        "author": "",
+        "date_origin": "published",
+        "publisher_categories": [],
+    }
+    legacy = NewsDetail.model_validate(base)
+    assert set(legacy.model_dump()) == set(base)
+    stored = NewsDetail.model_validate(
+        {
+            **base,
+            "article_kind": "announcement",
+            "announcements": [
+                {
+                    "statement": "Widget reached GA.",
+                    "change_type": "launch",
+                    "status": "ga",
+                    "effective_date": "2026-11-01",
+                    "deadline": None,
+                    "products": ["Widget"],
+                }
+            ],
+        }
+    )
+    assert stored.model_dump(mode="json")["announcements"][0]["products"] == ["Widget"]

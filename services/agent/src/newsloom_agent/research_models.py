@@ -237,8 +237,13 @@ class NewsDetail(NewsMetadata):
     author: str = Field(repr=False)
     date_origin: Literal["published", "updated", "retrieved"]
     publisher_categories: tuple[str, ...] = Field(repr=False)
-    article_kind: Annotated[str, Field(max_length=32)] | None = None
-    announcements: Annotated[tuple[StoredAnnouncement, ...], Field(max_length=30, repr=False)] = ()
+    # Omitted when empty so details without announcements serialize exactly as before.
+    article_kind: Annotated[str, Field(max_length=32)] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    announcements: Annotated[tuple[StoredAnnouncement, ...], Field(max_length=30, repr=False)] = (
+        Field(default=(), exclude_if=lambda value: not value)
+    )
 
 
 class RankedMetadata(NewsMetadata):
