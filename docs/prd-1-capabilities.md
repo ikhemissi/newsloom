@@ -125,7 +125,7 @@ or publish duplicate news.
   Governance covers AI-agent governance and AI gateways, separately from Regulations.
 - The same call also extracts the article kind and grounded announcements linked to
   canonical vendors and products in the database
-  ([announcement graph](../openspec/changes/announcement-graph/proposal.md)).
+  ([announcement graph](../openspec/changes/archive/2026-11-08-announcement-graph/proposal.md)).
 
 ## P1-C06: Recent news, item details, and source discovery
 
@@ -165,7 +165,7 @@ or publish duplicate news.
 - A supplied query is embedded and ranked by pgvector cosine similarity within
   the requested filters, not ranked globally and filtered afterward.
 - Items naming a known product or containing the query words rank before purely
-  semantic neighbours ([announcement graph](../openspec/changes/announcement-graph/proposal.md)).
+  semantic neighbours ([announcement graph](../openspec/changes/archive/2026-11-08-announcement-graph/proposal.md)).
 - Stored embeddings use `vector(1536)` and an HNSW index; source, category, tags,
   and publication date have supporting indexes.
 - Frozen-query evaluations measure recall@k with and without filters.

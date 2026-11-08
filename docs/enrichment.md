@@ -21,7 +21,7 @@ The same generation call also returns an article kind (announcement, roundup,
 security, retirement, regulation, case_study, opinion, tutorial, other) and up to
 30 announcements: one factual statement each, change type, status, exact dates
 only when stated, and the products named with their vendor
-([`announcement-graph` change](../openspec/changes/announcement-graph/proposal.md)).
+([`announcement-graph` change](../openspec/changes/archive/2026-11-08-announcement-graph/proposal.md)).
 Announcements that name a product absent from the entry, carry an impossible
 date or exceed 40 words are dropped and counted (`dropped_*`); the item is still
 published. The structured-output schema sent to the model has every field

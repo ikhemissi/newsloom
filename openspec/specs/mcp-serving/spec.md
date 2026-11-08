@@ -86,6 +86,7 @@ not-found result for a valid absent ID. `list_sources()` SHALL return source IDs
 and categories represented in stored news, with usable catalogue category labels.
 Public records MUST include ID, title, summary, source, category, tags, published
 time and original URL, never raw articles, vectors, tokens or private processing fields.
+Item detail also includes the article kind and announcements (see scenarios).
 
 #### Scenario: An item or available filter is requested
 - **WHEN** an authorized caller requests a valid item ID or source/category discovery
@@ -97,6 +98,12 @@ time and original URL, never raw articles, vectors, tokens or private processing
 - **WHEN** a valid UUID identifies only queue/quarantine work or no news row
 - **THEN** detail returns not-found without exposing that processing state
 - **AND** malformed IDs fail as invalid input rather than being interpolated into SQL
+
+#### Scenario: A roundup is requested
+- **WHEN** detail is requested for an item with extracted announcements
+- **THEN** the article kind (null before extraction existed) and announcements are
+  returned in source order with statement, change type, status, dates and canonical
+  product names, and no article text is included
 
 ### Requirement: Read-only news and workload isolation
 The runtime SHALL access only the permitted news projection using its existing
