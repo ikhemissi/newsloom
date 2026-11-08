@@ -36,7 +36,9 @@ method (`graph_curated`, `graph_exact`, `graph_similar`, `graph_new` counters).
 Fix a wrong merge or a missing rename by adding an alias to the catalogue.
 Curated `part_of`/`replaces` relations are added when their product first appears.
 Graph rows are insert-only and written in the news transaction under an advisory
-lock; migration 011 owns the tables and grants.
+lock; migration 011 owns the tables and grants. Product-name embeddings are sent
+six per request: each vector is about 30 KiB of JSON and the shared model transport
+caps responses at 256 KiB.
 
 Generation admission reserves `bytes/3 + 6,000` tokens per item within a
 90,000-token sliding minute. Announcements for news enriched before this change

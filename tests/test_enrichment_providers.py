@@ -285,3 +285,25 @@ async def test_embedding_error_and_malformed_400_are_not_generation_safety_block
             await FoundryLlm(
                 ModelClient(client, Credential(), "https://example.com"), "generation"
             ).generate(entry(), time.monotonic() + 60)
+
+
+async def test_mention_embeddings_fit_the_transport_response_cap() -> None:
+    sizes: list[int] = []
+    # Realistic float text: each value prints about 20 characters, like the service.
+    value = -0.012345678901234567
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        texts = json.loads(request.content)["input"]
+        sizes.append(len(texts))
+        body = {
+            "data": [{"embedding": [value] * 1536} for _ in texts],
+            "usage": {"prompt_tokens": len(texts)},
+        }
+        return httpx.Response(200, content=json.dumps(body).encode())
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        transport = ModelClient(client, Credential(), "https://example.com")
+        vectors = await FoundryEmbedding(transport, "embedding").embed_texts(
+            [f"Vendor: Product {index}" for index in range(14)], time.monotonic() + 60
+        )
+    assert len(vectors) == 14 and sizes == [6, 6, 2]
