@@ -62,11 +62,12 @@ semantic request into metadata-only results or change models.
   partially ranked or silently fallback results
 
 ### Requirement: Filtered cosine ranking
-Semantic search SHALL rank only rows satisfying all metadata/date constraints,
-using descending cosine similarity with a stable ID tie-breaker and no arbitrary
-similarity cutoff. The result MUST NOT be formed by globally truncating candidates
-before applying caller filters. A valid request with enough matches MUST not
-silently underfill solely because approximate search discarded filtered rows.
+Semantic search SHALL rank only rows satisfying all metadata/date constraints.
+Items naming a product or words from the query rank first; within each tier,
+descending cosine similarity with a stable ID tie-breaker and no similarity cutoff. The result MUST NOT be formed by globally
+truncating candidates before applying caller filters. A valid request with
+enough matches MUST not silently underfill solely because approximate search
+discarded filtered rows.
 
 #### Scenario: Global neighbors conflict with a narrow filter
 - **WHEN** globally similar items fall outside the requested constraints
@@ -78,6 +79,10 @@ silently underfill solely because approximate search discarded filtered rows.
 - **THEN** each returned stored-news record includes a finite cosine similarity
   score, not a calibrated relevance probability
 - **AND** metadata-only responses do not invent similarity scores
+
+#### Scenario: A query names a known product
+- **WHEN** the query is "agentcore" and items are linked to "Amazon Bedrock AgentCore"
+- **THEN** those items rank before items that only resemble the query semantically
 
 ### Requirement: Frozen evidence-based retrieval quality
 Acceptance SHALL use 20 frozen labelled queries over an isolated authored corpus,
