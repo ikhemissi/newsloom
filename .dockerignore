@@ -11,6 +11,7 @@
 !config/
 !config/feeds.json
 !config/categories.json
+!config/entities.json
 !config/mcp-evaluation.json
 !config/phase1-acceptance.json
 !tests/

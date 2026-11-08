@@ -7,6 +7,7 @@ COPY pyproject.toml uv.lock README.md ./
 COPY packages/ packages/
 COPY services/ services/
 COPY config/categories.json config/categories.json
+COPY config/entities.json config/entities.json
 RUN uv sync --locked --no-dev --package newsloom-enrichment
 USER 65532:65532
 ENTRYPOINT ["/app/.venv/bin/newsloom-enrichment"]

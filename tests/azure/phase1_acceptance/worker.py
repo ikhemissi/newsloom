@@ -41,8 +41,9 @@ class ObservedRepository:
         vector: Vector,
         metadata: ModelMetadata,
         correlation: str,
+        mentions: dict[str, Vector] | None = None,
     ) -> None:
-        await self.current.complete(claim, result, vector, metadata, correlation)
+        await self.current.complete(claim, result, vector, metadata, correlation, mentions)
 
     async def fail(
         self,

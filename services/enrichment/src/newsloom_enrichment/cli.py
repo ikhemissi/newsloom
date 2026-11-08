@@ -16,7 +16,7 @@ from newsloom_core.diagnostics import configure_logging, event
 from pydantic import ValidationError
 
 from newsloom_enrichment.evaluation import evaluate
-from newsloom_enrichment.job import run
+from newsloom_enrichment.job import backfill, run
 from newsloom_enrichment.models import DEFAULT_LIMITS, EnrichmentFailure
 from newsloom_enrichment.providers import FoundryEmbedding, FoundryLlm, ModelClient, revisions
 from newsloom_enrichment.repository import ModelMetadata, Repository
@@ -111,9 +111,14 @@ async def runtime(args: argparse.Namespace, correlation: str) -> None:
                 env["APPLICATIONINSIGHTS_CONNECTION_STRING"], env["AZURE_CLIENT_ID"]
             )
             try:
+                if args.command == "backfill-announcements":
+                    await backfill(repository, llm, embedding, correlation)
+                    return
                 counts = await run(
                     repository, llm, embedding, metadata, correlation, limit=args.limit
                 )
+                counts.update({f"graph_{key}": value for key, value in repository.graph.items()})
+                counts.update({f"dropped_{key}": value for key, value in llm.dropped.items()})
                 telemetry.record(
                     correlation, counts, time.monotonic() - started, transport.observations
                 )
@@ -128,7 +133,10 @@ def main() -> None:
         correlation = UUID(os.environ.get("PLATFORM_PROBE_RUN_ID", correlation)).hex
         parser = Parser(description=__doc__)
         parser.add_argument(
-            "command", nargs="?", choices=["run", "evaluate", "verify-access"], default="run"
+            "command",
+            nargs="?",
+            choices=["run", "evaluate", "verify-access", "backfill-announcements"],
+            default="run",
         )
         parser.add_argument("--limit", type=int, default=25)
         asyncio.run(runtime(parser.parse_args(), correlation))

@@ -35,6 +35,11 @@ const detailSchema = z.object({
   item: itemSchema.extend({
     author: z.string(), date_origin: z.enum(["published", "updated", "retrieved"]),
     publisher_categories: z.array(z.string()),
+    announcements: z.array(z.object({
+      statement: z.string().min(1).max(400), status: z.string().min(1).max(32),
+      effective_date: z.iso.date().nullable(), deadline: z.iso.date().nullable(),
+      products: z.array(z.string().min(1).max(120)).max(5),
+    })).max(30).default([]),
   }), meta: metaSchema,
 });
 const mapItem = (item: z.infer<typeof itemSchema>): NewsItem => ({
@@ -93,7 +98,11 @@ export class HttpCatalog implements NewsCatalog {
         || result.data.meta.result_scope !== "item") throw new UiFailure("invalid_response");
     const item = result.data.item;
     return { ...mapItem(item), tags: item.tags, author: item.author,
-      dateOrigin: item.date_origin, publisherCategories: item.publisher_categories };
+      dateOrigin: item.date_origin, publisherCategories: item.publisher_categories,
+      announcements: item.announcements.map((entry) => ({
+        statement: entry.statement, status: entry.status, effectiveDate: entry.effective_date,
+        deadline: entry.deadline, products: entry.products,
+      })) };
   }
   private async load(lane: "news" | "catalogue" | "detail" | "briefing", path: string, signal: AbortSignal, body?: object): Promise<unknown> {
     if (this.active.get(lane) && !this.active.get(lane)?.signal.aborted) throw new UiFailure("overloaded");

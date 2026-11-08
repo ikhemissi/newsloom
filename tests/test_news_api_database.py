@@ -87,7 +87,15 @@ async def test_live_keysets_do_not_claim_snapshot_after_updates(
             "UPDATE saved_news SET published_at=%s",
             (anchor.published_at + timedelta(days=2),),
         )
-        await admin.execute("INSERT INTO news SELECT * FROM saved_news")
+        stored = await (
+            await admin.execute(
+                "SELECT string_agg(quote_ident(column_name),',' ORDER BY ordinal_position) "
+                "FROM information_schema.columns WHERE table_name='news' "
+                "AND table_schema='public' AND is_generated='NEVER'"
+            )
+        ).fetchone()
+        assert stored is not None
+        await admin.execute(f"INSERT INTO news({stored[0]}) SELECT {stored[0]} FROM saved_news")
     next_page = await repository.browse(args, anchor)
     assert changed not in {item.id for item in next_page.items}
     assert tail.items[1].id not in {item.id for item in next_page.items}

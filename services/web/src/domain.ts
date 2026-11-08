@@ -58,9 +58,13 @@ export type NewsPage = {
   items: NewsItem[]; nextCursor: string | null;
   readAt: string; cacheAgeSeconds: number;
 };
+export type Announcement = {
+  statement: string; status: string; effectiveDate: string | null; deadline: string | null;
+  products: string[];
+};
 export type NewsDetail = NewsItem & {
   tags: string[]; author: string; dateOrigin: "published" | "updated" | "retrieved";
-  publisherCategories: string[];
+  publisherCategories: string[]; announcements?: Announcement[];
 };
 
 export type BriefingParagraph = { text: string; references: number[] };

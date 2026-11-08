@@ -21,9 +21,10 @@ to the products and vendors they concern.
 - Grounding checks drop unsupported announcements (product not named in the
   text, implausible dates) instead of failing the whole item.
 - A **product graph** in the existing PostgreSQL, as ordinary tables:
-  entities (vendor, product, model, standard, regulation) with aliases and
-  embeddings, announcements, announcement-to-entity links, and stated
-  `part_of`/`replaces` relations with evidence. Name matching uses a curated
+  vendor and product entities (products include models, services, standards
+  and regulations) with aliases and embeddings, announcements,
+  announcement-to-entity links, and `part_of`/`replaces` relations from the
+  curated catalogue (extraction does not infer relations yet). Name matching uses a curated
   alias file, normalised exact matches, then same-vendor embedding similarity;
   it never merges across vendors.
 - Item detail (MCP `get_news_item` and HTTP detail) includes the item's

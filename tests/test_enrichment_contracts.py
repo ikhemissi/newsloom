@@ -126,3 +126,49 @@ def test_embedding_is_nonzero() -> None:
     with pytest.raises(ValidationError, match="zero_embedding"):
         Vector(values=tuple([0.0] * 1536))
     assert len(Vector(values=tuple([0.1] * 1536)).values) == 1536
+
+
+def test_announcement_grounding_drops_unsupported_items_only() -> None:
+    from datetime import UTC, datetime
+
+    from newsloom_core.entries import Entry
+    from newsloom_enrichment.models import Announcement, grounded
+
+    entry = Entry.model_validate(
+        {
+            "source": "example",
+            "guid": "g",
+            "url": "https://example.com/a",
+            "title": "Acme ships Widget-Pro 2.0",
+            "text": "Acme released Widget-Pro 2.0 in preview on 2026-11-02.",
+            "published_at": datetime(2026, 11, 3, tzinfo=UTC),
+            "date_origin": "published",
+            "author": "",
+            "categories": [],
+        }
+    )
+
+    def item(product: str, *, deadline: str | None = None, words: int = 5) -> Announcement:
+        return Announcement.model_validate(
+            {
+                "statement": " ".join(["word"] * words),
+                "change_type": "launch",
+                "status": "preview",
+                "effective_date": "2026-11-02",
+                "deadline": deadline,
+                "products": [{"product": product, "vendor": "Acme"}],
+            }
+        )
+
+    kept, dropped = grounded(
+        (
+            item("widget pro 2.0"),
+            item("Gadget"),
+            item("Widget-Pro 2.0", deadline="2029-01-01"),
+            item("Widget-Pro 2.0", deadline="2026-02-30"),
+            item("Widget-Pro 2.0", words=41),
+        ),
+        entry,
+    )
+    assert len(kept) == 1
+    assert dropped == {"unnamed_product": 1, "invalid_date": 2, "long_statement": 1}

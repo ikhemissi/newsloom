@@ -144,3 +144,52 @@ async def test_reader_grants_do_not_expose_private_data_or_writes(repository: Re
         with pytest.raises(psycopg.errors.InsufficientPrivilege):
             async with repository.connection.transaction():
                 await repository.connection.execute(statement)
+
+
+async def test_detail_lists_announcements_and_named_products_rank_first(
+    platform_database: RuntimeConfig,
+) -> None:
+    from test_enrichment_graph import announcement, mention, result
+
+    async with ManagedIdentityCredential() as credential:
+        await database.migrate(platform_database, credential)
+        await seed(platform_database, count=3)
+        async with await database.connect(
+            platform_database, credential, "newsloom", "postgres"
+        ) as admin:
+            writer = EnrichmentRepository(admin)
+            ids = []
+            for value in (
+                result(announcement(mention("AgentCore", "Amazon"), status="preview")),
+                result(announcement(mention("Microsoft Foundry", "Microsoft"))),
+                enriched(),
+            ):
+                claim = await writer.claim("seed")
+                assert claim is not None
+                await writer.complete(claim, value, vector(), METADATA, "seed", {})
+                ids.append(claim.id)
+            # The Foundry item is semantically closest; the AgentCore item names the product.
+            for identifier, first in zip(ids, (0.1, 1.0, 0.5), strict=True):
+                values = [0.0] * 1536
+                values[0], values[1] = first, 1.0 - first
+                await admin.execute(
+                    "UPDATE news SET embedding=%s::vector WHERE id=%s",
+                    ("[" + ",".join(map(str, values)) + "]", identifier),
+                )
+            await admin.execute("SET SESSION AUTHORIZATION newsloom_mcp")
+            repository = Repository(admin, "embedding-test", "1")
+            detail = await repository.detail(DetailInput(id=ids[0]))
+            assert detail.item is not None and detail.item.article_kind == "roundup"
+            assert [(a.status, a.products) for a in detail.item.announcements] == [
+                ("preview", ("Amazon Bedrock AgentCore",))
+            ]
+            legacy = await repository.detail(DetailInput(id=ids[2]))
+            assert legacy.item is not None and legacy.item.announcements == ()
+            ranked = await repository.search(
+                SearchInput(query="agentcore", limit=3), (1.0,) + (0.0,) * 1535
+            )
+            assert [item.id for item in ranked.items] == [ids[0], ids[1], ids[2]]
+            words = await repository.search(
+                SearchInput(query="Bedrock AgentCore pricing", limit=3), (1.0,) + (0.0,) * 1535
+            )
+            assert words.items[0].id == ids[0]

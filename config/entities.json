@@ -1,0 +1,35 @@
+{
+  "vendors": [
+    {"name": "Microsoft", "aliases": ["Microsoft Azure", "Azure", "Microsoft Foundry", "Foundry Models", "Microsoft AI", "Microsoft Research"]},
+    {"name": "AWS", "aliases": ["Amazon", "Amazon Web Services", "Amazon Bedrock"]},
+    {"name": "Google", "aliases": ["Google Cloud", "Google DeepMind", "DeepMind", "Google Research", "Alphabet"]},
+    {"name": "OpenAI", "aliases": []},
+    {"name": "Anthropic", "aliases": []},
+    {"name": "NVIDIA", "aliases": ["Nvidia"]},
+    {"name": "Meta", "aliases": ["Meta AI", "Facebook"]},
+    {"name": "Hugging Face", "aliases": ["HuggingFace"]},
+    {"name": "LangChain", "aliases": ["LangChain Inc."]},
+    {"name": "LiteLLM", "aliases": ["BerriAI"]},
+    {"name": "Mistral AI", "aliases": ["Mistral"]},
+    {"name": "GitHub", "aliases": []},
+    {"name": "European Commission", "aliases": ["EU Commission"]},
+    {"name": "Linux Foundation", "aliases": ["LF AI & Data", "LF AI and Data"]},
+    {"name": "Cloudflare", "aliases": []},
+    {"name": "PyTorch Foundation", "aliases": ["PyTorch"]}
+  ],
+  "products": [
+    {"vendor": "Microsoft", "name": "Microsoft Foundry", "aliases": ["Azure AI Foundry", "AI Foundry", "Foundry", "Azure AI Studio"]},
+    {"vendor": "Microsoft", "name": "Foundry Agent Service", "aliases": ["Azure AI Agent Service", "Agent Service"]},
+    {"vendor": "Microsoft", "name": "Azure OpenAI", "aliases": ["Azure OpenAI Service"]},
+    {"vendor": "Microsoft", "name": "Microsoft Agent Framework", "aliases": ["Agent Framework"]},
+    {"vendor": "AWS", "name": "Amazon Bedrock AgentCore", "aliases": ["AgentCore", "Bedrock AgentCore", "AWS AgentCore"]},
+    {"vendor": "AWS", "name": "Amazon Bedrock", "aliases": ["Bedrock", "AWS Bedrock"]},
+    {"vendor": "AWS", "name": "Amazon SageMaker AI", "aliases": ["SageMaker", "Amazon SageMaker", "SageMaker AI"]},
+    {"vendor": "Google", "name": "Vertex AI", "aliases": ["Google Vertex AI", "Vertex AI Platform"]},
+    {"vendor": "Google", "name": "Gemini Enterprise", "aliases": []}
+  ],
+  "relations": [
+    {"source": ["Microsoft", "Foundry Agent Service"], "relation": "part_of", "target": ["Microsoft", "Microsoft Foundry"]},
+    {"source": ["AWS", "Amazon Bedrock AgentCore"], "relation": "part_of", "target": ["AWS", "Amazon Bedrock"]}
+  ]
+}

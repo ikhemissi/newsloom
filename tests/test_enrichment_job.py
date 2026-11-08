@@ -16,6 +16,7 @@ from newsloom_enrichment.models import (
     Claim,
     Enrichment,
     EnrichmentFailure,
+    Limits,
     ServiceSafetyBlock,
     Vector,
 )
@@ -50,9 +51,16 @@ class MemoryRepository:
         return Claim(uuid4(), uuid4(), entry(), 1, datetime.now(UTC) + timedelta(seconds=300))
 
     async def complete(
-        self, claim: Claim, result: Enrichment, value: Vector, metadata: object, correlation: str
+        self,
+        claim: Claim,
+        result: Enrichment,
+        value: Vector,
+        metadata: object,
+        correlation: str,
+        mentions: dict[str, Vector] | None = None,
     ) -> None:
         self.completed += 1
+        self.mentions = mentions
 
     async def fail(self, claim: Claim, reason: str, retry_after: float, correlation: str) -> None:
         self.failed += 1
@@ -77,6 +85,9 @@ class Llm:
 class Embeddings:
     async def embed(self, item: Entry, result: Enrichment, deadline: float) -> Vector:
         return vector()
+
+    async def embed_texts(self, texts: list[str], deadline: float) -> list[Vector]:
+        return [vector() for _ in texts]
 
 
 @pytest.mark.parametrize("fail_stage", ["", "generation", "embedding", "safety_block"])
@@ -113,7 +124,15 @@ async def test_claim_limit_includes_failed_attempts() -> None:
             raise EnrichmentFailure("invalid_generation")
 
     repo = MemoryRepository(50)
-    counts = await run(repo, Failed(), Embeddings(), METADATA, "fixture", limit=25)
+    counts = await run(
+        repo,
+        Failed(),
+        Embeddings(),
+        METADATA,
+        "fixture",
+        limit=25,
+        limits=Limits(tokens_per_minute=10_000_000),
+    )
     assert counts["claimed_run"] == counts["failed_run"] == 25 and repo.remaining == 25
 
 
@@ -346,3 +365,24 @@ def test_dependency_failure_is_reported_without_content(
     output = capsys.readouterr()
     assert result.value.code == 1 and "CANARY" not in output.out + output.err
     assert json.loads(output.out)["category"] == "ImportError"
+
+
+async def test_token_budget_paces_within_the_deadline(monkeypatch: pytest.MonkeyPatch) -> None:
+    import time
+
+    from newsloom_enrichment.job import TokenBudget
+
+    sleeps: list[float] = []
+
+    async def sleep(seconds: float) -> None:
+        sleeps.append(seconds)
+        budget.window = []
+
+    monkeypatch.setattr("newsloom_enrichment.job.asyncio.sleep", sleep)
+    budget = TokenBudget(10_000)
+    await budget.admit(8_000, time.monotonic() + 600)
+    await budget.admit(8_000, time.monotonic() + 600)
+    assert len(sleeps) == 1 and 0 < sleeps[0] <= 60
+    budget.window = [(time.monotonic(), 10_000)]
+    with pytest.raises(EnrichmentFailure, match="enrichment_token_budget"):
+        await budget.admit(1, time.monotonic() + 1)

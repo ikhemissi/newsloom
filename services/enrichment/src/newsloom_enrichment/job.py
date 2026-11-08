@@ -2,12 +2,55 @@
 
 import asyncio
 import time
+from uuid import UUID
 
 from newsloom_core.diagnostics import event
+from newsloom_core.entries import Entry
 
-from newsloom_enrichment.models import DEFAULT_LIMITS, EnrichmentFailure, Limits
+from newsloom_enrichment.entities import Curated, load_curated, mention_texts
+from newsloom_enrichment.models import (
+    DEFAULT_LIMITS,
+    Enrichment,
+    EnrichmentFailure,
+    Limits,
+    Vector,
+)
 from newsloom_enrichment.providers import EmbeddingProvider, LlmProvider
-from newsloom_enrichment.repository import EnrichmentRepository, ModelMetadata
+from newsloom_enrichment.repository import EnrichmentRepository, ModelMetadata, Repository
+
+
+class TokenBudget:
+    """Paces generation below the deployment's per-minute token limit."""
+
+    def __init__(self, per_minute: int) -> None:
+        self.per_minute = per_minute
+        self.window: list[tuple[float, int]] = []
+
+    @staticmethod
+    def estimate(entry: Entry) -> int:
+        # Bytes/3 over-approximates tokens for English text; plus prompt, schema and output.
+        return len(entry.text.encode()) // 3 + 6_000
+
+    async def admit(self, tokens: int, deadline: float) -> None:
+        while True:
+            now = time.monotonic()
+            self.window = [(at, used) for at, used in self.window if now - at < 60]
+            if sum(used for _, used in self.window) + tokens <= self.per_minute:
+                self.window.append((now, tokens))
+                return
+            wait = 60 - (now - self.window[0][0])
+            if now + wait >= deadline:
+                raise EnrichmentFailure("enrichment_token_budget")
+            await asyncio.sleep(wait)
+
+
+async def mention_vectors(
+    embeddings: EmbeddingProvider, curated: Curated, result: Enrichment, deadline: float
+) -> dict[str, Vector]:
+    texts = mention_texts(curated, result.announcements)
+    if not texts:
+        return {}
+    return dict(zip(texts, await embeddings.embed_texts(texts, deadline), strict=True))
 
 
 async def run(
@@ -19,7 +62,10 @@ async def run(
     *,
     limit: int = 25,
     limits: Limits = DEFAULT_LIMITS,
+    curated: Curated | None = None,
 ) -> dict[str, int]:
+    curated = curated or load_curated()
+    budget = TokenBudget(limits.tokens_per_minute)
     if isinstance(limit, bool) or not 1 <= limit <= limits.max_items:
         raise EnrichmentFailure("invalid_item_limit")
     counts = dict.fromkeys(
@@ -45,9 +91,13 @@ async def run(
             try:
                 item_deadline = min(deadline, time.monotonic() + limits.item_seconds)
                 async with asyncio.timeout_at(item_deadline):
+                    await budget.admit(TokenBudget.estimate(claim.entry), item_deadline)
                     generated = await llm.generate(claim.entry, item_deadline)
                     vector = await embeddings.embed(claim.entry, generated, item_deadline)
-                    await repository.complete(claim, generated, vector, metadata, correlation)
+                    mentions = await mention_vectors(embeddings, curated, generated, item_deadline)
+                    await repository.complete(
+                        claim, generated, vector, metadata, correlation, mentions
+                    )
             except TimeoutError:
                 failure = EnrichmentFailure("enrichment_item_deadline")
             except EnrichmentFailure as error:
@@ -77,4 +127,53 @@ async def run(
         ),
         counts=counts,
     )
+    return counts
+
+
+async def backfill(
+    repository: Repository,
+    llm: LlmProvider,
+    embeddings: EmbeddingProvider,
+    correlation: str,
+    *,
+    limits: Limits = DEFAULT_LIMITS,
+    concurrency: int = 6,
+) -> dict[str, int]:
+    """Announcements for recent news enriched before extraction; summaries are unchanged."""
+    deadline = time.monotonic() + limits.job_seconds - limits.shutdown_seconds
+    budget = TokenBudget(limits.tokens_per_minute)
+    curated = repository.curated
+    database = asyncio.Lock()
+    slots = asyncio.Semaphore(concurrency)
+    counts = dict.fromkeys(("candidates", "stored", "failed", "skipped", "deferred"), 0)
+
+    async def one(news_id: UUID, entry: Entry) -> None:
+        async with slots:
+            if time.monotonic() + limits.item_seconds >= deadline:
+                counts["deferred"] += 1
+                return
+            item_deadline = min(deadline, time.monotonic() + limits.item_seconds)
+            try:
+                await budget.admit(TokenBudget.estimate(entry), item_deadline)
+                result = await llm.generate(entry, item_deadline)
+                mentions = await mention_vectors(embeddings, curated, result, item_deadline)
+            except (EnrichmentFailure, TimeoutError) as error:
+                counts["failed"] += 1
+                event(
+                    "announcement_backfill_item",
+                    correlation,
+                    outcome="failure",
+                    category=str(error) if isinstance(error, EnrichmentFailure) else "timeout",
+                )
+                return
+            async with database:
+                stored = await repository.store_backfill(news_id, result, mentions)
+            counts["stored" if stored else "skipped"] += 1
+
+    async with asyncio.timeout_at(deadline + limits.shutdown_seconds / 2):
+        candidates = await repository.backfill_candidates(500)
+        counts["candidates"] = len(candidates)
+        await asyncio.gather(*(one(news_id, entry) for news_id, entry in candidates))
+    counts.update({f"graph_{key}": value for key, value in repository.graph.items()})
+    event("announcement_backfill", correlation, outcome="completed", counts=counts)
     return counts

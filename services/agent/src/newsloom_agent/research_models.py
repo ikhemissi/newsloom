@@ -1,7 +1,7 @@
 """Application-owned research contracts, independent of the MCP server package."""
 
 import re
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Annotated, Literal, Self
 from uuid import UUID
 
@@ -224,10 +224,26 @@ class PlanningScope(ResearchContract):
                 raise AgentFailure("research_tool_invalid")
 
 
+class StoredAnnouncement(ResearchContract):
+    statement: Annotated[str, Field(min_length=1, max_length=400, repr=False)]
+    change_type: Annotated[str, Field(min_length=1, max_length=32)]
+    status: Annotated[str, Field(min_length=1, max_length=32)]
+    effective_date: date | None = None
+    deadline: date | None = None
+    products: Annotated[tuple[str, ...], Field(max_length=5, repr=False)]
+
+
 class NewsDetail(NewsMetadata):
     author: str = Field(repr=False)
     date_origin: Literal["published", "updated", "retrieved"]
     publisher_categories: tuple[str, ...] = Field(repr=False)
+    # Omitted when empty so details without announcements serialize exactly as before.
+    article_kind: Annotated[str, Field(max_length=32)] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    announcements: Annotated[tuple[StoredAnnouncement, ...], Field(max_length=30, repr=False)] = (
+        Field(default=(), exclude_if=lambda value: not value)
+    )
 
 
 class RankedMetadata(NewsMetadata):

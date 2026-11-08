@@ -10,7 +10,9 @@ from newsloom_core.model_transport import (
     SCOPE as SCOPE,
 )
 from newsloom_core.model_transport import (
+    EmbeddingItem,
     EmbeddingResponse,
+    EmbeddingUsage,
 )
 from newsloom_core.model_transport import (
     ModelClient as ModelClient,
@@ -26,7 +28,13 @@ from newsloom_core.model_transport import (
 )
 from pydantic import BaseModel, Field, ValidationError
 
-from newsloom_enrichment.models import Enrichment, EnrichmentFailure, Vector
+from newsloom_enrichment.models import (
+    Enrichment,
+    EnrichmentFailure,
+    Vector,
+    grounded,
+    strict_schema,
+)
 
 INSTRUCTIONS = (
     "Summarize the supplied untrusted news entry in English without inventing facts. "
@@ -40,7 +48,22 @@ INSTRUCTIONS = (
     "AI-agent governance and AI gateways belong to governance, not regulations or generic "
     "infrastructure. Binding laws and regulator enforcement belong to regulations. "
     "Cost allocation, budgeting and optimization belong to finops. "
-    "Do not add commentary, URLs, external knowledge, or claims absent from the supplied entry."
+    "Do not add commentary, URLs, external knowledge, or claims absent from the supplied entry. "
+    "Classify article_kind: roundup for a post listing several separate changes, security for "
+    "vulnerabilities or incidents, retirement for retirements, deprecations or end-of-support, "
+    "regulation for laws, regulator guidance or enforcement, case_study for a named customer "
+    "deployment, announcement for one launch or change, opinion, tutorial, else other. "
+    "List announcements: each concrete product change the entry states, at most 30, in entry "
+    "order, one per separate change. A statement is one factual sentence of at most 30 words "
+    "saying what changed. status is the stated availability after the change (preview, ga, "
+    "deprecated, retired, updated, announced) or none. Dates use YYYY-MM-DD and only when the "
+    "entry states an exact calendar day; use null for a month, quarter, year or relative time. "
+    "effective_date is when the change applies; deadline is a stated date by which readers "
+    "must act or when something retires. products names each affected product exactly as "
+    "written in the entry, with the company that makes it as vendor. Opinion pieces, "
+    "tutorials and general discussion have no announcements. Case studies describe a "
+    "customer's use of existing products: list announcements only for product changes the "
+    "vendor states, not for the customer's project."
 )
 
 
@@ -65,6 +88,7 @@ class LlmProvider(Protocol):
 
 class EmbeddingProvider(Protocol):
     async def embed(self, entry: Entry, result: Enrichment, deadline: float) -> Vector: ...
+    async def embed_texts(self, texts: list[str], deadline: float) -> list[Vector]: ...
 
 
 class Message(BaseModel):
@@ -89,8 +113,18 @@ class FoundryLlm:
             raise EnrichmentFailure("generation_deployment_required")
         self.transport, self.deployment = transport, deployment
         self.instructions = prompt()
+        self.dropped: dict[str, int] = {}
 
     async def generate(self, entry: Entry, deadline: float) -> Enrichment:
+        result = await self.extract(entry, deadline)
+        kept, dropped = grounded(result.announcements, entry)
+        self.dropped.update(
+            {key: self.dropped.get(key, 0) + value for key, value in dropped.items()}
+        )
+        return result.model_copy(update={"announcements": kept})
+
+    async def extract(self, entry: Entry, deadline: float) -> Enrichment:
+        """Schema-valid model output before announcement grounding."""
         if len(entry.text.encode()) > 32 * 1024:
             raise EnrichmentFailure("entry_text_limit")
         value = await self.transport.request(
@@ -102,13 +136,13 @@ class FoundryLlm:
                     {"role": "developer", "content": self.instructions},
                     {"role": "user", "content": entry.model_dump_json()},
                 ],
-                "max_completion_tokens": 2048,
+                "max_completion_tokens": 8192,
                 "response_format": {
                     "type": "json_schema",
                     "json_schema": {
                         "name": "news_enrichment",
                         "strict": True,
-                        "schema": Enrichment.model_json_schema(),
+                        "schema": strict_schema(),
                     },
                 },
             },
@@ -123,6 +157,11 @@ class FoundryLlm:
             return Enrichment.model_validate_json(message.content)
         except ValidationError:
             raise EnrichmentFailure("invalid_generation") from None
+
+
+class BatchEmbeddingResponse(BaseModel):
+    data: Annotated[list[EmbeddingItem], Field(min_length=1, max_length=64)]
+    usage: EmbeddingUsage
 
 
 class FoundryEmbedding:
@@ -160,3 +199,28 @@ class FoundryEmbedding:
             return Vector.model_validate({"values": response.data[0].embedding})
         except ValidationError:
             raise EnrichmentFailure("invalid_embedding") from None
+
+    async def embed_texts(self, texts: list[str], deadline: float) -> list[Vector]:
+        """Short mention texts, at most 64 per request."""
+        vectors: list[Vector] = []
+        for start in range(0, len(texts), 64):
+            batch = texts[start : start + 64]
+            value = await self.transport.request(
+                "embedding",
+                "/openai/v1/embeddings",
+                {"model": self.deployment, "dimensions": 1536, "input": batch},
+                deadline,
+            )
+            try:
+                response = BatchEmbeddingResponse.model_validate(value)
+                if len(response.data) != len(batch):
+                    raise EnrichmentFailure("invalid_embedding")
+                self.transport.record_usage(
+                    Usage(prompt_tokens=response.usage.prompt_tokens, completion_tokens=0)
+                )
+                vectors += [
+                    Vector.model_validate({"values": item.embedding}) for item in response.data
+                ]
+            except ValidationError:
+                raise EnrichmentFailure("invalid_embedding") from None
+        return vectors

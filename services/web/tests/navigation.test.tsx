@@ -119,6 +119,18 @@ test("detail pages use stored metadata, restore browser history and never auto-s
   expect(agent.ask).not.toHaveBeenCalled();
 });
 
+test("detail lists stored announcements with status and deadline", async () => {
+  window.history.replaceState(null, "", `/news/${newsItem.id}`);
+  const lookup = vi.fn(async () => ({ ...newsDetail, announcements: [
+    { statement: "Widget reached GA.", status: "ga", effectiveDate: null, deadline: null, products: ["Widget"] },
+    { statement: "Old API retires.", status: "retired", effectiveDate: null, deadline: "2026-12-01", products: [] },
+  ] }));
+  render(<App auth={auth} catalog={{ ...catalog, detail: lookup }} research={research()} />);
+  const list = await screen.findByRole("list", { name: "Announcements" });
+  const entries = within(list).getAllByRole("listitem").map((entry) => entry.textContent);
+  expect(entries).toEqual(["GA Widget reached GA.", "Retired Old API retires. By 2026-12-01"]);
+});
+
 test("direct detail distinguishes absent data and sign-out discards late detail", async () => {
   window.history.replaceState(null, "", `/news/${newsItem.id}`);
   const recent = vi.fn(catalog.recent);

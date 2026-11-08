@@ -83,6 +83,7 @@ def source_hash(root: Path) -> str:
                 "package-lock.json",
                 "config/feeds.json",
                 "config/categories.json",
+                "config/entities.json",
                 "config/mcp-evaluation.json",
                 "config/phase1-acceptance.json",
             )
@@ -865,12 +866,14 @@ def control(command: str, correlation: str, *, force: bool = False, limit: int =
         "evaluate-enrichment",
         "read-enrichment",
         "verify-enrichment",
+        "backfill-announcements",
     ):
         if isinstance(limit, bool) or not 1 <= limit <= 25:
             raise PlatformFailure("invalid_enrichment_limit")
         reading = command == "read-enrichment"
         evaluating = command == "evaluate-enrichment"
         verifying = command == "verify-enrichment"
+        backfilling = command == "backfill-announcements"
         arguments = (
             ["enrichment-status"]
             if reading
@@ -878,6 +881,8 @@ def control(command: str, correlation: str, *, force: bool = False, limit: int =
             if evaluating
             else ["verify-access"]
             if verifying
+            else ["backfill-announcements"]
+            if backfilling
             else ["run", "--limit", str(limit)]
         )
         name = execute_job(
@@ -892,6 +897,8 @@ def control(command: str, correlation: str, *, force: bool = False, limit: int =
             if evaluating
             else "ENRICHMENT_VERIFICATION"
             if verifying
+            else "ENRICHMENT_BACKFILL"
+            if backfilling
             else "ENRICHMENT"
         )
         set_environment(f"{prefix}_LAST_EXECUTION", name)

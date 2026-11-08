@@ -108,13 +108,27 @@ class Repository:
         async with self.connection.cursor(row_factory=dict_row) as cursor:
             await cursor.execute(
                 sql.SQL(
-                    "SELECT {},author,date_origin,publisher_categories FROM public.news WHERE id=%s"
+                    "SELECT {},author,date_origin,publisher_categories,article_kind "
+                    "FROM public.news WHERE id=%s"
                 ).format(PROJECTION),
                 (args.id,),
             )
             row = await cursor.fetchone()
+            if row is None:
+                return ItemResult(found=False, item=None)
+            await cursor.execute(
+                "SELECT a.statement,a.change_type,a.status,a.effective_date,a.deadline,"
+                "coalesce(array_agg(e.canonical_name ORDER BY e.canonical_name) "
+                "FILTER (WHERE e.id IS NOT NULL),'{}') AS products "
+                "FROM public.announcements a "
+                "LEFT JOIN public.announcement_entities ae ON ae.announcement_id=a.id "
+                "LEFT JOIN public.entities e ON e.id=ae.entity_id "
+                "WHERE a.news_id=%s GROUP BY a.id ORDER BY a.ordinal",
+                (args.id,),
+            )
+            announcements = tuple(await cursor.fetchall())
             return ItemResult(
-                found=row is not None, item=NewsDetail.model_validate(row) if row else None
+                found=True, item=NewsDetail.model_validate({**row, "announcements": announcements})
             )
 
     async def sources(self) -> SourcesResult:
@@ -170,13 +184,36 @@ class Repository:
                 if row is None or row["mismatches"] != 0:
                     raise McpFailure("embedding_model_mismatch")
                 vector_text = "[" + ",".join(str(value) for value in vector) + "]"
+                # Items naming a known product or matching the query words rank first.
                 await cursor.execute(
                     eligible
                     + sql.SQL(
+                        ", query AS (SELECT btrim(regexp_replace(lower(%s),"
+                        "'[^0-9a-z+#.]+',' ','g')) AS words, "
+                        "websearch_to_tsquery('simple',%s) AS terms), "
+                        "named AS (SELECT DISTINCT a.news_id FROM public.announcements a "
+                        "JOIN public.announcement_entities ae ON ae.announcement_id=a.id "
+                        "JOIN public.entity_aliases al ON al.entity_id=ae.entity_id, query q "
+                        "WHERE length(al.alias)>=3 AND length(q.words)>=3 AND ("
+                        "(' '||al.alias||' ') LIKE ('%% '||q.words||' %%') "
+                        "OR (' '||q.words||' ') LIKE ('%% '||al.alias||' %%')) "
+                        "UNION SELECT a.news_id FROM public.announcements a, query q "
+                        "WHERE a.search_text @@ q.terms) "
                         "SELECT {},1-(embedding <=> %s::vector) AS similarity "
-                        "FROM eligible ORDER BY embedding <=> %s::vector,id ASC LIMIT %s"
+                        "FROM eligible, query q ORDER BY "
+                        "(id IN (SELECT news_id FROM named) OR "
+                        "to_tsvector('simple',title||' '||summary) @@ q.terms) DESC,"
+                        "embedding <=> %s::vector,id ASC LIMIT %s"
                     ).format(PROJECTION),
-                    [*relation_values, *values, vector_text, vector_text, args.limit],
+                    [
+                        *relation_values,
+                        *values,
+                        args.query,
+                        args.query,
+                        vector_text,
+                        vector_text,
+                        args.limit,
+                    ],
                 )
             else:
                 await cursor.execute(

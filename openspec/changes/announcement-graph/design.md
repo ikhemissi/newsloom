@@ -36,22 +36,34 @@ search that use them; measured cost before deployment.
   similarity of "vendor: name" embeddings ≥ 0.92 within the same vendor → new
   entity. All mentions of an item are embedded in one batched request. New exact
   or similar matches add an alias. Method recorded per link.
-- **Schema (migration 011):** `entities(id, kind, vendor_id, canonical_name,
-  embedding, created_at)`, `entity_aliases(entity_id, alias_normalised UNIQUE per
-  vendor, method)`, `announcements(id, news_id, ordinal, statement, change_type,
-  status, effective_date, deadline)`, `announcement_entities(announcement_id,
-  entity_id, method)`, `entity_relations(source_id, target_id, relation,
-  announcement_id)`, `news.article_kind` (nullable for legacy rows). Enrichment
-  gets INSERT/SELECT (and UPDATE of `news.article_kind` for the backfill only);
-  MCP gets SELECT. Writes happen in the same transaction as the news insert.
-- **Search tiers:** tier 1 = eligible items linked to entities matched by the
-  query (normalised alias lookup) or matching `websearch_to_tsquery` over title,
-  summary and statements (a GIN index on a generated tsvector); tier 2 = the
-  rest by cosine. Ordering within tiers by cosine then ID; filters apply before
-  ranking, as today.
-- **Token-aware admission:** estimate tokens per claimed item from stored text
-  size and stop claiming when the run's estimate would exceed the per-minute
-  budget times the remaining deadline. Backfill uses the same admission.
+- **Schema (migration 011):** `entities(id, kind vendor|product, vendor_id,
+  canonical_name, embedding)`, `entity_aliases(alias, vendor_id, entity_id,
+  method)` unique per vendor (`NULLS NOT DISTINCT`), `announcements(id, news_id,
+  ordinal, statement, change_type, status, effective_date, deadline,
+  search_text)`, `announcement_entities(announcement_id, entity_id, method)`,
+  `entity_relations(source_id, target_id, relation, announcement_id NULL)`,
+  `news.article_kind` (nullable for legacy rows) and a generated
+  `news.search_text`. Enrichment gets INSERT/SELECT (and UPDATE of
+  `news.article_kind` for the backfill only); MCP gets SELECT. Writes happen in
+  the same transaction as the news insert, serialized by a transaction-scoped
+  advisory lock so the scheduled job and the backfill cannot create duplicates.
+- **Relations** come from the curated catalogue only and are created when a
+  curated product is first resolved; extraction does not infer relations.
+- **Strict schema:** the model receives the serialization schema with every
+  field required and `default` keywords removed (Azure rejects them next to
+  `$ref`); defaults exist only for code paths without announcements.
+- **Search tiers:** tier 1 = eligible items linked to entities whose alias
+  (3+ characters) contains the normalised query as whole words or is contained
+  in it, or whose announcement statements, title or summary match
+  `websearch_to_tsquery('simple', query)`; tier 2 = the rest. Within tiers,
+  cosine then ID; filters apply before ranking. The title/summary match is
+  computed inline so the frozen retrieval evaluation's isolated fixture
+  relation keeps working; that 20-query evaluation is unchanged, and product
+  queries are covered by a real-database regression test instead.
+- **Token-aware admission:** each item reserves `bytes/3 + 6,000` tokens in a
+  60-second sliding window capped at 90,000 (under the raised 100k limit),
+  waiting when full and failing the item only if the wait would pass its
+  deadline. Backfill uses the same admission with six concurrent model calls.
 - **Local preview first.** A record/replay command runs extraction over a chosen
   week of real items locally (article text acquired under the same rules,
   nothing written to Azure), prints a content-free cost/count report and writes
