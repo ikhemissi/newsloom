@@ -159,8 +159,11 @@ class FoundryLlm:
             raise EnrichmentFailure("invalid_generation") from None
 
 
+MENTION_BATCH = 6
+
+
 class BatchEmbeddingResponse(BaseModel):
-    data: Annotated[list[EmbeddingItem], Field(min_length=1, max_length=64)]
+    data: Annotated[list[EmbeddingItem], Field(min_length=1, max_length=MENTION_BATCH)]
     usage: EmbeddingUsage
 
 
@@ -201,10 +204,11 @@ class FoundryEmbedding:
             raise EnrichmentFailure("invalid_embedding") from None
 
     async def embed_texts(self, texts: list[str], deadline: float) -> list[Vector]:
-        """Short mention texts, at most 64 per request."""
+        """Short mention texts in small batches: each 1536-value vector is about 30 KiB of
+        JSON and the shared transport caps a response at 256 KiB."""
         vectors: list[Vector] = []
-        for start in range(0, len(texts), 64):
-            batch = texts[start : start + 64]
+        for start in range(0, len(texts), MENTION_BATCH):
+            batch = texts[start : start + MENTION_BATCH]
             value = await self.transport.request(
                 "embedding",
                 "/openai/v1/embeddings",
