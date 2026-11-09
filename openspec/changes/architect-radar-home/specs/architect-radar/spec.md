@@ -63,8 +63,9 @@ then newest. Done and active snoozed announcements are excluded.
 
 ### Requirement: Product timeline and deadlines
 The API SHALL return a product's announcements across all sources in date
-order with their item links, and upcoming deadlines (next 90 days) ordered by
-date, both read-only and without article text.
+order with their item links, and upcoming deadlines (next 90 days, from "Act
+now" and "Worth knowing" announcements only) ordered by date, both read-only
+and without article text.
 
 #### Scenario: Product page
 - **WHEN** a reader opens a product

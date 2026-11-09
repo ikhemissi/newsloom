@@ -2,7 +2,8 @@
 
 ## 1. Preview and mock-up
 
-- [ ] 1.1 Add the triage schema, prompt and a local record/replay triage preview over the recorded announcement week; report tier distribution, tokens and cost.
+- [x] 1.1 Add the triage schema, prompt and a local record/replay triage preview over the recorded announcement week; report tier distribution, tokens and cost.
+  - Evidence (2026-11-09): triage preview over 65 items with 313 grounded announcements from the recorded week: Act now 5 (2%), Worth knowing 138 (44%), Later 170 (54%); 57k input and 11k output tokens, about USD 0.10 per week. A first rubric put 84% in Worth knowing (changelog entries); the tightened rubric defaults detail to Later and uses a shared capability vocabulary so cross-vendor groups form (for example model routing across five vendors).
 - [ ] 1.2 Build the radar page, product page and stack editor in the web app against a fixture from the preview; run it locally for the user's review and adjust before continuing.
 
 ## 2. Storage and triage

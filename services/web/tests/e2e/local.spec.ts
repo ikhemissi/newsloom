@@ -50,10 +50,9 @@ test.describe("daily shared briefing", () => {
       const fullText = await details.locator("section p").allTextContents();
       expect(fullText.join(" ").replace(/\[1\]/g, "").trim().split(/\s+/).length).toBe(990);
       expect(await region.locator("img, svg, script").count()).toBe(0);
-      const citationButton = region.getByRole("button", { name: "Focus briefing citation 1" }).first();
-      await citationButton.focus(); await page.keyboard.press("Enter");
-      await expect(details.locator("li")).toBeFocused();
-      const source = details.getByRole("link");
+      const marker = region.getByRole("link", { name: /^\[1\]/ }).first();
+      await expect(marker).toHaveAttribute("href", "https://publisher.test/briefing");
+      const source = details.locator("ol").getByRole("link");
       await expect(source).toHaveAttribute("href", "https://publisher.test/briefing");
       await expect(source).toHaveAttribute("rel", "noopener noreferrer");
       await summary.focus(); await page.keyboard.press("Space");

@@ -10,12 +10,17 @@ import { FeedbackControls } from "./Feedback";
 const minute = 60_000;
 
 function PublishedBriefing({ briefing }: { briefing: Briefing }) {
-  const references = useRef(new Map<number, HTMLLIElement>());
+  // Citation markers open the cited source directly; no need to expand and scroll.
+  function source(number: number) {
+    const citation = briefing.citations.find((item) => item.number === number);
+    const href = citation && safeHttps(citation.url)?.href;
+    return href ? <a href={href} target="_blank" rel="noopener noreferrer" className="link"
+      title={citation.title}>[{number}]<span className="sr-only"> {citation.title} (opens in a new tab)</span></a>
+      : <span>[{number}]</span>;
+  }
   function paragraph(part: BriefingParagraph, key?: number) {
     return <p key={key}>{part.text}{part.references.map((number, index) =>
-      <button key={`${number}-${index}`} type="button" className="btn btn-link btn-xs"
-        aria-label={`Focus briefing citation ${number}`}
-        onClick={() => references.current.get(number)?.focus()}>[{number}]</button>)}</p>;
+      <span key={`${number}-${index}`}> {source(number)}</span>)}</p>;
   }
   const minutes = Math.ceil(briefingWordCount(briefing) / 200);
   return <>
@@ -25,7 +30,7 @@ function PublishedBriefing({ briefing }: { briefing: Briefing }) {
       {briefing.coverage === "limited" && <p>Limited evidence: a shorter overview, without padding.</p>}
       <div className="briefing-tldr"><h4>TL;DR</h4>
         {briefing.tldr && <p>{briefing.tldr.text}{briefing.tldr.references.map((number, index) =>
-          <span key={`${number}-${index}`}> [{number}]</span>)}</p>}
+          <span key={`${number}-${index}`}> {source(number)}</span>)}</p>}
       </div>
       <details className="briefing-details">
         <summary>Full briefing and sources · About {minutes} {minutes === 1 ? "minute" : "minutes"}</summary>
@@ -36,10 +41,7 @@ function PublishedBriefing({ briefing }: { briefing: Briefing }) {
         <h4>Briefing sources</h4>
         <ol className="briefing-citations">{briefing.citations.map((citation) => {
           const href = safeHttps(citation.url)?.href;
-          return <li key={citation.number} tabIndex={-1} ref={(element) => {
-            if (element) references.current.set(citation.number, element);
-            else references.current.delete(citation.number);
-          }}>
+          return <li key={citation.number}>
             [{citation.number}] {href
               ? <a href={href} target="_blank" rel="noopener noreferrer" className="link">
                 {citation.title} ({safeHttps(citation.url)?.host})
