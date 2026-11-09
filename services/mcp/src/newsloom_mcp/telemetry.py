@@ -32,6 +32,12 @@ API_ROUTES = frozenset(
         "feedback_mine",
         "feedback_review",
         "feedback_export",
+        "radar",
+        "stack",
+        "stack_update",
+        "card_state",
+        "products",
+        "product",
         "other",
     }
 )

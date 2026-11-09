@@ -7,6 +7,8 @@ import { architectBriefing, briefing, legacyBriefing, noMaterialBriefing, newsIt
 import { matchesFilters } from "../src/filters";
 import { HttpCatalog } from "../src/catalog";
 import { HttpFeedback } from "../src/feedback";
+import { FixtureRadar } from "./radar-fixture";
+import type { FixtureCard } from "./radar-fixture";
 import "../src/style.css";
 
 document.documentElement.dataset.researchCalls = "0";
@@ -48,6 +50,20 @@ const research: ResearchClient = {
   },
   stop: async () => false,
 };
+const radarCard = (id: string, change: Partial<FixtureCard>): FixtureCard => ({
+  id, news_id: `https://publisher.test/${id}`, title: `Authored item ${id}`, url: `https://publisher.test/${id}`,
+  source: "fixture-source", published_at: "2026-11-07T10:00:00Z", article_kind: "announcement",
+  statement: `Authored statement ${id}.`, status: "ga", effective_date: null, deadline: null,
+  products: [{ name: `Authored product ${id}`, vendor: "Authored vendor" }], tier: "worth_knowing",
+  reason: `Authored reason ${id}.`, capability: "other", ...change,
+});
+const radar = parameters.has("radar") ? new FixtureRadar([
+  radarCard("a", { tier: "act_now", article_kind: "security", statement: "Patch <img src=x onerror=bad()> now.", deadline: "2026-11-30" }),
+  radarCard("b", { capability: "agent tools" }),
+  radarCard("c", { capability: "agent tools", products: [{ name: "Other tool", vendor: "Other vendor" }] }),
+  radarCard("d", {}),
+  radarCard("e", { tier: "later" }),
+], () => new Date("2026-11-08T12:00:00Z")) : undefined;
 const container = document.getElementById("root");
 if (!container) throw new Error("Missing fixture root");
 function batch(cursor?: string) {
@@ -57,7 +73,7 @@ function batch(cursor?: string) {
     title: `Authored page item ${start + offset + 1}`,
   })), start + 20 < 240 ? `page_${start + 20}` : null);
 }
-createRoot(container).render(<App auth={auth} research={research} feedback={feedback} catalog={{
+createRoot(container).render(<App auth={auth} research={research} feedback={feedback} radar={radar} catalog={{
   briefing: async (signal) => {
     const calls = Number(document.documentElement.dataset.briefingCalls) + 1;
     document.documentElement.dataset.briefingCalls = String(calls);

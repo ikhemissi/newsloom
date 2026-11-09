@@ -15,6 +15,25 @@ at most 100 whitespace-separated words, one category ID and 3-5 unique lowercase
 tags. Whitespace/case normalization does not supply missing fields or facts.
 The generated result must pass its closed schema before embedding.
 
+### Announcement triage
+
+After extraction, one more call per item rates each announcement for an AI
+solution architect: `act_now`, `worth_knowing` or `later`, a reason of at most 20
+words and a capability from a fixed list (used to group the same capability across
+vendors). It reads only the stored title, summary, article kind and announcements,
+never article text. A failed triage is counted (`triage_failed`) and leaves the
+announcements untriaged; it never blocks publication. Triage existing or failed
+announcements (repeatable until `items` is 0):
+
+```bash
+uv run --locked newsloom-platform triage-announcements
+```
+
+Preview rubric changes locally on the recorded announcement week first
+(`bash scripts/triage-preview.sh`, live, about USD 0.10; `--replay` is free).
+Measured on 2026-11-09 over 313 announcements: 2% act now, 44% worth knowing,
+54% later.
+
 ### Announcements and the product graph
 
 The same generation call also returns an article kind (announcement, roundup,

@@ -15,7 +15,7 @@ function PublishedBriefing({ briefing }: { briefing: Briefing }) {
     const citation = briefing.citations.find((item) => item.number === number);
     const href = citation && safeHttps(citation.url)?.href;
     return href ? <a href={href} target="_blank" rel="noopener noreferrer" className="link"
-      title={citation.title}>[{number}]<span className="sr-only"> {citation.title} (opens in a new tab)</span></a>
+      title={citation.title} aria-label={`[${number}] ${citation.title} (opens in a new tab)`}>[{number}]</a>
       : <span>[{number}]</span>;
   }
   function paragraph(part: BriefingParagraph, key?: number) {

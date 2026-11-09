@@ -867,13 +867,14 @@ def control(command: str, correlation: str, *, force: bool = False, limit: int =
         "read-enrichment",
         "verify-enrichment",
         "backfill-announcements",
+        "triage-announcements",
     ):
         if isinstance(limit, bool) or not 1 <= limit <= 25:
             raise PlatformFailure("invalid_enrichment_limit")
         reading = command == "read-enrichment"
         evaluating = command == "evaluate-enrichment"
         verifying = command == "verify-enrichment"
-        backfilling = command == "backfill-announcements"
+        backfilling = command in ("backfill-announcements", "triage-announcements")
         arguments = (
             ["enrichment-status"]
             if reading
@@ -881,7 +882,7 @@ def control(command: str, correlation: str, *, force: bool = False, limit: int =
             if evaluating
             else ["verify-access"]
             if verifying
-            else ["backfill-announcements"]
+            else [command]
             if backfilling
             else ["run", "--limit", str(limit)]
         )

@@ -10,6 +10,7 @@ from newsloom_core.briefing import BriefingRead
 
 from newsloom_mcp.embedding import QueryEmbedding
 from newsloom_mcp.feedback import FeedbackStore
+from newsloom_mcp.radar import RadarStore
 from newsloom_mcp.repository import NewsRepository
 
 
@@ -25,3 +26,4 @@ class Services:
     briefing: Callable[[datetime], Awaitable[BriefingRead]] | None = None
     feedback: Callable[[], AbstractAsyncContextManager[FeedbackStore]] | None = None
     feedback_reviewers: frozenset[UUID] = frozenset()
+    radar: Callable[[], AbstractAsyncContextManager[RadarStore]] | None = None

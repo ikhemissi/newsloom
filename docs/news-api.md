@@ -87,6 +87,25 @@ Set reviewers with `azd env set FEEDBACK_REVIEWER_OBJECT_IDS <oid>[,<oid>]`
 Reviewed exports become local eval cases with `scripts/feedback_to_evals.py`
 (see [development](development.md#checks-and-deployment)).
 
+### Architect radar
+
+| Route | Access | Purpose |
+| --- | --- | --- |
+| `GET /api/v1/radar?window=7\|30` | `news.read` + `oid` | The caller's ranked announcements: `tiers` (`act_now`, `worth_knowing`, `later`, each with single cards or cross-vendor groups), upcoming `deadlines` and `hidden` (done or snoozed) cards |
+| `GET /api/v1/me/stack` / `PUT /api/v1/me/stack` | `news.read` + `oid` | Read or replace the caller's followed vendors and products (`{"ids": [...]}`, at most 50) |
+| `PUT /api/v1/me/cards/{announcement_id}` | `news.read` + `oid` | `{"state": "done" \| "snoozed" \| null}`; snooze lasts 7 days |
+| `GET /api/v1/products?query=` | `news.read` | Vendors and products whose name or alias matches (2-100 characters, at most 10) |
+| `GET /api/v1/products/{id}` | `news.read` | A product's vendor, aliases, curated relations and announcement timeline |
+
+Tiers come from the enrichment triage. With a stack, "act now" keeps only
+announcements naming a followed vendor or product, plus security and regulation
+items; the rest move to "worth knowing". Followed items sort first, then nearest
+deadline, then newest; "later" shows at most 150. The same capability from two or
+more vendors in a tier becomes one group. Deadlines cover the next 90 days from
+the first two tiers. Untriaged announcements count as "worth knowing". Stack and
+card state use the same pseudonymous reader key as feedback; responses are never
+cached and their contents never logged.
+
 ## Cache and execution
 
 Every request verifies the configured tenant/issuer/audience/signature/lifetime

@@ -16,11 +16,12 @@ from newsloom_core.diagnostics import configure_logging, event
 from pydantic import ValidationError
 
 from newsloom_enrichment.evaluation import evaluate
-from newsloom_enrichment.job import backfill, run
+from newsloom_enrichment.job import backfill, run, triage_backfill
 from newsloom_enrichment.models import DEFAULT_LIMITS, EnrichmentFailure
 from newsloom_enrichment.providers import FoundryEmbedding, FoundryLlm, ModelClient, revisions
 from newsloom_enrichment.repository import ModelMetadata, Repository
 from newsloom_enrichment.telemetry import Telemetry
+from newsloom_enrichment.triage import FoundryTriage
 
 
 class Parser(argparse.ArgumentParser):
@@ -52,6 +53,7 @@ async def runtime(args: argparse.Namespace, correlation: str) -> None:
         transport = ModelClient(client, credential, env["MODEL_ENDPOINT"])
         llm = FoundryLlm(transport, env["ENRICHMENT_DEPLOYMENT"])
         embedding = FoundryEmbedding(transport, env["EMBEDDINGS_DEPLOYMENT"])
+        triage = FoundryTriage(transport, env["ENRICHMENT_DEPLOYMENT"])
         started = time.monotonic()
         if args.command == "evaluate":
             report = await evaluate(
@@ -114,8 +116,17 @@ async def runtime(args: argparse.Namespace, correlation: str) -> None:
                 if args.command == "backfill-announcements":
                     await backfill(repository, llm, embedding, correlation)
                     return
+                if args.command == "triage-announcements":
+                    await triage_backfill(repository, triage, correlation)
+                    return
                 counts = await run(
-                    repository, llm, embedding, metadata, correlation, limit=args.limit
+                    repository,
+                    llm,
+                    embedding,
+                    metadata,
+                    correlation,
+                    limit=args.limit,
+                    triage=triage,
                 )
                 counts.update({f"graph_{key}": value for key, value in repository.graph.items()})
                 counts.update({f"dropped_{key}": value for key, value in llm.dropped.items()})
@@ -135,7 +146,13 @@ def main() -> None:
         parser.add_argument(
             "command",
             nargs="?",
-            choices=["run", "evaluate", "verify-access", "backfill-announcements"],
+            choices=[
+                "run",
+                "evaluate",
+                "verify-access",
+                "backfill-announcements",
+                "triage-announcements",
+            ],
             default="run",
         )
         parser.add_argument("--limit", type=int, default=25)

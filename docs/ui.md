@@ -471,3 +471,22 @@ rating, type and date filters, and exports JSON Lines. Only object IDs in the AP
 `FEEDBACK_REVIEWER_OBJECT_IDS` can use it; others see "You are not a feedback
 reviewer." Readers are pseudonymous and feedback text is never logged; see the
 [news API](news-api.md#reader-feedback).
+
+## Architect radar
+
+The signed-in home page (`/`) is the radar
+([change](../openspec/changes/architect-radar-home/proposal.md)): the daily briefing as a header, whose
+citation markers open their sources directly, then a strip of upcoming deadlines,
+"Act now", "Worth knowing" (8 entries, then "Show more") and a collapsed "When
+you have time". Each card shows its status or deadline, vendor, statement (linked
+to the source), the triage reason and product links, with **Done**, **Snooze**
+(7 days), **Follow** (adds the card's products to My stack) and **Ask** (opens the
+agent panel with the item selected). Groups show four rows, then "Show all".
+"Hidden (n)" lists done and snoozed cards with **Restore**; 7 or 30 days changes
+the window.
+
+The previous list moved to **All news** (`/news`); item pages keep `/news/{id}`.
+**My stack** (`/stack`) searches vendors and products and lists followed ones;
+product pages (`/products/{id}`) show the vendor, aliases, related products and
+the timeline, which is also how product matching can be reviewed. Pages share the
+existing keyboard, focus and axe checks on desktop and phone widths.

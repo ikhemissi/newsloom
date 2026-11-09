@@ -27,6 +27,7 @@ VERSIONS = (
     "004_mcp_read",
     "010_article_acquisition",
     "011_announcements",
+    "012_radar",
 )
 
 

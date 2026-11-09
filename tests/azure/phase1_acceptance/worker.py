@@ -10,6 +10,7 @@ from newsloom_enrichment.job import run
 from newsloom_enrichment.models import Claim, Enrichment, Vector
 from newsloom_enrichment.providers import FoundryEmbedding, FoundryLlm, revisions
 from newsloom_enrichment.repository import ModelMetadata, Repository
+from newsloom_enrichment.triage import Rating
 from newsloom_platform import phase1_database
 
 
@@ -42,8 +43,9 @@ class ObservedRepository:
         metadata: ModelMetadata,
         correlation: str,
         mentions: dict[str, Vector] | None = None,
+        ratings: tuple[Rating, ...] = (),
     ) -> None:
-        await self.current.complete(claim, result, vector, metadata, correlation, mentions)
+        await self.current.complete(claim, result, vector, metadata, correlation, mentions, ratings)
 
     async def fail(
         self,

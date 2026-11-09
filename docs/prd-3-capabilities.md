@@ -235,3 +235,17 @@ reviewers can turn that into fixes and eval cases.
 - Readers are pseudonymous; feedback text is never logged.
 - An allowlisted reviewer can list and export feedback as JSON Lines for triage.
 
+## P3-C10: Architect radar
+
+**Assignment:** active [`architect-radar-home`](../openspec/changes/architect-radar-home/tasks.md).
+
+**Outcome:** At a glance, a reader sees what needs action, what is worth knowing
+and what can wait, personalised by the vendors and products they follow.
+
+**Acceptance criteria**
+- Model triage of announcements; personalised tiers, cross-vendor groups and
+  upcoming deadlines on the home page; the previous list remains as "All news".
+- Done, Snooze and Follow persist per pseudonymous reader across devices.
+- Product pages show aliases, related products and the timeline.
+- Briefing citation markers open their sources directly.
+
