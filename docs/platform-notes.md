@@ -45,3 +45,13 @@ to disable retrieval limits.
 Relative links, conditional-request validators, forced refetches, and hostile
 documents are covered by
 [P1-C02](prd-1-capabilities.md#p1-c02-safe-feed-retrieval-and-normalization).
+
+## Governance tags on Terraform state storage (2026-11-09)
+
+Every resource, including the bootstrap state resource group and storage account,
+must keep the `CostControl` and `SecurityControl` tags from `RESOURCE_TAGS`. When
+they were missing on the state storage, tenant governance disabled its public
+network access, and every layer's `terraform init` failed with a storage
+`AuthorizationFailure` (403). Recover with `azd provision bootstrap --preview`
+(it should only restore the tags and `public_network_access`), then apply after
+review. The bootstrap layer keeps local state, so it is not blocked by the outage.

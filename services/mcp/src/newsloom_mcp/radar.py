@@ -155,7 +155,8 @@ def group(cards: list[Card]) -> tuple[Entry, ...]:
     for card in cards:
         members = by_capability.get(card.capability or "", [])
         vendors = {product.vendor for member in members for product in member.products}
-        if card.capability and len(vendors) >= 2:
+        # A group is several announcements from several vendors, never one multi-vendor card.
+        if card.capability and len(members) >= 2 and len(vendors) >= 2:
             if card.capability not in grouped:
                 grouped.add(card.capability)
                 entries.append(GroupEntry(capability=card.capability, cards=tuple(members)))
