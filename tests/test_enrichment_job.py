@@ -22,6 +22,7 @@ from newsloom_enrichment.models import (
 )
 from newsloom_enrichment.providers import ModelClient
 from newsloom_enrichment.repository import Repository
+from newsloom_enrichment.triage import Rating
 from test_enrichment_database import (
     METADATA,
     enriched,
@@ -58,9 +59,11 @@ class MemoryRepository:
         metadata: object,
         correlation: str,
         mentions: dict[str, Vector] | None = None,
+        ratings: tuple[Rating, ...] = (),
     ) -> None:
         self.completed += 1
         self.mentions = mentions
+        self.ratings = ratings
 
     async def fail(self, claim: Claim, reason: str, retry_after: float, correlation: str) -> None:
         self.failed += 1

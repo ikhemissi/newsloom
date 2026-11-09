@@ -12,12 +12,24 @@ from psycopg.errors import InsufficientPrivilege
 from newsloom_enrichment.entities import Curated, GraphWriter, load_curated
 from newsloom_enrichment.models import (
     DEFAULT_LIMITS,
+    Announcement,
     Claim,
     Enrichment,
     EnrichmentFailure,
     Limits,
     Vector,
 )
+from newsloom_enrichment.triage import Rating
+
+
+@dataclass
+class Untriaged:
+    news_id: UUID
+    title: str
+    summary: str
+    article_kind: str
+    ids: list[UUID]
+    announcements: list[Announcement]
 
 
 @dataclass(frozen=True)
@@ -40,6 +52,7 @@ class EnrichmentRepository(Protocol):
         metadata: ModelMetadata,
         correlation: str,
         mentions: dict[str, Vector] | None = None,
+        ratings: tuple[Rating, ...] = (),
     ) -> None: ...
     async def fail(
         self,
@@ -141,6 +154,7 @@ class Repository:
         metadata: ModelMetadata,
         correlation: str,
         mentions: dict[str, Vector] | None = None,
+        ratings: tuple[Rating, ...] = (),
     ) -> None:
         async with self.connection.transaction():
             owned = await (
@@ -184,7 +198,7 @@ class Repository:
                     result.article_kind.value,
                 ),
             )
-            await self.write_graph(claim.id, result, mentions or {})
+            await self.write_graph(claim.id, result, mentions or {}, ratings)
             cursor = await self.connection.execute(
                 "UPDATE ingestion_queue SET status='completed',completed_at=clock_timestamp(),"
                 "updated_at=clock_timestamp(),lease_token=NULL,lease_until=NULL,last_error=NULL "
@@ -196,12 +210,16 @@ class Repository:
                 raise EnrichmentFailure("enrichment_lease_lost")
 
     async def write_graph(
-        self, news_id: UUID, result: Enrichment, mentions: dict[str, Vector]
+        self,
+        news_id: UUID,
+        result: Enrichment,
+        mentions: dict[str, Vector],
+        ratings: tuple[Rating, ...] = (),
     ) -> None:
         if not result.announcements:
             return
         writer = GraphWriter(self.connection, self.curated)
-        await writer.write(news_id, result.announcements, mentions)
+        await writer.write(news_id, result.announcements, mentions, ratings)
         self.graph["announcements"] += len(result.announcements)
         for key, value in writer.counts.items():
             self.graph[key] += value
@@ -241,6 +259,68 @@ class Repository:
             )
             await self.write_graph(news_id, result, mentions)
         return True
+
+    async def untriaged(self, limit: int) -> list[Untriaged]:
+        """News items whose stored announcements have not been triaged yet."""
+        rows = await (
+            await self.connection.execute(
+                "SELECT n.id,n.title,n.summary,coalesce(n.article_kind,'other'),a.id,a.ordinal,"
+                "a.statement,a.change_type,a.status,a.effective_date,a.deadline,"
+                "coalesce(array_agg(e.canonical_name ORDER BY e.canonical_name) "
+                "FILTER (WHERE e.id IS NOT NULL),'{}'),"
+                "coalesce(array_agg(v.canonical_name ORDER BY e.canonical_name) "
+                "FILTER (WHERE e.id IS NOT NULL),'{}') "
+                "FROM news n JOIN announcements a ON a.news_id=n.id "
+                "LEFT JOIN announcement_entities ae ON ae.announcement_id=a.id "
+                "LEFT JOIN entities e ON e.id=ae.entity_id "
+                "LEFT JOIN entities v ON v.id=e.vendor_id "
+                "WHERE n.id IN (SELECT DISTINCT news_id FROM announcements WHERE tier IS NULL "
+                "LIMIT %s) GROUP BY n.id,a.id ORDER BY n.id,a.ordinal",
+                (limit,),
+            )
+        ).fetchall()
+        items: dict[UUID, Untriaged] = {}
+        for row in rows:
+            news_id, title, summary, kind, announcement_id = row[:5]
+            products = [
+                {"product": str(name)[:120], "vendor": str(vendor)[:80]}
+                for name, vendor in zip(row[11], row[12], strict=True)  # type: ignore[call-overload]
+            ][:5]
+            if (
+                not isinstance(news_id, UUID)
+                or not isinstance(announcement_id, UUID)
+                or not products
+            ):
+                continue
+            item = items.setdefault(
+                news_id, Untriaged(news_id, str(title), str(summary), str(kind), [], [])
+            )
+            item.ids.append(announcement_id)
+            item.announcements.append(
+                Announcement.model_validate(
+                    {
+                        "statement": row[6],
+                        "change_type": row[7],
+                        "status": row[8],
+                        "effective_date": row[9].isoformat() if row[9] else None,  # type: ignore[attr-defined]
+                        "deadline": row[10].isoformat() if row[10] else None,  # type: ignore[attr-defined]
+                        "products": products,
+                    }
+                )
+            )
+        return list(items.values())
+
+    async def store_triage(self, ids: list[UUID], ratings: tuple[Rating, ...]) -> int:
+        stored = 0
+        async with self.connection.transaction():
+            for rating in ratings:
+                cursor = await self.connection.execute(
+                    "UPDATE announcements SET tier=%s,reason=%s,capability=%s,"
+                    "triaged_at=clock_timestamp() WHERE id=%s AND tier IS NULL",
+                    (rating.tier, rating.reason, rating.capability, ids[rating.index]),
+                )
+                stored += cursor.rowcount
+        return stored
 
     async def fail(
         self,

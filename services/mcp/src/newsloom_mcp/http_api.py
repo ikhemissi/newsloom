@@ -4,7 +4,8 @@ import asyncio
 import json
 import time
 from datetime import UTC, datetime
-from uuid import uuid4
+from typing import Literal
+from uuid import UUID, uuid4
 
 import httpx
 import psycopg
@@ -44,6 +45,7 @@ from newsloom_mcp.http_models import (
     normalized,
 )
 from newsloom_mcp.models import DetailInput, McpFailure
+from newsloom_mcp.radar import CardInput, SearchQuery, StackInput
 from newsloom_mcp.response_cache import Entry, ResponseCache
 from newsloom_mcp.services import Services
 
@@ -66,14 +68,36 @@ FEEDBACK_ROUTES = {
 }
 
 
+RADAR_ROUTES = frozenset({"radar", "stack", "stack_update", "card_state", "products", "product"})
+# Routes that read or write the caller's own data need their object ID.
+READER_ROUTES = frozenset({"radar", "stack", "stack_update", "card_state"})
+
+
+def radar_route(path: str, method: str) -> tuple[str, str] | None:
+    if path == PREFIX + "/radar":
+        return "radar", "GET"
+    if path == PREFIX + "/me/stack":
+        return ("stack_update", "PUT") if method == "PUT" else ("stack", "GET")
+    if path.startswith(PREFIX + "/me/cards/") and "/" not in path[len(PREFIX + "/me/cards/") :]:
+        return "card_state", "PUT"
+    if path == PREFIX + "/products":
+        return "products", "GET"
+    if path.startswith(PREFIX + "/products/") and "/" not in path[len(PREFIX + "/products/") :]:
+        return "product", "GET"
+    return None
+
+
 def required_scope(route: str) -> str:
     # Feedback reuses the reader's news.read sign-in; reviewers are an allowlist.
     return "news.read"
 
 
-def api_route(path: str) -> tuple[str, str] | None:
+def api_route(path: str, method: str = "GET") -> tuple[str, str] | None:
     if path in FEEDBACK_ROUTES:
         return FEEDBACK_ROUTES[path]
+    radar = radar_route(path, method)
+    if radar is not None:
+        return radar
     if path == PREFIX + "/briefing":
         return "briefing", "GET"
     if path == PREFIX + "/news":
@@ -124,7 +148,13 @@ class NewsApi:
             return
         started = time.monotonic()
         request_id = uuid4().hex
-        route = api_route(scope["path"])
+        requested = Headers(scope=scope).getlist("access-control-request-method")
+        method = (
+            requested[0]
+            if scope["method"] == "OPTIONS" and len(requested) == 1
+            else scope["method"]
+        )
+        route = api_route(scope["path"], method)
         outcome, cache_state = "failure", "none"
         request = Request(scope, receive)
         origin: str | None = None
@@ -145,6 +175,7 @@ class NewsApi:
                 or route is None
                 or (route[0] == "briefing" and self.services.briefing is None)
                 or (route[0].startswith("feedback") and self.services.feedback is None)
+                or (route[0] in RADAR_ROUTES and self.services.radar is None)
             ):
                 raise ApiFailure(404, "not_found")
             if len(scope.get("raw_path", b"")) + len(scope.get("query_string", b"")) + 1 > 8192:
@@ -255,7 +286,7 @@ class NewsApi:
             raise ApiFailure(401, "unauthorized")
         if required_scope(route) not in claims.scp.split():
             raise ApiFailure(403, "insufficient_scope")
-        if route.startswith("feedback") and claims.oid is None:
+        if (route.startswith("feedback") or route in READER_ROUTES) and claims.oid is None:
             raise ApiFailure(403, "insufficient_scope")
         if (
             route in ("feedback_review", "feedback_export")
@@ -315,6 +346,75 @@ class NewsApi:
             )
         return JSONResponse({"items": [item.model_dump(mode="json") for item in items]})
 
+    async def radar(self, request: Request, body: bytes, route: str, claims: Claims) -> Response:
+        """Per-reader and catalogue reads/writes; never cached, contents never logged."""
+        if self.services.radar is None or (route in READER_ROUTES and claims.oid is None):
+            raise ApiFailure(404, "not_found")
+        reader = reader_hash(claims.tid, claims.oid) if claims.oid is not None else ""
+        params = dict(request.query_params)
+        identifier = (
+            UUID(request.url.path.rsplit("/", 1)[-1])
+            if route in ("card_state", "product")
+            else None
+        )
+        if route in ("stack_update", "card_state"):
+            types = request.headers.getlist("content-type")
+            if (
+                params
+                or len(types) != 1
+                or types[0].split(";")[0].strip().lower() != "application/json"
+            ):
+                raise ApiFailure(415, "unsupported_media_type")
+        window: Literal[7, 30] = 7
+        if route == "radar":
+            if set(params) - {"window"} or params.get("window", "7") not in ("7", "30"):
+                raise ApiFailure(400, "invalid_input")
+            window = 30 if params.get("window") == "30" else 7
+        elif route == "products":
+            query = SearchQuery.model_validate(params)
+        elif params:
+            raise ApiFailure(400, "invalid_input")
+        try:
+            async with asyncio.timeout(1):
+                await self.semaphore.acquire()
+        except TimeoutError:
+            raise ApiFailure(429, "overloaded") from None
+        try:
+            async with self.services.radar() as store:
+                value: BaseModel | tuple[BaseModel, ...] | None
+                if route == "radar":
+                    value = await store.radar(reader, window, datetime.now(UTC))
+                elif route == "stack":
+                    value = await store.stack(reader)
+                elif route == "stack_update":
+                    value = await store.set_stack(
+                        reader, StackInput.model_validate(json_input(body)).ids
+                    )
+                elif route == "card_state" and identifier is not None:
+                    state = CardInput.model_validate(json_input(body))
+                    if not await store.set_card(reader, identifier, state):
+                        raise ApiFailure(404, "not_found")
+                    value = state
+                elif route == "products":
+                    value = await store.search(query.query)
+                elif identifier is not None:
+                    value = await store.product(identifier)
+                    if value is None:
+                        raise ApiFailure(404, "not_found")
+                else:
+                    raise ApiFailure(404, "not_found")
+        finally:
+            self.semaphore.release()
+        content = (
+            {"items": [item.model_dump(mode="json") for item in value]}
+            if isinstance(value, tuple)
+            else value.model_dump(mode="json")
+        )
+        payload = json.dumps(content, separators=(",", ":"), ensure_ascii=False).encode()
+        if len(payload) > 1024 * 1024:
+            raise ApiFailure(503, "response_limit")
+        return Response(payload, media_type="application/json")
+
     @staticmethod
     async def disconnected(receive: Receive) -> None:
         while True:
@@ -332,6 +432,8 @@ class NewsApi:
     ) -> tuple[Response, str, Entry | None, str]:
         if route.startswith("feedback"):
             return await self.feedback(request, body, route, claims), "", None, "bypass"
+        if route in RADAR_ROUTES:
+            return await self.radar(request, body, route, claims), "", None, "bypass"
         cutoff = cutoff_at(datetime.now(UTC))
         args, after, identifier = None, None, None
         if route == "news":

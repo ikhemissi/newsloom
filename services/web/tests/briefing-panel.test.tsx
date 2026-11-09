@@ -178,9 +178,10 @@ test("App keeps composer, selected news, answer/context and panel scroll indepen
   fireEvent.click(screen.getByRole("button", { name: "Ask Newsloom" })); await flush();
   panel.scrollTop = 137;
   summary().open = true;
-  fireEvent.click(within(region).getAllByRole("button", { name: "Focus briefing citation 1" })[0]!);
-  expect(region.querySelector("li")).toHaveFocus();
-  expect(region.querySelector("a")).toHaveAttribute("rel", "noopener noreferrer");
+  const marker = within(region).getAllByRole("link", { name: /^\[1\]/ })[0]!;
+  expect(marker).toHaveAttribute("href", region.querySelector("li a")?.getAttribute("href"));
+  expect(marker).toHaveAttribute("rel", "noopener noreferrer");
+  expect(marker).toHaveAttribute("target", "_blank");
   await tick(60_000);
   expect(panel.scrollTop).toBe(137); expect(summary().open).toBe(true);
   expect(question).toHaveValue("Keep authored input");

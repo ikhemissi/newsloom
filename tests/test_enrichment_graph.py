@@ -5,7 +5,13 @@ import pytest
 from azure.identity.aio import ManagedIdentityCredential
 from newsloom_core.categories import Category
 from newsloom_enrichment.entities import load_curated
-from newsloom_enrichment.models import Announcement, ArticleKind, Enrichment, Vector
+from newsloom_enrichment.models import (
+    Announcement,
+    ArticleKind,
+    Enrichment,
+    EnrichmentFailure,
+    Vector,
+)
 from newsloom_enrichment.repository import Repository
 from newsloom_platform import database
 from newsloom_platform.config import RuntimeConfig
@@ -223,3 +229,80 @@ async def test_backfill_adds_announcements_once_without_changing_summaries(
     assert await rows(repository, "SELECT count(*) FROM announcements") == [(2,)]
     again = await backfill(repository, Llm(), Embeddings(), "backfill")
     assert again["candidates"] == 0 and Llm.calls == 2
+
+
+async def test_triage_is_stored_with_announcements_and_backfilled_once(
+    repository: Repository, platform_database: RuntimeConfig
+) -> None:
+    from newsloom_enrichment.job import triage_backfill
+    from newsloom_enrichment.triage import Rating
+
+    def rated(count: int) -> tuple[Rating, ...]:
+        return tuple(
+            Rating(index=i, tier="act_now", reason="Breaks deployments.", capability="security")
+            for i in range(count)
+        )
+
+    claim = await repository.claim("graph")
+    assert claim is not None
+    value = result(announcement(mention("Widget", "Acme")), announcement(mention("Gadget", "Acme")))
+    await repository.complete(claim, value, vector(), METADATA, "graph", {}, rated(1))
+    await complete(repository, result(announcement(mention("Widget", "Acme"))), {})
+    stored = await rows(
+        repository,
+        "SELECT tier, capability, triaged_at IS NOT NULL FROM announcements "
+        "ORDER BY created_at, ordinal",
+    )
+    assert stored == [("act_now", "security", True), (None, None, False), (None, None, False)]
+
+    class Triage:
+        calls = 0
+
+        async def rate(self, title, summary, kind, announcements, deadline):  # type: ignore[no-untyped-def]
+            Triage.calls += 1
+            assert [m.product for item in announcements for m in item.products]
+            return rated(len(announcements))
+
+    counts = await triage_backfill(repository, Triage(), "triage")
+    assert counts == {"items": 2, "announcements": 2, "failed": 0, "deferred": 0}
+    assert await rows(repository, "SELECT count(*) FROM announcements WHERE tier IS NULL") == [(0,)]
+    again = await triage_backfill(repository, Triage(), "triage")
+    assert again["items"] == 0 and Triage.calls == 2
+    with pytest.raises(InsufficientPrivilege):
+        async with repository.connection.transaction():
+            await repository.connection.execute("UPDATE announcements SET status='ga'")
+    async with (
+        ManagedIdentityCredential() as credential,
+        await database.connect(platform_database, credential, "newsloom", "postgres") as admin,
+    ):
+        await admin.execute("SET ROLE newsloom_mcp")
+        announcement_id = (
+            await (await admin.execute("SELECT id FROM announcements LIMIT 1")).fetchone()
+        )[0]  # type: ignore[index]
+        reader = "a" * 64
+        await admin.execute(
+            "INSERT INTO reader_card_state(reader,announcement_id,state,snoozed_until) "
+            "VALUES (%s,%s,'snoozed',clock_timestamp())",
+            (reader, announcement_id),
+        )
+        await admin.execute("DELETE FROM reader_card_state WHERE reader=%s", (reader,))
+        with pytest.raises(InsufficientPrivilege):
+            await admin.execute("UPDATE announcements SET tier='later'")
+
+
+async def test_triage_failure_never_blocks_publication(repository: Repository) -> None:
+    from newsloom_core.entries import Entry
+    from newsloom_enrichment.job import run
+    from test_enrichment_job import Embeddings
+
+    class Llm:
+        async def generate(self, item: Entry, deadline: float) -> Enrichment:
+            return result(announcement(mention("Widget", "Acme")))
+
+    class Failing:
+        async def rate(self, *args: object) -> tuple[()]:
+            raise EnrichmentFailure("invalid_triage")
+
+    counts = await run(repository, Llm(), Embeddings(), METADATA, "run", limit=1, triage=Failing())
+    assert counts["enriched_run"] == 1 and counts["triage_failed"] == 1
+    assert await rows(repository, "SELECT tier FROM announcements") == [(None,)]

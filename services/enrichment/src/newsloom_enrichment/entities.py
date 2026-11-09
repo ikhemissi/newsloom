@@ -10,6 +10,7 @@ from psycopg import AsyncConnection
 from pydantic import BaseModel, ConfigDict, Field
 
 from newsloom_enrichment.models import Announcement, EnrichmentFailure, Vector, normalized
+from newsloom_enrichment.triage import Rating
 
 SIMILARITY = 0.92
 # Serializes graph writers (scheduled enrichment and backfill) inside their transactions.
@@ -116,13 +117,18 @@ class GraphWriter:
         news_id: UUID,
         announcements: tuple[Announcement, ...],
         vectors: dict[str, Vector],
+        ratings: tuple[Rating, ...] = (),
     ) -> None:
         await self.connection.execute("SELECT pg_advisory_xact_lock(%s)", (GRAPH_LOCK,))
+        rated = {rating.index: rating for rating in ratings}
         for ordinal, item in enumerate(announcements):
+            rating = rated.get(ordinal)
             row = await (
                 await self.connection.execute(
                     "INSERT INTO announcements(news_id,ordinal,statement,change_type,status,"
-                    "effective_date,deadline) VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING id",
+                    "effective_date,deadline,tier,reason,capability,triaged_at) "
+                    "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,"
+                    "CASE WHEN %s::text IS NULL THEN NULL ELSE clock_timestamp() END) RETURNING id",
                     (
                         news_id,
                         ordinal,
@@ -131,6 +137,10 @@ class GraphWriter:
                         item.status.value,
                         item.effective_date,
                         item.deadline,
+                        rating and rating.tier,
+                        rating and rating.reason,
+                        rating and rating.capability,
+                        rating and rating.tier,
                     ),
                 )
             ).fetchone()

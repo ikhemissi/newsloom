@@ -117,6 +117,7 @@ def main() -> None:
                 "execute-briefing",
                 "execute-enrichment",
                 "backfill-announcements",
+                "triage-announcements",
                 "evaluate-enrichment",
                 "read-enrichment",
                 "verify-enrichment",

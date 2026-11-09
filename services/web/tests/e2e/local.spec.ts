@@ -50,10 +50,9 @@ test.describe("daily shared briefing", () => {
       const fullText = await details.locator("section p").allTextContents();
       expect(fullText.join(" ").replace(/\[1\]/g, "").trim().split(/\s+/).length).toBe(990);
       expect(await region.locator("img, svg, script").count()).toBe(0);
-      const citationButton = region.getByRole("button", { name: "Focus briefing citation 1" }).first();
-      await citationButton.focus(); await page.keyboard.press("Enter");
-      await expect(details.locator("li")).toBeFocused();
-      const source = details.getByRole("link");
+      const marker = region.getByRole("link", { name: /^\[1\]/ }).first();
+      await expect(marker).toHaveAttribute("href", "https://publisher.test/briefing");
+      const source = details.locator("ol").getByRole("link");
       await expect(source).toHaveAttribute("href", "https://publisher.test/briefing");
       await expect(source).toHaveAttribute("rel", "noopener noreferrer");
       await summary.focus(); await page.keyboard.press("Space");
@@ -157,7 +156,7 @@ test.describe("daily shared briefing", () => {
         expect((await details.locator("section p").allTextContents()).join(" ")
           .replace(/\[1\]/g, "").trim().split(/\s+/).length).toBe(
             result.briefing!.sections[0]!.paragraphs[0]!.text.split(/\s+/).length);
-        await expect(details.getByRole("link")).toHaveAttribute("href", "https://publisher.test/briefing");
+        await expect(details.locator("ol").getByRole("link")).toHaveAttribute("href", "https://publisher.test/briefing");
         expect(reads).toBe(before);
         expect(await page.locator("html").getAttribute("data-research-calls")).toBe("0");
         expect((await new AxeBuilder({ page }).analyze()).violations.map((item) => item.id)).toEqual([]);
@@ -566,4 +565,40 @@ test.describe("reader feedback", () => {
     const results = await new AxeBuilder({ page }).analyze();
     expect(results.violations.map((violation) => violation.id)).toEqual([]);
   });
+});
+
+test.describe("architect radar", () => {
+  for (const width of [1440, 390]) {
+    test(`${width}px radar, stack and product pages are keyboard accessible and inert`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto("/tests/harness.html?radar");
+      await expect(page.getByRole("heading", { name: "Act now · 1" })).toBeVisible();
+      await expect(page.getByText("Patch <img src=x onerror=bad()> now.").first()).toBeVisible();
+      expect(await page.locator("main img").count()).toBe(0);
+      await expect(page.getByRole("article", { name: "agent tools, 2 updates" })).toBeVisible();
+      const marker = page.getByRole("region", { name: "Daily news briefing" }).getByRole("link", { name: /^\[1\]/ }).first();
+      await expect(marker).toHaveAttribute("target", "_blank");
+      const done = page.getByRole("button", { name: /^Done: Patch/ });
+      await done.focus();
+      await expect(done).toBeFocused();
+      expect((await new AxeBuilder({ page }).analyze()).violations.map((item) => item.id)).toEqual([]);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await page.keyboard.press("Enter");
+      await expect(page.getByRole("heading", { name: "Act now · 0" })).toBeVisible();
+      await page.getByRole("button", { name: "Hidden (1)" }).click();
+      await page.getByRole("button", { name: /^Restore: Patch/ }).click();
+      await expect(page.getByRole("heading", { name: "Act now · 1" })).toBeVisible();
+
+      await page.getByRole("button", { name: "Follow products: Authored statement d." }).click();
+      await page.getByRole("navigation", { name: "Sections" }).getByRole("link", { name: "My stack" }).click();
+      const followed = page.getByRole("list", { name: "Followed" });
+      await expect(followed.getByText("Authored product d")).toBeVisible();
+      expect((await new AxeBuilder({ page }).analyze()).violations.map((item) => item.id)).toEqual([]);
+      await followed.getByRole("link", { name: /Authored product d/ }).click();
+      await expect(page.getByRole("heading", { name: "Authored product d" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "★ Following" })).toBeVisible();
+      expect((await new AxeBuilder({ page }).analyze()).violations.map((item) => item.id)).toEqual([]);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    });
+  }
 });

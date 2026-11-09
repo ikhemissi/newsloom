@@ -85,7 +85,7 @@ test("research answers are rated with the displayed snapshot and no new research
   fireEvent.click(screen.getByRole("button", { name: "Ask Newsloom" }));
   const group = await screen.findByRole("group", { name: "Rate this answer" });
   fireEvent.click(within(group).getByRole("button", { name: /Not helpful/ }));
-  fireEvent.change(screen.getAllByLabelText("Comment (optional)").at(-1)!, { target: { value: "Missed security" } });
+  fireEvent.change((await screen.findAllByLabelText("Comment (optional)")).at(-1)!, { target: { value: "Missed security" } });
   fireEvent.click(screen.getAllByRole("button", { name: "Send feedback" }).at(-1)!);
   await waitFor(() => expect(feedback.sent).toHaveLength(1));
   const [entry] = feedback.sent;

@@ -11,6 +11,8 @@ import { LocalTimestamp, localDateTimeFormat, useDisplayClock } from "./timestam
 import { BriefingPanel } from "./BriefingPanel";
 import type { FeedbackClient, ResearchSnapshot } from "./feedback";
 import { FeedbackControls, ReviewPage } from "./Feedback";
+import type { RadarCard, RadarClient } from "./radar";
+import { ProductPage, RadarPage, StackPage } from "./Radar";
 
 const STATUS: Record<string, string> = {
   announced: "Announced", preview: "Preview", ga: "GA", updated: "Updated",
@@ -56,9 +58,11 @@ export function AnswerView({ answer }: { answer: Answer }) {
   </section>;
 }
 
-export function App({ auth, research, catalog, feedback }: {
+export function App({ auth, research, catalog, feedback, radar }: {
   auth: AuthSession; research: ResearchClient; catalog: NewsCatalog; feedback?: FeedbackClient | undefined;
+  radar?: RadarClient | undefined;
 }) {
+  const listPath = radar ? "/news" : "/";
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState<Answer | null>(null);
   const [rated, setRated] = useState<{ id: string; snapshot: ResearchSnapshot } | null>(null);
@@ -83,7 +87,7 @@ export function App({ auth, research, catalog, feedback }: {
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [readAt, setReadAt] = useState("");
   const [readAge, setReadAge] = useState(0);
-  const [route, setRoute] = useState<NewsRoute>(() => newsRoute(window.location.pathname));
+  const [route, setRoute] = useState<NewsRoute>(() => newsRoute(window.location.pathname, !!radar));
   const [detail, setDetail] = useState<NewsDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState("");
@@ -121,7 +125,7 @@ export function App({ auth, research, catalog, feedback }: {
     detailRun.current++; detailController.current?.abort();
   }, []);
   useEffect(() => {
-    const changed = () => setRoute(newsRoute(window.location.pathname));
+    const changed = () => setRoute(newsRoute(window.location.pathname, !!radar));
     window.addEventListener("popstate", changed);
     return () => window.removeEventListener("popstate", changed);
   }, []);
@@ -154,8 +158,19 @@ export function App({ auth, research, catalog, feedback }: {
   }, [route, detailLoading]);
 
   function navigateHome(replace = false) {
-    window.history[replace ? "replaceState" : "pushState"](null, "", "/");
+    window.history[replace ? "replaceState" : "pushState"](null, "", listPath);
     setRoute({ kind: "news" });
+  }
+  function navigate(path: string, event?: React.MouseEvent<HTMLAnchorElement>) {
+    if (event && (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)) return;
+    event?.preventDefault();
+    window.history.pushState(null, "", path);
+    setRoute(newsRoute(path, !!radar));
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }
+  function askAboutCard(card: RadarCard, opener: HTMLButtonElement) {
+    openPanel(opener, { id: card.newsId, title: card.title, summary: card.statement, source: card.source,
+      category: "", publishedAt: card.publishedAt, url: card.url });
   }
   function openDetail(event: React.MouseEvent<HTMLAnchorElement>, id: string) {
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
@@ -360,6 +375,11 @@ export function App({ auth, research, catalog, feedback }: {
     <header className="navbar site-header">
       <a href="/" className="brand" aria-label="Newsloom home">Newsloom<span className="brand-dot">.</span></a>
       <span className="badge badge-outline">Early access</span>
+      {signedIn && radar && <nav aria-label="Sections" className="site-nav">
+        {([["/", "Radar", "radar"], ["/news", "All news", "news"], ["/stack", "My stack", "stack"]] as const).map(([path, text, kind]) =>
+          <a key={path} href={path} className={`link ${route.kind === kind ? "active" : ""}`}
+            aria-current={route.kind === kind ? "page" : undefined} onClick={(event) => navigate(path, event)}>{text}</a>)}
+      </nav>}
       {signedIn && <form className="top-search" role="search" onSubmit={(event) => {
         event.preventDefault();
         applyFilters(query.trim());
@@ -383,6 +403,11 @@ export function App({ auth, research, catalog, feedback }: {
     </header>
     <main id="main" className={`news-page ${panelOpen ? "with-agent" : ""}`}>
       <section className="news-column">
+      {signedIn && radar && route.kind === "radar" && <RadarPage client={radar} navigate={navigate}
+        onAsk={askAboutCard} briefing={<BriefingPanel catalog={catalog} active={signedIn} feedback={feedback} />} />}
+      {signedIn && radar && route.kind === "product" && <ProductPage client={radar} id={route.id}
+        navigate={navigate} onBack={() => window.history.back()} />}
+      {signedIn && radar && route.kind === "stack" && <StackPage client={radar} navigate={navigate} />}
       {signedIn && route.kind === "feedback" && (feedback ? <ReviewPage client={feedback} />
         : <section><h1>Feedback review</h1><p>Feedback is not available.</p></section>)}
       {signedIn && route.kind === "invalid" && <section>
@@ -521,7 +546,7 @@ export function App({ auth, research, catalog, feedback }: {
         tabIndex={0} hidden={!panelOpen}>
         <div className="panel-heading"><h2>Ask Newsloom</h2>
           <button className="btn btn-ghost btn-sm" onClick={closePanel}>Close agent panel</button></div>
-        <BriefingPanel catalog={catalog} active={signedIn && panelOpen} feedback={feedback} />
+        {!radar && <BriefingPanel catalog={catalog} active={signedIn && panelOpen} feedback={feedback} />}
         <p className="notice">Research is early access. Quality evaluation is still in progress.</p>
         {selected && <div className="context-chip">
           <span>Current news: {selected.title}</span>
