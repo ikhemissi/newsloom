@@ -121,16 +121,12 @@ before deciding a spending policy; no daily dollar cap is added. Actual RBAC
 scope and semantic/citation/scheduling acceptance must be measured, not inferred
 from a client deployment name or local fixture.
 
-## Web IQ key held by a Foundry project connection (exception)
+## Web IQ with the agent's managed identity (no key)
 
 Decided 2026-11-10 for [web research](../openspec/changes/web-research/proposal.md).
-Newsloom uses Entra, managed identities and RBAC and keeps no keys. Web IQ's MCP
-server could not be confirmed to accept Entra tokens, so the user approved one
-exception: the Web IQ API key is stored only in a dedicated Foundry project
-connection, entered by the operator through a hidden prompt and written through
-Azure Resource Manager. It never appears in the repository, azd environment,
-Terraform state, application settings or logs. The agent calls the project's
-Responses API with its managed identity, and Foundry attaches the key.
-
-Review from the week after Ignite: if Web IQ supports Entra and RBAC, replace the
-connection with managed-identity access and delete the key.
+An exception allowing a Web IQ API key in a Foundry project connection was
+approved and then superseded the same day: Web IQ accepts Microsoft Entra
+app-only tokens for client IDs bound in Web IQ profiles, and a request from the
+agent container with its managed identity succeeded. Newsloom therefore keeps its
+no-keys rule: the agent calls Web IQ with its managed identity, the Web IQ account
+is Terraform-managed, and the binding is a documented one-time operator step.

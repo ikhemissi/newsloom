@@ -1,47 +1,25 @@
 locals {
-  count = var.enabled ? 1 : 0
-  name  = "research-newsloom-${var.environment_name}"
-  agent = var.enabled ? jsondecode(base64decode(var.agent_identity_base64)) : null
+  name = "webiq-newsloom-${var.environment_name}"
 }
 
-# A dedicated project: anyone with access to a project can read keys stored in its
-# connections, so only the agent and the operator use this one.
-resource "azurerm_cognitive_account_project" "research" {
-  count                = local.count
-  name                 = local.name
-  cognitive_account_id = var.model_account_id
-  location             = var.location
-  display_name         = "Newsloom web research"
-  description          = "Holds the Web IQ connection used by the research agent."
-  tags                 = merge(var.tags, { azd-env-name = var.environment_name, newsloom-slice = "web-research" })
-
-  identity {
-    type = "SystemAssigned"
+# Web IQ account that meters web searches. The agent authenticates with its
+# managed identity, whose client ID is bound to this account's AppID in Web IQ
+# profiles (a manual step; see docs/agent.md). No key is created or stored.
+resource "azapi_resource" "webiq" {
+  count     = var.enabled ? 1 : 0
+  type      = "Microsoft.WebIQ/accounts@2026-06-01-preview"
+  name      = local.name
+  parent_id = "/subscriptions/${var.subscription_id}/resourceGroups/${var.resource_group_name}"
+  location  = "global"
+  tags      = merge(var.tags, { azd-env-name = var.environment_name })
+  body = {
+    kind = "WebIQ.Grounding"
+    sku  = { name = "G3" }
   }
-
-  lifecycle {
-    prevent_destroy = true
-  }
+  schema_validation_enabled = false
+  response_export_values    = ["properties.provisioningState"]
 }
 
-resource "azurerm_role_assignment" "agent" {
-  count                            = local.count
-  scope                            = azurerm_cognitive_account_project.research[0].id
-  role_definition_id               = "/subscriptions/${var.subscription_id}/providers/Microsoft.Authorization/roleDefinitions/${var.foundry_user_role_id}"
-  principal_id                     = local.agent.principal_id
-  principal_type                   = "ServicePrincipal"
-  skip_service_principal_aad_check = true
-  lifecycle {
-    precondition {
-      condition     = var.foundry_user_role_id != ""
-      error_message = "Web research needs the Foundry User role ID."
-    }
-  }
-}
-
-output "WEB_RESEARCH_PROJECT_ID" {
-  value = var.enabled ? azurerm_cognitive_account_project.research[0].id : ""
-}
-output "WEB_RESEARCH_PROJECT_ENDPOINT" {
-  value = var.enabled ? "https://${basename(var.model_account_id)}.services.ai.azure.com/api/projects/${local.name}" : ""
+output "WEBIQ_ACCOUNT_NAME" {
+  value = var.enabled ? azapi_resource.webiq[0].name : ""
 }
