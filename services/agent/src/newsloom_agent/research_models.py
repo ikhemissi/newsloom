@@ -18,6 +18,10 @@ MAX_SELECTED_ITEMS = 5
 MAX_TOOL_CALLS = 8
 MAX_EVIDENCE_ITEMS = 10
 MAX_ANSWER_BYTES = 16 * 1024
+MAX_HISTORY_TURNS = 3
+MAX_HISTORY_BYTES = 12 * 1024
+MAX_FOLLOW_UPS = 3
+MAX_FOLLOW_UP_CHARS = 120
 
 SourceId = Annotated[str, Field(strict=True, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$", max_length=128)]
 ResearchLimit = Annotated[int, Field(strict=True, ge=1, le=5)]
@@ -112,6 +116,31 @@ class ResearchFilters(ResearchContract):
         return self
 
 
+class HistoryTurn(ResearchContract):
+    """One earlier turn supplied by the caller; context for interpretation, never evidence."""
+
+    question: str = Field(strict=True, repr=False)
+    answer: str = Field(strict=True, repr=False)
+    cited_item_ids: Annotated[tuple[UUID, ...], Field(max_length=MAX_EVIDENCE_ITEMS)] = Field(
+        default=(), repr=False
+    )
+
+    @field_validator("question")
+    @classmethod
+    def bounded_question(cls, value: str) -> str:
+        return bounded_text(value, MAX_QUESTION_BYTES)
+
+    @field_validator("answer")
+    @classmethod
+    def bounded_answer(cls, value: str) -> str:
+        return bounded_text(value, MAX_HISTORY_BYTES)
+
+    @field_validator("cited_item_ids")
+    @classmethod
+    def distinct_citations(cls, value: tuple[UUID, ...]) -> tuple[UUID, ...]:
+        return distinct_ids(value)
+
+
 class ResearchRequest(ResearchContract):
     operation: Literal["research"]
     question: str = Field(strict=True, repr=False)
@@ -122,6 +151,17 @@ class ResearchRequest(ResearchContract):
     preferences: PresentationPreferences = Field(
         default_factory=PresentationPreferences, repr=False
     )
+    # Omitted when empty so requests without history reach the model exactly as before.
+    history: Annotated[tuple[HistoryTurn, ...], Field(max_length=MAX_HISTORY_TURNS)] = Field(
+        default=(), repr=False, exclude_if=lambda value: not value
+    )
+
+    @model_validator(mode="after")
+    def bounded_history(self) -> Self:
+        size = sum(len(turn.question.encode()) + len(turn.answer.encode()) for turn in self.history)
+        if size > MAX_HISTORY_BYTES:
+            raise ValueError("history_limit")
+        return self
 
     @field_validator("question")
     @classmethod
@@ -309,6 +349,17 @@ class ResearchAnswer(ResearchContract):
         repr=False
     )
     coverage: Literal["complete", "partial", "none", "discovery"]
+    follow_ups: Annotated[
+        tuple[Annotated[str, Field(min_length=1, max_length=MAX_FOLLOW_UP_CHARS)], ...],
+        Field(max_length=MAX_FOLLOW_UPS),
+    ] = Field(default=(), repr=False)
+
+    @field_validator("follow_ups")
+    @classmethod
+    def meaningful_follow_ups(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        if any(not item.strip() for item in value):
+            raise ValueError("blank_follow_up")
+        return value
 
     @field_validator("limitations")
     @classmethod

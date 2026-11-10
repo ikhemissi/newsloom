@@ -4,8 +4,7 @@ import { BriefingPanel } from "../src/BriefingPanel";
 import { App } from "../src/App";
 import type { BriefingResponse, NewsCatalog } from "../src/domain";
 import { UiFailure } from "../src/domain";
-import { parseAnswer } from "../src/answer";
-import { architectBriefing, briefing, briefingResponse, detail, legacyBriefing, newsItem, noMaterialBriefing, page, sourceCatalog } from "./fixtures";
+import { architectBriefing, briefing, briefingResponse, detail, legacyBriefing, newsItem, noMaterialBriefing, page, sourceCatalog, answerEvent } from "./fixtures";
 
 const catalog = (read = vi.fn(briefing)): NewsCatalog => ({
   briefing: read, recent: async () => page([newsItem]), search: async () => page([]),
@@ -158,7 +157,7 @@ test("App keeps composer, selected news, answer/context and panel scroll indepen
     .mockResolvedValueOnce(structuredClone(briefingResponse))
     .mockResolvedValueOnce(structuredClone(briefingResponse)).mockResolvedValue(updated));
   const ask = vi.fn(async function* () {
-    yield { kind: "answer" as const, answer: parseAnswer("Authored retained research answer.") };
+    yield answerEvent("Authored retained research answer.");
   });
   const session = {
     signedIn: () => true, signIn: async () => undefined, signOut: vi.fn(async () => undefined),
@@ -174,8 +173,10 @@ test("App keeps composer, selected news, answer/context and panel scroll indepen
   expect(children.indexOf(region)).toBe(1);
   expect(container.querySelector("img, svg")).toBeNull();
   const question = screen.getByLabelText("What would you like to understand?");
-  fireEvent.change(question, { target: { value: "Keep authored input" } });
+  fireEvent.change(question, { target: { value: "Authored first question" } });
   fireEvent.click(screen.getByRole("button", { name: "Ask Newsloom" })); await flush();
+  expect(question).toHaveValue("");
+  fireEvent.change(question, { target: { value: "Keep authored input" } });
   panel.scrollTop = 137;
   summary().open = true;
   const marker = within(region).getAllByRole("link", { name: /^\[1\]/ })[0]!;
@@ -223,7 +224,7 @@ test("closing the panel cancels only its briefing read, not in-flight research; 
     researchSignal = signal;
     yield { kind: "progress" as const, phase: "retrieving" as const };
     await pendingResearch;
-    yield { kind: "answer" as const, answer: parseAnswer("Independent completed answer.") };
+    yield answerEvent("Independent completed answer.");
   });
   const stop = vi.fn(async () => false);
   render(<App auth={{

@@ -17,6 +17,7 @@ from a2a.server.events import Event, EventQueue
 from a2a.server.request_handlers import RequestHandler
 from a2a.server.routes.common import ServerCallContextBuilder
 from a2a.types import (
+    Artifact,
     CancelTaskRequest,
     GetTaskRequest,
     ListTasksRequest,
@@ -48,7 +49,8 @@ from agent_framework import (
 )
 from agent_framework import Message as FrameworkMessage
 from agent_framework.a2a import A2AExecutor
-from google.protobuf.json_format import MessageToJson
+from google.protobuf import struct_pb2
+from google.protobuf.json_format import MessageToJson, ParseDict
 from newsloom_core.diagnostics import event
 from pydantic import ValidationError
 from starlette.requests import Request
@@ -105,6 +107,8 @@ class RecentAgent:
         self.generator = generator
         self.stats = GenerationStats()
         self.receipt: str | None = None
+        self.follow_ups: tuple[str, ...] = ()
+        self.cited: tuple[str, ...] = ()
         self.failure_category = "agent_execution_failed"
 
     @overload
@@ -262,6 +266,14 @@ class ResearchAgent(RecentAgent):
                             message_id=message_id,
                             contents=[Content.from_text(update.text[offset : offset + 1024])],
                         )
+                    self.follow_ups = update.answer.follow_ups
+                    self.cited = tuple(
+                        dict.fromkeys(
+                            str(item_id)
+                            for claim in update.answer.claims
+                            for item_id in claim.evidence_ids
+                        )
+                    )
                     self.receipt = ResearchReceipt(
                         outcome=update.answer.outcome,
                         items=len(
@@ -284,6 +296,9 @@ class ResearchAgent(RecentAgent):
             raise
 
 
+OUTPUT_MODES = frozenset({"text/plain", "application/json"})
+
+
 @dataclass(repr=False)
 class TaskRecord:
     owner: tuple[UUID, UUID]
@@ -291,6 +306,7 @@ class TaskRecord:
     expires_at: float
     deadline: float
     research_request: ResearchRequest | None = None
+    conversation_artifact: bool = False
     producer: asyncio.Task[object] | None = None
     cancel_requested: bool = False
     expiry: asyncio.TimerHandle | None = None
@@ -409,7 +425,11 @@ class TaskRegistry:
         if (
             params.configuration.return_immediately
             or params.configuration.HasField("task_push_notification_config")
-            or any(mode != "text/plain" for mode in params.configuration.accepted_output_modes)
+            or any(mode not in OUTPUT_MODES for mode in params.configuration.accepted_output_modes)
+            or (
+                params.configuration.accepted_output_modes
+                and "text/plain" not in params.configuration.accepted_output_modes
+            )
         ):
             raise UnsupportedOperationError(message="unsupported_configuration")
         if not 0 <= params.configuration.history_length <= 10:
@@ -433,6 +453,8 @@ class TaskRegistry:
             self.clock() + TASK_RETENTION_SECONDS,
             authorization.deadline,
             research_request=research_request,
+            conversation_artifact=research_request is not None
+            and "application/json" in params.configuration.accepted_output_modes,
         )
         self.records[task_id] = record
         record.expiry = asyncio.get_running_loop().call_later(
@@ -517,6 +539,12 @@ class TaskEvents(EventQueue):
                     parts=[Part(text=self.agent.failure_category)],
                 )
             )
+        if (
+            update.status.state == TaskState.TASK_STATE_COMPLETED
+            and self.record.conversation_artifact
+            and self.agent.receipt is not None
+        ):
+            await self.conversation_artifact()
         if update.status.state == TaskState.TASK_STATE_COMPLETED and self.agent.receipt is not None:
             update.status.message.CopyFrom(
                 Message(
@@ -540,6 +568,27 @@ class TaskEvents(EventQueue):
         ):
             task.history.add().CopyFrom(update.status.message)
         await self.publish(update)
+
+    async def conversation_artifact(self) -> None:
+        """Suggested questions and cited item IDs (in citation order) as a separate JSON
+        artifact, only for callers that accept JSON."""
+        task = self.record.task
+        value = struct_pb2.Value()
+        ParseDict(
+            {"follow_ups": list(self.agent.follow_ups), "cited_item_ids": list(self.agent.cited)},
+            value,
+        )
+        artifact = Artifact(
+            artifact_id=str(uuid4()),
+            name="conversation",
+            parts=[Part(data=value, media_type="application/json")],
+        )
+        task.artifacts.add().CopyFrom(artifact)
+        await self.publish(
+            TaskArtifactUpdateEvent(
+                task_id=task.id, context_id=task.context_id, artifact=artifact, last_chunk=True
+            )
+        )
 
     async def publish(self, update: Event) -> None:
         if self.channel is not None:

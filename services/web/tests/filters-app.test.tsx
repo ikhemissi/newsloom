@@ -1,11 +1,10 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { App } from "../src/App";
-import { parseAnswer } from "../src/answer";
 import type { AuthSession, NewsFilters, ResearchClient, SourceCatalog } from "../src/domain";
 import { UiFailure } from "../src/domain";
 import { buildFilters, emptyDraft } from "../src/filters";
-import { briefing, detail, newsItem, sourceCatalog, page } from "./fixtures";
+import { briefing, detail, newsItem, sourceCatalog, page, answerEvent } from "./fixtures";
 
 const auth: AuthSession = {
   signedIn: () => true, signIn: async () => undefined, signOut: async () => undefined,
@@ -128,7 +127,7 @@ test("in-flight and completed research retain exact context despite subsequent b
   const ask = vi.fn(async function* () {
     yield { kind: "progress" as const, phase: "retrieving" as const };
     await pending;
-    yield { kind: "answer" as const, answer: parseAnswer("Original scoped fixture answer.") };
+    yield answerEvent("Original scoped fixture answer.");
   });
   const agent: ResearchClient = { ask, stop: async () => false };
   render(<App auth={auth} catalog={{ recent: async () => page([newsItem]), sources: async () => sourceCatalog, detail, briefing,
@@ -139,7 +138,7 @@ test("in-flight and completed research retain exact context despite subsequent b
   click(`Ask about this: ${newsItem.title}`);
   change("What would you like to understand?", "Independent question"); click("Ask Newsloom");
   await screen.findByText("Context used for this request");
-  expect(ask).toHaveBeenCalledWith("Independent question", expect.any(AbortSignal), [newsItem.id], { source: "fixture-source" });
+  expect(ask).toHaveBeenCalledWith("Independent question", expect.any(AbortSignal), [newsItem.id], { source: "fixture-source" }, []);
   change("Category", "models"); click("Apply filters");
   await screen.findByText("No news matches these filters.");
   expect(screen.queryByLabelText("Applied news filters")).toBeNull();

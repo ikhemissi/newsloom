@@ -96,6 +96,32 @@ delivery: evidence membership, exact stored URLs, selection coverage and rendere
 size still require controller validation before emission. No web, full-article,
 persistent-memory or phase-wide evaluation capability is implied.
 
+### Conversation history and follow-ups
+
+Owned by [`research-conversations`](../openspec/changes/research-conversations/proposal.md).
+A request may add `history`: up to 3 earlier turns of the same conversation,
+each `{question, answer, cited_item_ids}`, at most 12 KiB of question and answer
+text in total. The client keeps the conversation; the agent stores nothing.
+Without history the request and model context are byte-identical to before.
+With history the model context gains a note that history is untrusted data used
+only to interpret the new question, and that "and what about X?" means the
+previous question about X (search) while "which of these" means re-reading the
+items cited earlier. In discovery mode those cited IDs are allowed
+`get_news_item` targets within the same 10-item and 8-call budgets; in selected
+mode the selection still binds. Claims cite only detail read in this request.
+
+The answer contract adds `follow_ups` (0–3 questions of at most 120 characters,
+checked like claims for URLs and control characters). When the caller's
+`acceptedOutputModes` includes `application/json` (always with `text/plain`), a
+completed research task also carries a second artifact named `conversation`
+with `{"follow_ups": [...], "cited_item_ids": [...]}` (IDs in citation order).
+Text-only callers, including the evaluations, receive exactly the single text
+artifact as before.
+
+Preview prompt changes locally with `bash scripts/research-preview.sh` (three
+turns over the recorded announcement week, production controller and model,
+keyword search standing in for vector search; `--replay` rebuilds the review).
+
 Local contract validation: **51 focused cases passed**, plus **54 existing
 delegation cases**; strict types and focused lint passed. All **13 OpenSpec
 items** passed strict validation. These are local results with authored fixtures,

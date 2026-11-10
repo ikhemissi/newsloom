@@ -7,3 +7,5 @@ afterEach(() => {
   cleanup();
   if (typeof window !== "undefined") window.history.replaceState(null, "", "/");
 });
+
+afterEach(() => { if (typeof sessionStorage !== "undefined") sessionStorage.clear(); });
