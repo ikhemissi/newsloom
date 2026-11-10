@@ -9,6 +9,7 @@ import { newsRoute } from "./navigation";
 import type { NewsRoute } from "./navigation";
 import { LocalTimestamp, localDateTimeFormat, useDisplayClock } from "./timestamps";
 import { BriefingPanel } from "./BriefingPanel";
+import { readOnlyLine, useReadOnly } from "./readOnly";
 import type { FeedbackClient, ResearchSnapshot } from "./feedback";
 import { FeedbackControls, ReviewPage } from "./Feedback";
 import type { RadarCard, RadarClient } from "./radar";
@@ -96,6 +97,11 @@ export function App({ auth, research, catalog, feedback, radar }: {
   const [newsError, setNewsError] = useState("");
   const [authRequired, setAuthRequired] = useState<"news" | "agent" | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
+  const readOnlyAsOf = useReadOnly();
+  useEffect(() => {
+    document.documentElement.classList.toggle("read-only", readOnlyAsOf !== null);
+    if (readOnlyAsOf !== null) setPanelOpen(false);
+  }, [readOnlyAsOf]);
   const [selected, setSelected] = useState<NewsItem | null>(null);
   const [theme, setTheme] = useState("lofi");
   const current = useRef<AbortController | null>(null);
@@ -380,7 +386,7 @@ export function App({ auth, research, catalog, feedback, radar }: {
           <a key={path} href={path} className={`link ${route.kind === kind ? "active" : ""}`}
             aria-current={route.kind === kind ? "page" : undefined} onClick={(event) => navigate(path, event)}>{text}</a>)}
       </nav>}
-      {signedIn && <form className="top-search" role="search" onSubmit={(event) => {
+      {signedIn && <form className="top-search" role="search" data-write onSubmit={(event) => {
         event.preventDefault();
         applyFilters(query.trim());
       }}>
@@ -390,7 +396,7 @@ export function App({ auth, research, catalog, feedback, radar }: {
         <button type="submit" className="btn btn-primary btn-sm" disabled={loading}>Search</button>
       </form>}
       <div className="header-actions">
-        {signedIn && <button ref={agentToggle} className="btn btn-outline btn-sm"
+        {signedIn && <button ref={agentToggle} className="btn btn-outline btn-sm" data-write
           aria-controls="agent-panel" aria-expanded={panelOpen}
           onClick={(event) => panelOpen ? closePanel() : openPanel(event.currentTarget)}>
           {busy ? "Agent (working)" : "Agent"}
@@ -401,6 +407,7 @@ export function App({ auth, research, catalog, feedback, radar }: {
           : <button className="btn btn-primary btn-sm" onClick={() => void signIn()}>Sign in</button>}
       </div>
     </header>
+    {readOnlyAsOf && <p className="read-only-line" role="status">{readOnlyLine(readOnlyAsOf)}</p>}
     <main id="main" className={`news-page ${panelOpen ? "with-agent" : ""}`}>
       <section className="news-column">
       {signedIn && radar && route.kind === "radar" && <RadarPage client={radar} navigate={navigate}
@@ -443,7 +450,7 @@ export function App({ auth, research, catalog, feedback, radar }: {
           <div className="news-actions">
             {safeHttps(detail.url) ? <a href={detail.url} target="_blank" rel="noopener noreferrer" className="link">Open original</a>
               : <span>Original link unavailable</span>}
-            <button className="btn btn-outline btn-sm" disabled={busy}
+            <button className="btn btn-outline btn-sm" disabled={busy} data-write
               onClick={(event) => openPanel(event.currentTarget, detail)}
               aria-label={`Ask about this: ${detail.title}`}>Ask about this</button>
           </div>
@@ -519,7 +526,7 @@ export function App({ auth, research, catalog, feedback, radar }: {
                 {link ? <a href={link.href} className="link" target="_blank" rel="noopener noreferrer">
                   Open original · {link.hostname}<span className="sr-only"> (opens in a new tab)</span>
                 </a> : <span>Original link unavailable</span>}
-                <button className="btn btn-outline btn-sm" disabled={busy}
+                <button className="btn btn-outline btn-sm" disabled={busy} data-write
                   onClick={(event) => openPanel(event.currentTarget, item)}
                   aria-label={`Ask about this: ${item.title}`}>Ask about this</button>
               </div>

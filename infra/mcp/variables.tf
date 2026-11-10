@@ -1,3 +1,11 @@
+variable "snapshot_url" {
+  type    = string
+  default = ""
+  validation {
+    condition     = var.snapshot_url == "" || can(regex("^https://[a-z0-9]+\\.blob\\.core\\.windows\\.net/snapshots/latest\\.json\\.gz$", var.snapshot_url))
+    error_message = "The read snapshot must be the private snapshots blob."
+  }
+}
 variable "news_api_enabled" {
   type    = bool
   default = false

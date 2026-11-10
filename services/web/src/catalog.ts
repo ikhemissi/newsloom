@@ -116,7 +116,7 @@ export class HttpCatalog implements NewsCatalog {
       const token = await accessToken(this.auth, "news", controller.signal);
       if (controller.signal.aborted) throw new UiFailure("timeout");
       const endpoint = this.config.newsApiUrl + path;
-      const bounded = guardedFetch(endpoint, token, controller.signal, this.fetchImpl, [400, 404, 413]);
+      const bounded = guardedFetch(endpoint, token, controller.signal, this.fetchImpl, [400, 404, 413], true);
       const response = await bounded(endpoint, {
         method: body ? "POST" : "GET", cache: "no-store",
         headers: { Accept: "application/json", ...(body ? { "Content-Type": "application/json" } : {}) },

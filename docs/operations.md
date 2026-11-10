@@ -14,10 +14,11 @@ every time moves one hour later in Paris.
 | 07:00 | 08:00 | `wake`: start PostgreSQL, then put back the governance tags |
 | 07:10–22:40, every 30 min | 08:10–23:40 | ingestion and enrichment |
 | 07:45 | 08:45 | briefing for the 05:00 UTC slot ([briefing runbook](briefing.md)) |
+| 22:45 | 23:45 | `snapshot`: the API writes the read snapshot |
 | 23:00 | 00:00 | `nightly`: export the database, then stop PostgreSQL |
 
-While the server is stopped the web app and API return errors; a read-only
-overnight mode is a [known gap](known-gaps.md).
+While the server is stopped the API serves a read-only snapshot
+([read-only overnight](#read-only-overnight)).
 
 ## Exports
 
@@ -98,3 +99,28 @@ prints one `restore_drill` result.
 To restore into Azure, create a new server or database, enable the `vector`
 extension and run the same `pg_restore`; then rerun migrations so roles and
 grants are recreated.
+
+## Read-only overnight
+
+Owned by the [read-only-overnight change](../openspec/changes/read-only-overnight/proposal.md).
+At 22:45 UTC the `snapshot-newsloom-<env>` job (API image and identity) reads,
+in one read-only transaction, every news item with its announcements, the radar
+cards of the last 30 days, their product pages, the current briefing and each
+reader's stack and card states (pseudonymous reader keys only; no embeddings,
+tokens or article text). It replaces `snapshots/latest.json.gz` in the backup
+storage account; a lifecycle rule deletes it after 7 days without update.
+
+When the API cannot connect to the database it remembers that for 5 minutes,
+loads the snapshot (re-checking its ETag every 10 minutes) and serves the radar,
+briefing, news list and filters, item detail, sources and product pages from
+it, with the same ranking code. Every response then carries
+`X-Newsloom-Read-Only: <snapshot time>`; search, research tools, feedback and
+reader-state changes return `503 read_only`. Readiness stays green while a
+snapshot is loaded. Without a snapshot the API fails as before.
+
+Run it by hand before a planned stop:
+
+```bash
+az containerapp job start -g "$(azd env get-value AZURE_RESOURCE_GROUP)" \
+  -n "$(azd env get-value SNAPSHOT_JOB_NAME)"
+```

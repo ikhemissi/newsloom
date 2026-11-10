@@ -2,9 +2,9 @@
 
 import asyncio
 import os
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
@@ -23,9 +23,23 @@ from newsloom_mcp.briefing import read_briefing
 from newsloom_mcp.embedding import FoundryQueryEmbedding
 from newsloom_mcp.feedback import FeedbackRepository, FeedbackStore
 from newsloom_mcp.http_models import digest
+from newsloom_mcp.models import McpFailure
 from newsloom_mcp.radar import RadarRepository, RadarStore
 from newsloom_mcp.repository import NewsRepository, Repository
+from newsloom_mcp.snapshot import (
+    STORAGE_SCOPE,
+    UNREACHABLE,
+    Fallback,
+    SnapshotBlob,
+    SnapshotFeedback,
+    SnapshotNews,
+    SnapshotRadar,
+    build,
+    snapshot_briefing,
+)
 from newsloom_mcp.telemetry import Telemetry
+
+DATABASE_SCOPE = "https://ossrdbms-aad.database.windows.net/.default"
 
 
 class Config(BaseModel):
@@ -45,6 +59,15 @@ class Config(BaseModel):
     news_api_enabled: bool = Field(default=False, strict=True)
     news_briefing_enabled: bool = Field(default=False, strict=True)
     feedback_reviewers: frozenset[UUID] = frozenset()
+    snapshot_url: (
+        Annotated[
+            str,
+            Field(
+                pattern=r"^https://[a-z0-9]+\.blob\.core\.windows\.net/[a-z0-9-]+/latest\.json\.gz$"
+            ),
+        ]
+        | None
+    ) = None
 
     @field_validator("allowed_origins")
     @classmethod
@@ -92,11 +115,60 @@ class Config(BaseModel):
                     for value in env.get("FEEDBACK_REVIEWER_OBJECT_IDS", "").split(",")
                     if value.strip()
                 ),
+                "snapshot_url": env.get("SNAPSHOT_URL") or None,
                 "allowed_origins": tuple(env["MCP_ALLOWED_ORIGINS"].split(","))
                 if env.get("MCP_ALLOWED_ORIGINS")
                 else (),
             }
         )
+
+
+def connect(
+    config: Config, token: str, statement_seconds: int = 5
+) -> Awaitable[psycopg.AsyncConnection[tuple[object, ...]]]:
+    return psycopg.AsyncConnection.connect(
+        host=config.postgres_host,
+        dbname=config.postgres_database,
+        user="newsloom_mcp",
+        password=token,
+        sslmode="verify-full",
+        sslrootcert="/etc/ssl/certs/ca-certificates.crt",
+        connect_timeout=10,
+        application_name="newsloom-mcp",
+        autocommit=True,
+        options=(
+            f"-c statement_timeout={statement_seconds * 1000} "
+            "-c idle_in_transaction_session_timeout=10000"
+        ),
+    )
+
+
+async def write_snapshot(config: Config) -> dict[str, int]:
+    """Build the read snapshot in one read-only transaction and replace the blob."""
+    if config.snapshot_url is None:
+        raise McpFailure("snapshot_not_configured")
+    async with (
+        ManagedIdentityCredential(client_id=str(config.client_id)) as credential,
+        httpx.AsyncClient(follow_redirects=False, trust_env=False) as client,
+    ):
+        token = await credential.get_token(DATABASE_SCOPE)
+        async with await connect(config, token.token, 60) as current, current.transaction():
+            await current.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
+            snapshot = await build(current, datetime.now(UTC))
+        data = snapshot.encode()
+
+        async def storage() -> str:
+            return str((await credential.get_token(STORAGE_SCOPE)).token)
+
+        await SnapshotBlob(client, storage, config.snapshot_url).put(data)
+    return {
+        "items": len(snapshot.items),
+        "cards": len(snapshot.cards),
+        "products": len(snapshot.products),
+        "readers": len(set(snapshot.stacks) | set(snapshot.states)),
+        "bytes": len(data),
+        "briefing": int(snapshot.briefing is not None),
+    }
 
 
 @asynccontextmanager
@@ -111,50 +183,77 @@ async def resources(
         @asynccontextmanager
         async def connection() -> AsyncIterator[psycopg.AsyncConnection[tuple[object, ...]]]:
             async with asyncio.timeout(90):
-                token = await credential.get_token(
-                    "https://ossrdbms-aad.database.windows.net/.default"
-                )
-                async with await psycopg.AsyncConnection.connect(
-                    host=config.postgres_host,
-                    dbname=config.postgres_database,
-                    user="newsloom_mcp",
-                    password=token.token,
-                    sslmode="verify-full",
-                    sslrootcert="/etc/ssl/certs/ca-certificates.crt",
-                    connect_timeout=10,
-                    application_name="newsloom-mcp",
-                    autocommit=True,
-                    options=(
-                        "-c statement_timeout=5000 -c idle_in_transaction_session_timeout=10000"
-                    ),
-                ) as current:
+                token = await credential.get_token(DATABASE_SCOPE)
+                async with await connect(config, token.token) as current:
                     yield current
+
+        async def storage() -> str:
+            return str((await credential.get_token(STORAGE_SCOPE)).token)
+
+        fallback = Fallback(
+            SnapshotBlob(client, storage, config.snapshot_url) if config.snapshot_url else None
+        )
+        views: dict[int, tuple[SnapshotNews, SnapshotRadar]] = {}
+
+        async def view() -> tuple[SnapshotNews, SnapshotRadar]:
+            snapshot = await fallback.snapshot()
+            if id(snapshot) not in views:
+                views.clear()
+                views[id(snapshot)] = (SnapshotNews(snapshot), SnapshotRadar(snapshot))
+            return views[id(snapshot)]
 
         @asynccontextmanager
         async def repository() -> AsyncIterator[NewsRepository]:
-            async with connection() as current, current.transaction():
-                await current.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
-                yield Repository(current, config.embedding_model, config.embedding_version)
+            async with fallback.database(connection) as current:
+                if current is None:
+                    yield (await view())[0]
+                    return
+                async with current.transaction():
+                    await current.execute(
+                        "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"
+                    )
+                    yield Repository(current, config.embedding_model, config.embedding_version)
 
         async def ready() -> bool:
-            async with connection() as current:
-                await current.execute("SELECT id FROM public.news LIMIT 0")
+            if fallback.offline():
+                return await fallback.loaded()
+            try:
+                async with asyncio.timeout(4), connection() as current:
+                    await current.execute("SELECT id FROM public.news LIMIT 0")
+            except UNREACHABLE:
+                if not fallback.enabled:
+                    raise
+                fallback.failed()
+                return await fallback.loaded()
             return True
 
         @asynccontextmanager
         async def feedback() -> AsyncIterator[FeedbackStore]:
-            async with connection() as current, current.transaction():
-                yield FeedbackRepository(current)
+            async with fallback.database(connection) as current:
+                if current is None:
+                    yield SnapshotFeedback()
+                    return
+                async with current.transaction():
+                    yield FeedbackRepository(current)
 
         @asynccontextmanager
         async def radar() -> AsyncIterator[RadarStore]:
-            async with connection() as current, current.transaction():
-                yield RadarRepository(current)
+            async with fallback.database(connection) as current:
+                if current is None:
+                    yield (await view())[1]
+                    return
+                async with current.transaction():
+                    yield RadarRepository(current)
 
         async def briefing(cutoff: datetime) -> BriefingRead:
-            async with connection() as current, current.transaction():
-                await current.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
-                return await read_briefing(current, cutoff)
+            async with fallback.database(connection) as current:
+                if current is None:
+                    return snapshot_briefing(await fallback.snapshot())
+                async with current.transaction():
+                    await current.execute(
+                        "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"
+                    )
+                    return await read_briefing(current, cutoff)
 
         transport = ModelClient(
             client, credential, config.model_endpoint, TransportLimits(request_seconds=20)
@@ -185,6 +284,7 @@ async def resources(
                     feedback,
                     config.feedback_reviewers,
                     radar,
+                    fallback.as_of,
                 ),
                 verifier,
             )

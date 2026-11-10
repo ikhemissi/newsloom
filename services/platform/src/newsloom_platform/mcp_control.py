@@ -109,6 +109,8 @@ def verify(env: dict[str, str], correlation: str) -> None:
         "EMBEDDINGS_VERSION": env["EMBEDDINGS_VERSION"],
         "APPLICATIONINSIGHTS_CONNECTION_STRING": env["APPLICATIONINSIGHTS_CONNECTION_STRING"],
     }
+    if env.get("SNAPSHOT_URL"):
+        expected["SNAPSHOT_URL"] = env["SNAPSHOT_URL"]
     assignments = json_object(json_object(app.get("identity")).get("userAssignedIdentities"))
     selected = [
         json_object(value)

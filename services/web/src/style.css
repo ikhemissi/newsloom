@@ -147,3 +147,6 @@ h1 { font-size: clamp(2.25rem, 5vw, 3.7rem); font-weight: 650; line-height: 1.1;
   .site-nav { gap: .75rem; font-size: .9rem; }
   .radar-group li, .radar-timeline li { grid-template-columns: minmax(0, 1fr); gap: .1rem; }
 }
+
+.read-only [data-write] { display: none !important; }
+.read-only-line { margin: 0; padding: 0.25rem 1rem; font-size: 0.85rem; opacity: 0.8; text-align: center; }

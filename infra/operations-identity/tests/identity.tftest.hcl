@@ -18,6 +18,13 @@ variables {
   location             = "francecentral"
   registry_id          = "/subscriptions/test/resourceGroups/test/providers/Microsoft.ContainerRegistry/registries/existing"
   postgres_server_name = "psql-newsloom-test"
+  workload_identities_base64 = base64encode(jsonencode({
+    mcp = {
+      id           = "/subscriptions/test/resourceGroups/test/providers/Microsoft.ManagedIdentity/userAssignedIdentities/mcp"
+      client_id    = join("-", ["00000000", "0000", "0000", "0000", "000000000004"])
+      principal_id = join("-", ["00000000", "0000", "0000", "0000", "000000000005"])
+    }
+  }))
 }
 
 run "export_storage_is_entra_only_immutable_and_locked" {
@@ -69,4 +76,19 @@ run "exports_outlive_immutability" {
     backup_retention_days = 30
   }
   expect_failures = [var.backup_retention_days]
+}
+
+run "snapshots_are_private_short_lived_and_written_only_by_mcp" {
+  command = apply
+  assert {
+    condition = (
+      azurerm_storage_container.snapshots.container_access_type == "private" &&
+      azurerm_role_assignment.snapshots.principal_id == join("-", ["00000000", "0000", "0000", "0000", "000000000005"]) &&
+      azurerm_role_assignment.snapshots.role_definition_name == "Storage Blob Data Contributor" &&
+      endswith(azurerm_role_assignment.snapshots.scope, "/blobServices/default/containers/snapshots") &&
+      azurerm_storage_management_policy.backup.rule[1].actions[0].base_blob[0].delete_after_days_since_modification_greater_than == 7 &&
+      endswith(output.SNAPSHOT_URL, "snapshots/latest.json.gz")
+    )
+    error_message = "Only the MCP identity writes the private, 7-day read snapshot."
+  }
 }

@@ -1,5 +1,5 @@
 export type Failure = "configuration" | "authorization" | "interaction" | "invalid_input"
-  | "invalid_response" | "invalid_search" | "invalid_filters" | "invalid_news_request" | "overloaded" | "timeout" | "unavailable" | "stopped" | "cancelled";
+  | "invalid_response" | "invalid_search" | "invalid_filters" | "invalid_news_request" | "overloaded" | "timeout" | "unavailable" | "read_only" | "stopped" | "cancelled";
 
 export class UiFailure extends Error {
   constructor(readonly category: Failure) { super(category); }
@@ -17,6 +17,7 @@ export const messages: Record<Failure, string> = {
   overloaded: "The service is busy. Try again when you are ready.",
   timeout: "The request timed out. No completed result was received.",
   unavailable: "The service is unavailable. No request will be replayed automatically.",
+  read_only: "Not available while Newsloom is read-only overnight.",
   stopped: "Stopped displaying this request. Server cancellation is not yet confirmed.",
   cancelled: "The agent confirmed cancellation.",
 };

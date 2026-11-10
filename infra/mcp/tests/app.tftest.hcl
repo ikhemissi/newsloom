@@ -150,3 +150,38 @@ run "feedback_reviewers_must_be_object_ids" {
   }
   expect_failures = [var.feedback_reviewer_object_ids]
 }
+
+run "no_snapshot_job_without_a_snapshot_url" {
+  command = plan
+  assert {
+    condition     = length(azurerm_container_app_job.snapshot) == 0 && !contains(keys(local.environment), "SNAPSHOT_URL")
+    error_message = "The snapshot job and fallback are opt-in."
+  }
+}
+
+run "nightly_snapshot_job_uses_the_mcp_identity_and_image" {
+  command = plan
+  variables {
+    snapshot_url = "https://stnlbaktest.blob.core.windows.net/snapshots/latest.json.gz"
+  }
+  assert {
+    condition = (
+      azurerm_container_app_job.snapshot[0].schedule_trigger_config[0].cron_expression == "45 22 * * *" &&
+      azurerm_container_app_job.snapshot[0].template[0].container[0].args == tolist(["snapshot"]) &&
+      azurerm_container_app_job.snapshot[0].template[0].container[0].image == var.image &&
+      azurerm_container_app_job.snapshot[0].identity[0].identity_ids == toset([local.identity.id]) &&
+      length(azurerm_container_app_job.snapshot[0].secret) == 0 &&
+      local.environment.SNAPSHOT_URL == var.snapshot_url &&
+      length(azurerm_container_app_job.snapshot[0].name) <= 32
+    )
+    error_message = "The snapshot runs at 22:45 UTC with the MCP image and identity and no secrets."
+  }
+}
+
+run "snapshot_url_must_be_the_private_snapshots_blob" {
+  command = plan
+  variables {
+    snapshot_url = "https://example.com/latest.json.gz"
+  }
+  expect_failures = [var.snapshot_url]
+}

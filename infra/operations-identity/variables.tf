@@ -13,6 +13,9 @@ variable "location" {
 variable "registry_id" {
   type = string
 }
+variable "workload_identities_base64" {
+  type = string
+}
 variable "postgres_server_name" {
   type = string
 }

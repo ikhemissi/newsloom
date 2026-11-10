@@ -6,6 +6,8 @@ locals {
   server_id = "${local.group}/providers/Microsoft.DBforPostgreSQL/flexibleServers/${var.postgres_server_name}"
   tags      = merge(var.tags, { azd-env-name = var.environment_name })
   container = "${azurerm_storage_account.backup.id}/blobServices/default/containers/${azurerm_storage_container.postgres.name}"
+  snapshots = "${azurerm_storage_account.backup.id}/blobServices/default/containers/${azurerm_storage_container.snapshots.name}"
+  mcp       = jsondecode(base64decode(var.workload_identities_base64)).mcp
 }
 
 resource "azurerm_user_assigned_identity" "operations" {
@@ -90,6 +92,21 @@ resource "azurerm_storage_container" "postgres" {
   container_access_type = "private"
 }
 
+# Read snapshot served while the database sleeps; overwritten nightly, so not immutable.
+resource "azurerm_storage_container" "snapshots" {
+  name                  = "snapshots"
+  storage_account_id    = azurerm_storage_account.backup.id
+  container_access_type = "private"
+}
+
+resource "azurerm_role_assignment" "snapshots" {
+  scope                            = local.snapshots
+  role_definition_name             = "Storage Blob Data Contributor"
+  principal_id                     = local.mcp.principal_id
+  principal_type                   = "ServicePrincipal"
+  skip_service_principal_aad_check = true
+}
+
 resource "azurerm_storage_container_immutability_policy" "postgres" {
   storage_container_resource_manager_id = local.container
   immutability_period_in_days           = var.backup_immutable_days
@@ -109,6 +126,19 @@ resource "azurerm_storage_management_policy" "backup" {
     actions {
       base_blob {
         delete_after_days_since_creation_greater_than = var.backup_retention_days
+      }
+    }
+  }
+  rule {
+    name    = "expire-snapshots"
+    enabled = true
+    filters {
+      blob_types   = ["blockBlob"]
+      prefix_match = ["snapshots/"]
+    }
+    actions {
+      base_blob {
+        delete_after_days_since_modification_greater_than = 7
       }
     }
   }
@@ -152,6 +182,9 @@ output "OPERATIONS_IDENTITY_BASE64" {
 }
 output "BACKUP_ACCOUNT_URL" {
   value = azurerm_storage_account.backup.primary_blob_endpoint
+}
+output "SNAPSHOT_URL" {
+  value = "${azurerm_storage_account.backup.primary_blob_endpoint}${azurerm_storage_container.snapshots.name}/latest.json.gz"
 }
 output "BACKUP_CONTAINER" {
   value = azurerm_storage_container.postgres.name

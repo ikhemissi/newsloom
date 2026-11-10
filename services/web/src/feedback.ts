@@ -98,7 +98,7 @@ export class HttpFeedback implements FeedbackClient {
     try {
       const token = await accessToken(this.auth, "news", controller.signal);
       const endpoint = this.config.newsApiUrl + path;
-      const response = await guardedFetch(endpoint, token, controller.signal, this.fetchImpl, [400, 413])(endpoint, {
+      const response = await guardedFetch(endpoint, token, controller.signal, this.fetchImpl, [400, 413], true)(endpoint, {
         method: body ? "POST" : "GET", cache: "no-store",
         headers: { Accept: "application/json, application/x-ndjson",
           ...(body ? { "Content-Type": "application/json" } : {}) },

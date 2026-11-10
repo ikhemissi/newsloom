@@ -37,7 +37,7 @@ export function FeedbackControls({ client, target, snapshot, label }: {
         : `Feedback was not recorded. ${failureMessage(failure)}`);
     } finally { setBusy(false); }
   }
-  return <section aria-label={label} className="feedback">
+  return <section aria-label={label} className="feedback" data-write>
     <div className="feedback-buttons" role="group" aria-label={label}>
       {(["up", "down"] as const).map((rating) => <button key={rating} type="button"
         className={`btn btn-xs ${(choice ?? current) === rating ? "btn-active" : "btn-outline"}`}

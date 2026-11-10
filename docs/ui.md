@@ -490,3 +490,13 @@ The previous list moved to **All news** (`/news`); item pages keep `/news/{id}`.
 product pages (`/products/{id}`) show the vendor, aliases, related products and
 the timeline, which is also how product matching can be reviewed. Pages share the
 existing keyboard, focus and axe checks on desktop and phone widths.
+
+## Read-only overnight
+
+When news API responses carry `X-Newsloom-Read-Only`, the app shows one line
+under the header, "Read-only until 08:00 · data as of 23:45" (local times of the
+next 07:00 UTC wake and of the snapshot), and hides search, the agent panel and
+Ask buttons, feedback, card actions, follow toggles and stack editing (controls
+marked `data-write`). A refused action shows "Not available while Newsloom is
+read-only overnight." The line disappears with the first live response. See the
+[operations runbook](operations.md#read-only-overnight).
