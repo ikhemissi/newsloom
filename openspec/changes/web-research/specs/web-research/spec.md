@@ -7,11 +7,11 @@ separate from stored evidence.
 
 ## ADDED Requirements
 
-### Requirement: Web research through a credential the agent never holds
-Web search SHALL go through a Foundry project connection to Web IQ that the
-agent calls with its managed identity; the Web IQ key MUST NOT appear in the
-repository, azd environment, Terraform state, application settings or logs.
-Web research MUST be disabled unless explicitly enabled.
+### Requirement: Web research with the agent's managed identity
+Web search SHALL call Web IQ with an Entra token for the agent's managed
+identity. No Web IQ key MUST exist in the repository, azd environment,
+Terraform state, application settings, Foundry connections or logs. Web research
+MUST be disabled unless explicitly enabled.
 
 #### Scenario: Web research is disabled
 - **WHEN** `WEB_RESEARCH_ENABLED` is false
