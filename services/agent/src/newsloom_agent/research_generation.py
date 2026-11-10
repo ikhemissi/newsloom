@@ -51,6 +51,8 @@ INSTRUCTIONS = (
     "In selected mode use no discovery tools; selected details are fetched by the application. "
     "In discovery mode prefer search_news with every supplied caller filter unchanged; "
     "get_recent_news cannot implement source/category/tag/upper-date filters. "
+    "Do not add source, category or tag filters the caller did not supply, except a "
+    "source ID copied exactly from list_sources results; extra filters only lose matches. "
     "Detail IDs must already be selected or discovered. Never repeat a completed call. "
     "Use only the actions and tools allowed by this turn's schema. "
     "Batch only independent calls; a detail read that depends on a discovery result "

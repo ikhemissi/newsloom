@@ -46,11 +46,14 @@ from newsloom_core.entries import Entry
 SOURCE = Path(".cache/announcement-preview")
 CALLS: list[dict[str, object]] = []
 OUTPUT = Path(".cache/research-preview")
-QUESTIONS = (
-    "What did Microsoft announce for Foundry agents recently?",
-    "And what about AWS?",
-    "Which of these would an AI solution architect need to act on first?",
-)
+CONVERSATIONS = {
+    "foundry": (
+        "What did Microsoft announce for Foundry agents recently?",
+        "And what about AWS?",
+        "Which of these would an AI solution architect need to act on first?",
+    ),
+    "vertex": ("What changed recently in Vertex AI?", "And what about AWS?"),
+}
 
 
 def load() -> dict[UUID, NewsDetail]:
@@ -152,7 +155,9 @@ class LocalReader:
         yield LocalConnection(authorization, self.items)
 
 
-async def converse(items: dict[UUID, NewsDetail]) -> list[dict[str, object]]:
+async def converse(
+    items: dict[UUID, NewsDetail], questions: tuple[str, ...]
+) -> list[dict[str, object]]:
     from azure.identity.aio import AzureCliCredential
 
     config = GenerationConfig(
@@ -163,7 +168,7 @@ async def converse(items: dict[UUID, NewsDetail]) -> list[dict[str, object]]:
         controller = ResearchController(
             LocalReader(items), FoundryResearchGenerator(config, credential)
         )
-        for question in QUESTIONS:
+        for question in questions:
             history = [
                 {"question": t["question"], "answer": t["text"], "cited_item_ids": t["cited"]}
                 for t in turns[-3:]
@@ -221,13 +226,14 @@ def review(turns: list[dict[str, object]]) -> str:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--replay", action="store_true")
+    parser.add_argument("--conversation", choices=sorted(CONVERSATIONS), default="foundry")
     args = parser.parse_args()
     OUTPUT.mkdir(parents=True, exist_ok=True)
     results = OUTPUT / "results.json"
     if args.replay:
         turns = json.loads(results.read_text())
     else:
-        turns = asyncio.run(converse(load()))
+        turns = asyncio.run(converse(load(), CONVERSATIONS[args.conversation]))
         results.write_text(json.dumps(turns, indent=2))
     (OUTPUT / "review.md").write_text(review(turns))
     print(f"review: {OUTPUT / 'review.md'}")

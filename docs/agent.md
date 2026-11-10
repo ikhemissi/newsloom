@@ -118,6 +118,13 @@ with `{"follow_ups": [...], "cited_item_ids": [...]}` (IDs in citation order).
 Text-only callers, including the evaluations, receive exactly the single text
 artifact as before.
 
+A follow-up such as "and what about AWS?" keeps the earlier question's topic
+(after a Vertex AI question it asks about AWS's AI platform, not AWS in general).
+Planning calls that repeat an earlier call are dropped instead of failing the
+request; a plan of only repeats proceeds to synthesis when detail evidence exists.
+The planner may not add source, category or tag filters the caller did not
+supply, except a source ID copied from `list_sources`.
+
 Preview prompt changes locally with `bash scripts/research-preview.sh` (three
 turns over the recorded announcement week, production controller and model,
 keyword search standing in for vector search; `--replay` rebuilds the review).

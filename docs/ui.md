@@ -511,5 +511,5 @@ over. Each question sends the last three turns as history (oldest answer text
 trimmed first to 12 KiB) and accepts the agent's `conversation` artifact for
 follow-ups and cited item IDs. The thread is kept in `sessionStorage` (this tab
 only), re-validated on load and removed on sign-out. Rating applies to the latest
-answer. Up to 1000px wide the panel is a full-height sheet over the news: Tab
+answer; research errors appear inside the panel and the question is restored. Up to 1000px wide the panel is a full-height sheet over the news: Tab
 stays inside it, Escape closes it and focus returns to the control that opened it.

@@ -487,7 +487,7 @@ async def test_tool_failure_is_not_model_recollection_or_partial_success() -> No
     assert not model.contexts and reader.closed == 1
 
 
-async def test_over_budget_planning_batch_executes_no_additional_tools() -> None:
+async def test_a_batch_of_repeated_reads_executes_nothing_and_synthesizes() -> None:
     items = tuple(detail(str(index)) for index in range(5))
     reader = ScriptedReader([ItemResult(found=True, item=item) for item in items])
     model = ScriptedModel(
@@ -499,19 +499,19 @@ async def test_over_budget_planning_batch_executes_no_additional_tools() -> None
                 )
             )
         ],
-        None,
+        answer(items, coverage="complete"),
     )
     request = ResearchRequest(
         operation="research", question="Compare", item_ids=tuple(item.id for item in items)
     )
-    with pytest.raises(AgentFailure, match="research_tool_limit"):
-        _ = [
-            update
-            async for update in ResearchController(reader, model).run(
-                request, authorization(), ResearchStats()
-            )
-        ]
-    assert len(reader.connections[0].calls) == 5 and model.final_calls == 0
+    updates = [
+        update
+        async for update in ResearchController(reader, model).run(
+            request, authorization(), ResearchStats()
+        )
+    ]
+    assert isinstance(updates[-1], ResearchResult)
+    assert len(reader.connections[0].calls) == 5 and model.final_calls == 1
 
 
 async def test_model_cannot_claim_absence_without_any_news_retrieval() -> None:
@@ -584,20 +584,38 @@ async def test_metadata_only_synthesis_is_rejected_before_another_planning_turn(
     assert len(reader.connections[0].calls) == 1 and reader.closed == 1
 
 
-async def test_whole_plan_duplicate_is_rejected_before_dispatch() -> None:
-    call = RecentCall(tool="get_recent_news", arguments=RecentArguments())
-    reader = ScriptedReader([NewsResults(items=())])
-    model = ScriptedModel([plan(call, call)], None)
-    with pytest.raises(AgentFailure, match="research_repeated_tool"):
-        _ = [
-            update
-            async for update in ResearchController(reader, model).run(
-                ResearchRequest(operation="research", question="Any news?"),
-                authorization(),
-                ResearchStats(),
-            )
+async def test_repeated_calls_collapse_instead_of_failing_the_request() -> None:
+    item = detail()
+    call = SearchCall(tool="search_news", arguments=SearchArguments(query="batch limit"))
+    reader = ScriptedReader(
+        [
+            SearchResults.model_validate(
+                {"items": [{**metadata(item).model_dump(), "similarity": 0.8}]}
+            ),
+            ItemResult(found=True, item=item),
         ]
-    assert not reader.connections[0].calls and reader.closed == 1
+    )
+    model = ScriptedModel(
+        [
+            plan(call, call),
+            plan(call, DetailCall(tool="get_news_item", arguments=DetailArguments(id=item.id))),
+            plan(call),
+        ],
+        answer((item,)),
+    )
+    stats = ResearchStats()
+    updates = [
+        update
+        async for update in ResearchController(reader, model).run(
+            ResearchRequest(operation="research", question="Batch limits?"), authorization(), stats
+        )
+    ]
+    assert isinstance(updates[-1], ResearchResult)
+    assert reader.connections[0].calls == [
+        call,
+        DetailCall(tool="get_news_item", arguments=DetailArguments(id=item.id)),
+    ]
+    assert stats.planning_calls == 3 and model.final_calls == 1
 
 
 async def test_whole_plan_filter_relaxation_does_not_execute_earlier_legal_call() -> None:

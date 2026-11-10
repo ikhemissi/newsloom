@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { App, AnswerView } from "../src/App";
 import { parseAnswer } from "../src/answer";
@@ -195,4 +195,15 @@ test("sign-out removes the stored conversation", async () => {
   expect(screen.getByRole("list", { name: "Conversation" })).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
   await waitFor(() => expect(sessionStorage.getItem("newsloom.conversation")).toBeNull());
+});
+
+test("a failed research request is reported inside the panel and the question is kept", async () => {
+  const ask = vi.fn(async function* () { throw new UiFailure("unavailable"); });
+  render(<App auth={auth(true)} catalog={catalog} research={{ ask, stop: async () => true }} />);
+  openAgent();
+  fireEvent.change(screen.getByLabelText("What would you like to understand?"), { target: { value: "And what about AWS?" } });
+  fireEvent.click(screen.getByRole("button", { name: "Ask Newsloom" }));
+  const panel = screen.getByRole("complementary");
+  expect(await within(panel).findByRole("alert")).toHaveTextContent("The service is unavailable");
+  expect(screen.getByLabelText("What would you like to understand?")).toHaveValue("And what about AWS?");
 });
