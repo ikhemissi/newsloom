@@ -230,7 +230,8 @@ wait for the actual evidence rather than infer persisted writes from job status.
 
 After verified smoke/recovery and explicit approval of the job-only replacement
 preview, set `ENRICHMENT_SCHEDULE_ENABLED=true` and provision enrichment through
-azd to use `*/30 * * * *` UTC. This changes only the newly introduced enrichment
+azd to use `10,40 7-22 * * *` UTC (every 30 minutes while the database runs;
+see the [operations runbook](operations.md)). This changes only the newly introduced enrichment
 job's trigger; shared resources and PostgreSQL rows remain. Runtime stays capped
 at 25 claims per execution. On failed verification stop enrichment and disable
 scheduling via a reviewed job-only transition; keep the additive schema and all

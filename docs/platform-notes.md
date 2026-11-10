@@ -55,3 +55,16 @@ network access, and every layer's `terraform init` failed with a storage
 `AuthorizationFailure` (403). Recover with `azd provision bootstrap --preview`
 (it should only restore the tags and `public_network_access`), then apply after
 review. The bootstrap layer keeps local state, so it is not blocked by the outage.
+
+## Governance automation (2026-11-10)
+
+Overnight on 2026-11-09 the tenant's governance automation stopped the
+PostgreSQL server (23:06 UTC) and removed the `CostControl` and
+`SecurityControl` tags from most resources in several passes until 02:35 UTC.
+With the database stopped, the MCP readiness probe returned 503 and the site was
+down until an operator started the server and merged the tags back. Nothing was
+deleted and network settings were unchanged. The response is the
+[operations runbook](operations.md): daily exports outside the server, delete
+locks, 35-day point-in-time retention, a nightly stop and a morning wake that
+repairs the tags. A deployment that runs while tags are missing re-adds them
+(the preview shows only tag additions).

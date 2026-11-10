@@ -33,7 +33,7 @@ resource "azurerm_container_app_job" "briefing" {
   dynamic "schedule_trigger_config" {
     for_each = var.schedule_enabled ? [true] : []
     content {
-      cron_expression          = "0 5 * * *"
+      cron_expression          = "45 7 * * *"
       parallelism              = 1
       replica_completion_count = 1
     }

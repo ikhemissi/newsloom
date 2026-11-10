@@ -174,6 +174,7 @@ The agent's delivered contracts cover
 | Azure platform deployment | [Platform runbook](docs/azure-platform.md) |
 | Feed ingestion and real screening | [Ingestion runbook](docs/ingestion.md) |
 | Structured news enrichment and embeddings | [Enrichment runbook](docs/enrichment.md) |
+| Backups, restore drill and operating window | [Operations runbook](docs/operations.md) |
 | Authenticated MCP browsing/search | [MCP runbook](docs/mcp.md) |
 | A2A agent and stored-news research | [Agent runbook](docs/agent.md) |
 | Synthetic evaluation foundation and Azure gates | [Evaluation runbook](docs/agent-evaluation.md) |

@@ -87,7 +87,7 @@ run "daily_utc_schedule" {
   assert {
     condition = (
       length(azurerm_container_app_job.briefing[0].manual_trigger_config) == 0 &&
-      azurerm_container_app_job.briefing[0].schedule_trigger_config[0].cron_expression == "0 5 * * *" &&
+      azurerm_container_app_job.briefing[0].schedule_trigger_config[0].cron_expression == "45 7 * * *" &&
       azurerm_container_app_job.briefing[0].schedule_trigger_config[0].parallelism == 1 &&
       azurerm_container_app_job.briefing[0].schedule_trigger_config[0].replica_completion_count == 1
     )

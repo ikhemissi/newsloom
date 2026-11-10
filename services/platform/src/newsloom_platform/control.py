@@ -100,7 +100,15 @@ def build(
     correlation: str,
     *,
     service: Literal[
-        "platform", "ingestion", "enrichment", "mcp", "phase1", "agent", "web", "briefing"
+        "platform",
+        "ingestion",
+        "enrichment",
+        "mcp",
+        "phase1",
+        "agent",
+        "web",
+        "briefing",
+        "operations",
     ] = "platform",
 ) -> None:
     repository = f"newsloom-{service}"
@@ -742,6 +750,8 @@ def control(command: str, correlation: str, *, force: bool = False, limit: int =
         briefing.control(command, env, correlation)
     elif command == "build-mcp":
         build(env, correlation, service="mcp")
+    elif command == "build-operations":
+        build(env, correlation, service="operations")
     elif command == "build-phase1":
         build(env, correlation, service="phase1")
     elif command == "prepare-phase1-layer":

@@ -40,7 +40,7 @@ for every tenant or future environment.
 | --- | --- |
 | `APPLICATION_RESOURCE_GROUP` | `rg-newsloom-dev` |
 | `POSTGRES_SKU` / `POSTGRES_STORAGE_MB` | `B_Standard_B1ms` / `32768` |
-| `POSTGRES_BACKUP_DAYS` | `7` |
+| `POSTGRES_BACKUP_DAYS` | `35` (raised from 7 on 2026-11-10) |
 | `LOG_RETENTION_DAYS` / `LOG_DAILY_CAP_GB` | `30` / `0.1` |
 | `ENRICHMENT_DEPLOYMENT` / `ENRICHMENT_MODEL` | `newsloom-enrichment` / `gpt-5.4-mini` |
 | `ENRICHMENT_VERSION` / `ENRICHMENT_FORMAT` | `2026-03-17` / `OpenAI` |
@@ -65,6 +65,10 @@ See the [change evidence](../openspec/changes/archive/2026-10-23-platform-skelet
 for the dated API readings and completed acceptance checks.
 
 ## Outputs and workload boundaries
+
+The `operations-identity` and `operations` layers own daily exports, the
+nightly stop and morning start of PostgreSQL and governance-tag repair; see the
+[operations runbook](operations.md).
 
 ### Additive daily briefing layer
 

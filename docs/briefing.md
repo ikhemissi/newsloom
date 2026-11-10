@@ -2,7 +2,8 @@
 
 Status: worker, protected API and panel UI deployed as early access in the
 [owning change](../openspec/changes/archive/2026-11-07-daily-news-briefing/tasks.md). The corrected
-job is scheduled for 05:00 UTC daily. A first full artifact was published by an
+job runs daily at 07:45 UTC for the 05:00 UTC slot, after the database wakes
+([operations runbook](operations.md)). A first full artifact was published by an
 explicitly authorized controlled retry on 2026-11-03; actual scheduled execution
 and signed-in qualitative acceptance remain open. Earlier failed attempts and
 their costs remain in append-only history and the original call rows.
@@ -15,7 +16,8 @@ existing transport and browser boundaries.
 
 ## What readers receive
 
-One shared English briefing starts daily at 05:00 UTC. Its fixed evidence
+One shared English briefing is produced daily for the 05:00 UTC slot; the job
+starts at 07:45 UTC, after the database wakes. Its fixed evidence
 window is the preceding seven days, ending exclusively at that scheduled
 cutoff. Delayed execution does not move the window. Future-dated records and
 later ingested records are not silently included in that frozen snapshot.
@@ -284,7 +286,7 @@ revision is not evidence of scheduled execution. Ordinary `run` and
 `retry-failed` behavior is unchanged.
 
 Provision only owning native azd layers after local/real-role checks and
-reviewed previews. Bootstrap one manual slot before enabling `0 5 * * *`.
+reviewed previews. Bootstrap one manual slot before enabling `45 7 * * *`.
 An observed manual run proves neither actual scheduling nor signed-in browser
 acceptance; keep those tasks open until measured.
 

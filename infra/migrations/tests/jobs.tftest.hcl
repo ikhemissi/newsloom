@@ -101,3 +101,22 @@ run "briefing_principal_is_additive_not_a_foundation_identity" {
     error_message = "Pass the new principal separately without changing existing identity/checksum inputs or probe jobs."
   }
 }
+
+run "operations_principal_is_additive" {
+  command = plan
+  variables {
+    operations_identity_base64 = base64encode(jsonencode({
+      id           = "/subscriptions/test/resourceGroups/test/providers/Microsoft.ManagedIdentity/userAssignedIdentities/operations"
+      client_id    = join("-", ["00000000", "0000", "0000", "0000", "000000000006"])
+      principal_id = join("-", ["00000000", "0000", "0000", "0000", "000000000106"])
+    }))
+  }
+  assert {
+    condition = (
+      length(local.identities) == 4 &&
+      local.environment.OPERATIONS_IDENTITY == base64decode(var.operations_identity_base64) &&
+      local.environment.WORKLOAD_IDENTITIES == jsonencode(local.identities)
+    )
+    error_message = "Pass the operations principal separately without changing foundation identities."
+  }
+}

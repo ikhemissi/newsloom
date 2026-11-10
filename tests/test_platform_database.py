@@ -45,6 +45,7 @@ async def platform_database(monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[Ru
         await connection.execute("DROP SCHEMA IF EXISTS newsloom_admin CASCADE")
         await connection.execute("CREATE DATABASE newsloom")
         await connection.execute("DROP ROLE IF EXISTS newsloom_briefing")
+        await connection.execute("DROP ROLE IF EXISTS newsloom_operations")
         for workload in RUNTIME_WORKLOADS:
             await connection.execute(
                 psycopg.sql.SQL("DROP ROLE IF EXISTS {}").format(
@@ -372,3 +373,45 @@ async def test_mismatched_principal_fails_without_remapping(
             )
         with pytest.raises(PlatformFailure, match="principal_mapping_mismatch"):
             await database.migrate(platform_database, credential)
+
+
+async def test_operations_role_reads_every_table_and_writes_nothing(
+    platform_database: RuntimeConfig,
+) -> None:
+    config = platform_database.model_copy(
+        update={
+            "operations_identity": Identity(
+                id="/test/operations", client_id=uuid4(), principal_id=uuid4()
+            )
+        }
+    )
+    async with ManagedIdentityCredential() as credential:
+        assert await database.migrate(config, credential) == 10
+        assert await database.migrate(config, credential) == 0
+        async with await database.connect(config, credential, "newsloom", "postgres") as connection:
+            await connection.execute("CREATE TABLE public.later_table (id int)")
+            assert await database.migrate(config, credential) == 0
+            tables = await (
+                await connection.execute(
+                    "SELECT format('%I.%I', schemaname, tablename) FROM pg_tables "
+                    "WHERE schemaname IN ('public', 'newsloom_admin') "
+                    "AND tablename <> 'test_principals'"
+                )
+            ).fetchall()
+            assert len(tables) >= 14
+            await connection.execute("SET ROLE newsloom_operations")
+            for (table,) in tables:
+                await connection.execute(f"SELECT count(*) FROM {table}")
+            with pytest.raises(psycopg.errors.InsufficientPrivilege):
+                await connection.execute("DELETE FROM public.news")
+            with pytest.raises(psycopg.errors.InsufficientPrivilege):
+                await connection.execute("CREATE TABLE public.intruder (id int)")
+            await connection.execute("RESET ROLE")
+
+
+def test_operations_identity_must_be_distinct(platform_database: RuntimeConfig) -> None:
+    reused = platform_database.identities["mcp"]
+    with pytest.raises(ValueError, match="Operations identity"):
+        RuntimeConfig.model_validate(
+            {**platform_database.model_dump(), "operations_identity": reused.model_dump()}
+        )
