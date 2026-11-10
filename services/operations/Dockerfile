@@ -12,5 +12,8 @@ COPY pyproject.toml uv.lock README.md ./
 COPY packages/ packages/
 COPY services/ services/
 RUN uv sync --locked --no-dev --package newsloom-operations
+# Fails the build if the async blob transport or pg_dump is missing from the image.
+RUN /app/.venv/bin/python -c "from azure.storage.blob.aio import ContainerClient; ContainerClient('https://build.blob.core.windows.net', 'check')" \
+    && pg_dump --version | grep -q ' 18\.'
 USER 65532:65532
 ENTRYPOINT ["/app/.venv/bin/newsloom-operations"]
