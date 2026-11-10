@@ -18,7 +18,7 @@ from agent_evaluation.baseline_provenance import (
 )
 from agent_evaluation.inputs import FIXTURE, FIXTURE_SHA256, ROOT, load_pilot
 from agent_evaluation.policy import EvaluationFailure
-from agent_evaluation.production_inputs import PRODUCTION_INPUTS_V3
+from agent_evaluation.production_inputs import PRODUCTION_INPUTS_V3, PRODUCTION_INPUTS_V4
 
 
 def runtime() -> AcceptedRuntime:
@@ -47,7 +47,15 @@ def provenance() -> BaselineProvenance:
 
 def test_current_inputs_and_legacy_fixture_remain_immutable() -> None:
     assert len(PRODUCTION_INPUTS) == 8
-    assert verify_production_inputs() == document_digest(PRODUCTION_INPUTS_V3)
+    assert verify_production_inputs() == document_digest(PRODUCTION_INPUTS_V4)
+    assert set(PRODUCTION_INPUTS_V4) - set(PRODUCTION_INPUTS_V3) == {
+        "services/operations/pyproject.toml"
+    }
+    assert {
+        key
+        for key in PRODUCTION_INPUTS_V3
+        if PRODUCTION_INPUTS_V3[key] != PRODUCTION_INPUTS_V4[key]
+    } == {"uv.lock"}
     assert PRODUCTION_INPUTS["pyproject.toml"] == (
         "0e676e369ce0abd956518993ad40fb112bc1f5084abb3f52c55e72dbab8aef59"
     )

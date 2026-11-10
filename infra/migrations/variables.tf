@@ -90,3 +90,7 @@ variable "briefing_identity_base64" {
   type    = string
   default = ""
 }
+variable "operations_identity_base64" {
+  type    = string
+  default = ""
+}

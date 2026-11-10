@@ -267,7 +267,8 @@ counts. Publisher errors remain explicit per-source categories.
 
 After manual acceptance and a forced repeat pass, set
 `INGESTION_SCHEDULE_ENABLED=true` and provision through azd to enable
-`*/30 * * * *` UTC. AzureRM 5.10 requires replacing the ingestion job when switching
+`10,40 7-22 * * *` UTC (every 30 minutes while the database runs; see the
+[operations runbook](operations.md)). AzureRM 5.10 requires replacing the ingestion job when switching
 between manual and scheduled triggers. Review the preview and obtain approval for
 that job-only replacement; shared resources and database rows must remain intact.
 The job keeps its name, but execution history may reset; retain acceptance evidence

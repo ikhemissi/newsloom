@@ -91,11 +91,16 @@ infra:
       path: infra
       dependsOn:
         - bootstrap
+    - name: operations-identity
+      path: infra/operations-identity
+      dependsOn:
+        - application
     - name: migrations
       path: infra/migrations
       dependsOn:
         - application
         - briefing-identity
+        - operations-identity
       hooks:
         preprovision:
           shell: sh
@@ -137,6 +142,17 @@ infra:
         preprovision:
           shell: sh
           run: uv run --locked newsloom-platform build-mcp && uv run --locked newsloom-platform prepare-mcp-layer
+          interactive: false
+          continueOnError: false
+    - name: operations
+      path: infra/operations
+      dependsOn:
+        - operations-identity
+        - migrations
+      hooks:
+        preprovision:
+          shell: sh
+          run: uv run --locked newsloom-platform build-operations
           interactive: false
           continueOnError: false
     - name: phase1-acceptance

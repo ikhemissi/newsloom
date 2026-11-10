@@ -46,7 +46,7 @@ run "approved_utc_schedule" {
   assert {
     condition = (
       length(azurerm_container_app_job.ingestion.manual_trigger_config) == 0 &&
-      azurerm_container_app_job.ingestion.schedule_trigger_config[0].cron_expression == "*/30 * * * *" &&
+      azurerm_container_app_job.ingestion.schedule_trigger_config[0].cron_expression == "10,40 7-22 * * *" &&
       one([for env in azurerm_container_app_job.ingestion.template[0].container[0].env : env.value if env.name == "SCANNER_CALIBRATION_ID"]) == var.screening_calibration_id
     )
     error_message = "Only the approved UTC schedule is supported."

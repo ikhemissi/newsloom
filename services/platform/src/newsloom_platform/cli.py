@@ -122,6 +122,7 @@ def main() -> None:
                 "read-enrichment",
                 "verify-enrichment",
                 "build-mcp",
+                "build-operations",
                 "verify-mcp",
                 "prepare-mcp-evaluation",
                 "cleanup-mcp-evaluation",

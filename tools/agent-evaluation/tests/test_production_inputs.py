@@ -10,13 +10,14 @@ from agent_evaluation.production_inputs import (
     PRODUCTION_INPUTS,
     PRODUCTION_INPUTS_V2,
     PRODUCTION_INPUTS_V3,
+    PRODUCTION_INPUTS_V4,
     document_digest,
     verify_production_inputs,
 )
 
 
 def test_current_and_historical_digests_are_distinct_and_preserved() -> None:
-    assert verify_production_inputs() == document_digest(PRODUCTION_INPUTS_V3)
+    assert verify_production_inputs() == document_digest(PRODUCTION_INPUTS_V4)
     assert PRODUCTION_INPUTS["pyproject.toml"] == (
         "0e676e369ce0abd956518993ad40fb112bc1f5084abb3f52c55e72dbab8aef59"
     )
@@ -25,11 +26,29 @@ def test_current_and_historical_digests_are_distinct_and_preserved() -> None:
         verify_production_inputs(expected_sha256=document_digest(PRODUCTION_INPUTS))
     with pytest.raises(EvaluationFailure, match="baseline_provenance_mismatch"):
         verify_production_inputs(expected_sha256=document_digest(PRODUCTION_INPUTS_V2))
-    assert verify_production_inputs(expected_sha256=document_digest(PRODUCTION_INPUTS_V3))
+    with pytest.raises(EvaluationFailure, match="baseline_provenance_mismatch"):
+        verify_production_inputs(expected_sha256=document_digest(PRODUCTION_INPUTS_V3))
+    assert verify_production_inputs(expected_sha256=document_digest(PRODUCTION_INPUTS_V4))
+
+
+def without_operations(path: str) -> bytes:
+    data = (ROOT / path).read_bytes()
+    if path == "uv.lock":
+        data = re.sub(
+            rb'\[\[package\]\]\nname = "(?:newsloom-operations|azure-storage-blob)"\n.*?'
+            rb"(?=\[\[package\]\])",
+            b"",
+            data,
+            flags=re.DOTALL,
+        )
+        data = b"".join(
+            line for line in data.splitlines(keepends=True) if b'"newsloom-operations"' not in line
+        )
+    return data
 
 
 def historical_input(path: str) -> bytes:
-    data = (ROOT / path).read_bytes()
+    data = without_operations(path)
     if path == "pyproject.toml":
         data = data.replace(b'    "newsloom-briefing",\n', b"").replace(
             b"newsloom-briefing = { workspace = true }\n", b""
@@ -72,9 +91,19 @@ def test_http_ui_workspace_retains_its_original_v2_digest(tmp_path: Path) -> Non
     assert verify_production_inputs(tmp_path) == document_digest(PRODUCTION_INPUTS_V2)
 
 
-@pytest.mark.parametrize("name", tuple(PRODUCTION_INPUTS_V3))
+def test_briefing_workspace_retains_its_v3_digest(tmp_path: Path) -> None:
+    for path, expected in PRODUCTION_INPUTS_V3.items():
+        data = without_operations(path)
+        assert hashlib.sha256(data).hexdigest() == expected
+        target = tmp_path / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(data)
+    assert verify_production_inputs(tmp_path) == document_digest(PRODUCTION_INPUTS_V3)
+
+
+@pytest.mark.parametrize("name", tuple(PRODUCTION_INPUTS_V4))
 def test_unknown_manifest_changes_are_not_re_pinned(name: str, tmp_path: Path) -> None:
-    for path in PRODUCTION_INPUTS_V3:
+    for path in PRODUCTION_INPUTS_V4:
         target = tmp_path / path
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes((ROOT / path).read_bytes())

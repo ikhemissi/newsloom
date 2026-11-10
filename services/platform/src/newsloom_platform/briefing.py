@@ -337,7 +337,7 @@ def verify(env: dict[str, str], correlation: str) -> None:
         or configuration.get("triggerType") != ("Schedule" if scheduled else "Manual")
         or trigger.get("parallelism") != 1
         or trigger.get("replicaCompletionCount") != 1
-        or (scheduled and trigger.get("cronExpression") != "0 5 * * *")
+        or (scheduled and trigger.get("cronExpression") != "45 7 * * *")
         or len(assignments) != 1
         or len(selected_assignments) != 1
         or json_object(job.get("identity")).get("type") != "UserAssigned"

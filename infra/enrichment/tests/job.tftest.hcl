@@ -50,7 +50,7 @@ run "approved_utc_schedule_and_own_model_config" {
   assert {
     condition = (
       length(azurerm_container_app_job.enrichment.manual_trigger_config) == 0 &&
-      azurerm_container_app_job.enrichment.schedule_trigger_config[0].cron_expression == "*/30 * * * *" &&
+      azurerm_container_app_job.enrichment.schedule_trigger_config[0].cron_expression == "10,40 7-22 * * *" &&
       one([for env in azurerm_container_app_job.enrichment.template[0].container[0].env : env.value if env.name == "ENRICHMENT_MODEL"]) == var.generation_model
     )
     error_message = "Use the reviewed UTC schedule and explicit owned model settings."

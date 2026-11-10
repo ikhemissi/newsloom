@@ -208,7 +208,7 @@ def test_verify_manual_and_scheduled(
     config["scheduleTriggerConfig"] = {
         "parallelism": 1,
         "replicaCompletionCount": 1,
-        "cronExpression": "0 5 * * *",
+        "cronExpression": "45 7 * * *",
     }
     briefing.verify(env, "test")
     config["scheduleTriggerConfig"]["cronExpression"] = "*/5 * * * *"

@@ -77,8 +77,9 @@ async def verify_principals(
     *,
     create: bool,
     briefing: bool = False,
+    operations: bool = False,
 ) -> None:
-    workloads = ("briefing",) if briefing else RUNTIME_WORKLOADS
+    workloads = ("briefing",) if briefing else ("operations",) if operations else RUNTIME_WORKLOADS
     cursor = await connection.execute("SELECT * FROM pg_catalog.pgaadauth_list_principals(false)")
     mappings = {str(row[0]): row for row in await cursor.fetchall()}
     cursor = await connection.execute(
@@ -90,9 +91,15 @@ async def verify_principals(
     roles = {str(row[0]): row for row in await cursor.fetchall()}
     for workload in workloads:
         role = f"newsloom_{workload}"
-        identity = config.briefing_identity if briefing else config.identities[workload]
+        identity = (
+            config.briefing_identity
+            if briefing
+            else config.operations_identity
+            if operations
+            else config.identities[workload]
+        )
         if identity is None:
-            raise PlatformFailure("briefing_identity_missing")
+            raise PlatformFailure(f"{workload}_identity_missing")
         expected = str(identity.principal_id)
         if role in roles:
             mapped = mappings.get(role)
@@ -137,6 +144,16 @@ async def migrate(config: RuntimeConfig, credential: AsyncTokenCredential) -> in
                 if not already:
                     await record(admin, "005_briefing_principal", briefing_checksum)
                     applied += 1
+        if config.operations_identity is not None:
+            operations_checksum = hashlib.sha256(
+                principal_sql.encode() + str(config.operations_identity.principal_id).encode()
+            ).hexdigest()
+            async with admin.transaction():
+                already = await is_applied(admin, "013_operations_principal", operations_checksum)
+                await verify_principals(admin, config, create=not already, operations=True)
+                if not already:
+                    await record(admin, "013_operations_principal", operations_checksum)
+                    applied += 1
         async with await connect(
             config, credential, config.postgres_database, config.postgres_admin_name
         ) as application:
@@ -165,6 +182,10 @@ async def migrate(config: RuntimeConfig, credential: AsyncTokenCredential) -> in
                         await application.execute(sql)
                         await record(application, version, checksum)
                         applied += 1
+            if config.operations_identity is not None:
+                # Re-applied on every run so tables added by later migrations stay readable.
+                async with application.transaction():
+                    await application.execute(migration_sql("013_operations_read.sql"))
         await admin.execute("SELECT pg_advisory_unlock(%s)", (ADVISORY_LOCK,))
     return applied
 
