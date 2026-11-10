@@ -14,3 +14,4 @@
 
 - [x] 3.1 Update `docs/agent.md`, `docs/ui.md` and PRD-3 capability notes; run `bash scripts/check.sh --all` and `npm run spec:check`.
 - [ ] 3.2 Deploy the agent then the web app through azd previews; verify readbacks; the user runs a three-turn conversation in their browser; record measured token usage per follow-up.
+  - First signed-in try (2026-11-10): a Vertex question worked; "and what about AWS?" showed nothing twice because the planner repeated a call (`research_repeated_tool`) and the error appeared outside the panel, and the third attempt answered about AWS in general. Fixed: repeated calls are dropped, research errors show in the panel, follow-ups keep the earlier topic, and the planner no longer invents source/category filters. Preview after the fix: the Foundry conversation's AWS turn searched AWS agents/Bedrock and cited 5 AgentCore/Bedrock items; the recorded week has too little Vertex content to judge that scenario offline.

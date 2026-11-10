@@ -69,6 +69,7 @@ export function App({ auth, research, catalog, feedback, radar }: {
   const [question, setQuestion] = useState("");
   const [turns, setTurns] = useState<Turn[]>(() => loadThread());
   const [pending, setPending] = useState("");
+  const [researchError, setResearchError] = useState("");
   const latestTurn = useRef<HTMLLIElement | null>(null);
   const [rated, setRated] = useState<{ id: string; snapshot: ResearchSnapshot } | null>(null);
   const [phase, setPhase] = useState<Phase | null>(null);
@@ -327,7 +328,7 @@ export function App({ auth, research, catalog, feedback, radar }: {
     setChoices(null); setChoicesError(""); setChoicesLoading(false);
     setDraft({ ...emptyDraft }); setApplied(emptySnapshot); setSubmittedContext(null);
     setNewsError(""); setLoaded(false); setLoading(false); setPanelOpen(false); setAuthRequired(null);
-    setQuestion(""); setTurns([]); clearThread(); setRated(null); setPending("");
+    setQuestion(""); setTurns([]); clearThread(); setRated(null); setPending(""); setResearchError("");
     setPhase(null); setSignedIn(false); setError("");
     try { await research.stop(); await auth.signOut(); }
     catch (failure) { setError(failureMessage(failure)); }
@@ -341,7 +342,7 @@ export function App({ auth, research, catalog, feedback, radar }: {
     const controller = new AbortController();
     const id = ++run.current;
     current.current = controller;
-    setBusy(true); setError(""); setPhase(null); setPending(value); setQuestion("");
+    setBusy(true); setResearchError(""); setPhase(null); setPending(value); setQuestion("");
     const context = { item: selected, snapshot: applied };
     setSubmittedContext(context);
     const history = historyFor(turns);
@@ -363,7 +364,7 @@ export function App({ auth, research, catalog, feedback, radar }: {
       }
     } catch (failure) {
       if (id === run.current) {
-        setError(failureMessage(failure));
+        setResearchError(failureMessage(failure));
         setQuestion((current) => current || value);
         if (failure instanceof UiFailure && ["authorization", "interaction"].includes(failure.category))
           setAuthRequired("agent");
@@ -383,7 +384,7 @@ export function App({ auth, research, catalog, feedback, radar }: {
     else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
   }
   function newConversation() {
-    setTurns([]); clearThread(); setRated(null); setSubmittedContext(null); setError("");
+    setTurns([]); clearThread(); setRated(null); setSubmittedContext(null); setResearchError("");
     composer.current?.focus();
   }
   async function stop() {
@@ -391,9 +392,9 @@ export function App({ auth, research, catalog, feedback, radar }: {
     setPending(""); setPhase(null);
     try {
       const confirmed = await research.stop();
-      if (id === run.current) setError(confirmed ? "The agent confirmed cancellation." : messages.stopped);
+      if (id === run.current) setResearchError(confirmed ? "The agent confirmed cancellation." : messages.stopped);
     } catch {
-      if (id === run.current) setError(messages.stopped);
+      if (id === run.current) setResearchError(messages.stopped);
     } finally {
       current.current?.abort();
       if (id === run.current) { setBusy(false); current.current = null; }
@@ -631,6 +632,7 @@ export function App({ auth, research, catalog, feedback, radar }: {
         {turns.length > 0 && feedback && rated && rated.id === turns[turns.length - 1]?.id &&
           <FeedbackControls client={feedback} label="Rate this answer"
             target={{ type: "research", ref: rated.id }} snapshot={rated.snapshot} />}
+        {researchError && <div role="alert" className="alert alert-error">{researchError}</div>}
         {busy && pending && <p className="turn-question pending"><span className="sr-only">You asked: </span>{pending}</p>}
         <form onSubmit={(event) => void ask(event)}>
           <label htmlFor="question" className="composer-label">What would you like to understand?</label>
