@@ -22,5 +22,5 @@
 
 ## 5. Deliver
 
-- [ ] 5.1 Update `docs/ui.md`, `docs/news-api.md`, `docs/enrichment.md` and the PRD-3 capability notes; run `bash scripts/check.sh --all` and `npm run spec:check`.
+- [x] 5.1 Update `docs/ui.md`, `docs/news-api.md`, `docs/enrichment.md` and the PRD-3 capability notes; run `bash scripts/check.sh --all` and `npm run spec:check`.
 - [ ] 5.2 Deploy migrations, enrichment, MCP and web through azd previews; run the triage backfill; record tier distribution and cost; user checks the radar in their browser.

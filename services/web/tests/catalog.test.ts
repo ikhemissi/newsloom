@@ -140,3 +140,26 @@ test("detail maps stored announcements and treats older items as having none", a
   inject = false;
   expect((await client.detail(id, signal()))?.announcements).toEqual([]);
 });
+
+test("the radar client accepts the real server serialization, including edge cases", async () => {
+  const { HttpRadar } = await import("../src/radarClient");
+  const radar = new HttpRadar({ ...runtimeConfig, newsApiUrl: endpoint }, auth);
+  for (const window of [7, 30] as const) {
+    const result = await radar.radar(window, signal());
+    const cards = Object.values(result.tiers).flat().flatMap((entry) => entry.kind === "group" ? entry.cards : [entry.card]);
+    expect(cards.map((card) => card.statement)).toContain("Router fix.");
+    expect(Object.values(result.tiers).flat().every((entry) => entry.kind === "card" || entry.cards.length >= 2)).toBe(true);
+    expect(result.hidden.map((card) => card.statement)).toEqual(["Snoozed."]);
+    expect(result.deadlines.map((card) => card.statement)).toEqual(["Security fix."]);
+  }
+  const [followed] = await radar.search("acme", signal());
+  expect(await radar.setStack([followed!.id], signal())).toHaveLength(1);
+  expect(await radar.stack(signal())).toHaveLength(1);
+  const security = (await radar.radar(7, signal())).tiers.act_now[0];
+  expect(security?.kind).toBe("card");
+  if (security?.kind !== "card") return;
+  await radar.setCard(security.card.id, "done", signal());
+  const detail = await radar.product(security.card.products[0]!.id, signal());
+  expect(detail?.timeline).toHaveLength(2);
+  expect(await radar.product(crypto.randomUUID(), signal())).toBeNull();
+});

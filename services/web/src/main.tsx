@@ -8,7 +8,11 @@ import { HttpCatalog } from "./catalog";
 import { HttpFeedback } from "./feedback";
 import { HttpRadar } from "./radarClient";
 import { failureMessage } from "./domain";
+import { z } from "zod";
 import "./style.css";
+
+// Validate without generated code: the site's Content-Security-Policy forbids eval.
+z.config({ jitless: true });
 
 const container = document.getElementById("root");
 if (!container) throw new Error("Missing application root");

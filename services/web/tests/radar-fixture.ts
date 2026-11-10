@@ -86,7 +86,7 @@ export class FixtureRadar implements RadarClient {
     for (const card of cards) {
       const group = card.capability ? groups.get(card.capability) : undefined;
       const vendors = new Set(group?.flatMap((item) => item.products.map((product) => product.vendor)));
-      if (group && vendors.size >= 2) {
+      if (group && group.length >= 2 && vendors.size >= 2) {
         if (grouped.has(card.capability!)) continue;
         grouped.add(card.capability!);
         entries.push({ kind: "group", capability: card.capability!, cards: group });

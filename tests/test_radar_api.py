@@ -338,3 +338,32 @@ def test_rank_matches_the_browser_rules() -> None:
         "a",
         "c",
     ]
+
+
+def test_one_multi_vendor_card_is_never_a_group() -> None:
+    from newsloom_mcp.radar import Card, Product
+
+    lone = Card.model_validate(
+        {
+            "id": uuid4(),
+            "news_id": uuid4(),
+            "title": "t",
+            "url": "https://publisher.test/t",
+            "source": "s",
+            "published_at": datetime(2026, 11, 7, tzinfo=UTC),
+            "article_kind": "announcement",
+            "statement": "LiteLLM fixed Bedrock routing.",
+            "status": "updated",
+            "effective_date": None,
+            "deadline": None,
+            "products": [
+                Product(id=uuid4(), name="Proxy", vendor="LiteLLM", vendor_id=uuid4()),
+                Product(id=uuid4(), name="Bedrock", vendor="AWS", vendor_id=uuid4()),
+            ],
+            "tier": "worth_knowing",
+            "reason": None,
+            "capability": "model routing",
+        }
+    )
+    entries = rank([lone], 7, False, datetime(2026, 11, 8, tzinfo=UTC)).tiers["worth_knowing"]
+    assert [entry.kind for entry in entries] == ["card"]

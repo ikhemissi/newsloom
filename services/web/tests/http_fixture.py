@@ -6,8 +6,9 @@ import socket
 import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime
-from uuid import uuid4
+from datetime import UTC, date, datetime
+from typing import Literal
+from uuid import UUID, uuid4
 
 import httpx
 import uvicorn
@@ -29,6 +30,15 @@ from newsloom_mcp.models import (
     SearchResults,
     SourceInfo,
     SourcesResult,
+)
+from newsloom_mcp.radar import (
+    Card,
+    CardInput,
+    Product,
+    ProductDetail,
+    Radar,
+    StackEntry,
+    rank,
 )
 from newsloom_mcp.repository import NewsRepository
 
@@ -88,6 +98,84 @@ class Reader:
         )
 
 
+def product(name: str, vendor: str) -> Product:
+    return Product(id=uuid4(), name=name, vendor=vendor, vendor_id=uuid4())
+
+
+def card(statement: str, **change: object) -> Card:
+    values: dict[str, object] = {
+        "id": uuid4(),
+        "news_id": uuid4(),
+        "title": "Authored radar item",
+        "url": "https://publisher.test/radar",
+        "source": "fixture-source",
+        "published_at": datetime(2026, 11, 7, 10, 0, 0, 123456, tzinfo=UTC),
+        "article_kind": "announcement",
+        "statement": statement,
+        "status": "ga",
+        "effective_date": date(2026, 11, 2),
+        "deadline": None,
+        "products": (product("Widget", "Acme"),),
+        "tier": "worth_knowing",
+        "reason": "Authored reason.",
+        "capability": "agent tools",
+    }
+    return Card.model_validate({**values, **change})
+
+
+# Edge cases the browser must accept: a multi-vendor card, a real group, five
+# products, untriaged fields, deadlines and a snoozed card.
+CARDS = [
+    card("Security fix.", tier="act_now", article_kind="security", deadline=date(2026, 11, 30)),
+    card(
+        "Router fix.",
+        capability="model routing",
+        products=(product("Proxy", "LiteLLM"), product("Bedrock", "AWS")),
+    ),
+    card("Tool A.", products=(product("Gateway", "AWS"),)),
+    card("Tool B.", products=tuple(product(f"Tool {n}", f"Vendor {n}") for n in range(5))),
+    card("Untriaged.", reason=None, capability=None, effective_date=None),
+    card("Later.", tier="later", capability="other"),
+    card("Snoozed.", state="snoozed"),
+]
+FOLLOWED = StackEntry(id=uuid4(), name="Acme", kind="vendor", vendor=None)
+
+
+class Radars:
+    def __init__(self) -> None:
+        self.followed: tuple[StackEntry, ...] = ()
+
+    async def radar(self, reader: str, window: Literal[7, 30], now: datetime) -> Radar:
+        return rank(CARDS, window, bool(self.followed), datetime(2026, 11, 8, tzinfo=UTC))
+
+    async def set_card(self, reader: str, announcement: UUID, value: CardInput) -> bool:
+        return announcement == CARDS[0].id
+
+    async def stack(self, reader: str) -> tuple[StackEntry, ...]:
+        return self.followed
+
+    async def set_stack(self, reader: str, ids: tuple[UUID, ...]) -> tuple[StackEntry, ...]:
+        self.followed = (FOLLOWED,) if FOLLOWED.id in ids else ()
+        return self.followed
+
+    async def search(self, query: str) -> tuple[StackEntry, ...]:
+        return (FOLLOWED,)
+
+    async def product(self, identifier: UUID) -> ProductDetail | None:
+        return (
+            ProductDetail(
+                id=identifier,
+                name="Widget",
+                vendor="Acme",
+                aliases=("acme widget",),
+                related=(),
+                timeline=tuple(CARDS[:2]),
+            )
+            if identifier == CARDS[0].products[0].id
+            else None
+        )
+
+
 class Embeddings:
     async def embed(self, query: str, deadline: float) -> Vector:
         if query == "delay":
@@ -109,6 +197,7 @@ class AuthoredVerifier(EntraVerifier):
             nbf=0,
             ver="2.0",
             scp="news.read",
+            oid=UUID(int=9),
         )
 
 
@@ -120,10 +209,16 @@ async def serve(listener: socket.socket) -> None:
     async def ready() -> bool:
         return True
 
+    store = Radars()
+
+    @asynccontextmanager
+    async def radar() -> AsyncIterator[Radars]:
+        yield store
+
     async with httpx.AsyncClient() as client:
         port = listener.getsockname()[1]
         app = create_app(
-            Services(repositories, Embeddings(), ready),
+            Services(repositories, Embeddings(), ready, radar=radar),
             AuthoredVerifier(client, uuid4(), uuid4()),
             f"http://127.0.0.1:{port}/mcp",
             [f"127.0.0.1:{port}"],
