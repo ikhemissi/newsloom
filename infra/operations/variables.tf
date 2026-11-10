@@ -49,3 +49,7 @@ variable "tags" {
   type    = map(string)
   default = {}
 }
+variable "state_storage_id" {
+  type    = string
+  default = ""
+}

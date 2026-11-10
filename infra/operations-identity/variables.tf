@@ -35,3 +35,11 @@ variable "tags" {
   type    = map(string)
   default = {}
 }
+variable "state_resource_group_name" {
+  type    = string
+  default = ""
+}
+variable "state_storage_account_name" {
+  type    = string
+  default = ""
+}

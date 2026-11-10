@@ -22,9 +22,12 @@ remote state; tenant governance acts on resources that lack the two tags.
   - `restore-tags`: merge `CostControl=Ignore` and `SecurityControl=Ignore`
     onto the resource group and every resource in it that lacks either; never
     removes or changes other tags.
+  - `restore-state-access`: re-enable public network access on the Terraform
+    state account when governance disabled it.
   - `nightly` = `backup` then `stop-database` (stops even if the backup failed,
     and exits non-zero then); `wake` = `start-database` then `restore-tags`
-    (tagging a stopped server fails). A manual-only `backup` job exports on
+    (tagging a stopped server fails), also for the state resource group, then
+    `restore-state-access`. A manual-only `backup` job exports on
     demand with the same settings.
   Logs are content-free events (counts, sizes, outcomes).
 - **Database access:** migrations create the principal and grant `CONNECT`,

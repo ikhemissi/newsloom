@@ -8,7 +8,11 @@ locals {
     wake    = { command = "wake", cron = "0 7 * * *", timeout = 1800 }
     backup  = { command = "backup", cron = "", timeout = 3600 }
   }
-  environment = {
+  state = var.state_storage_id == "" ? {} : {
+    AZURE_STATE_STORAGE_ID        = var.state_storage_id
+    AZURE_STATE_RESOURCE_GROUP_ID = join("/", slice(split("/", var.state_storage_id), 0, 5))
+  }
+  environment = merge(local.state, {
     AZURE_CLIENT_ID         = local.identity.client_id
     POSTGRES_HOST           = var.postgres_host
     POSTGRES_DATABASE       = var.postgres_database
@@ -16,7 +20,7 @@ locals {
     AZURE_RESOURCE_GROUP_ID = local.group
     BACKUP_ACCOUNT_URL      = var.backup_account_url
     BACKUP_CONTAINER        = var.backup_container
-  }
+  })
 }
 
 resource "azurerm_container_app_job" "operations" {

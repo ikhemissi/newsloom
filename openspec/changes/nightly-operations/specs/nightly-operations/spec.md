@@ -40,6 +40,12 @@ the resources in it that lack them, without removing or changing other tags.
 - **WHEN** the wake job runs and some resources lack the governance tags
 - **THEN** it starts the server and adds the two tags to those resources
 
+#### Scenario: Governance blocked the Terraform state storage
+- **WHEN** the state resource group lost its tags or the state account's public
+  network access was disabled
+- **THEN** the wake job merges the tags back and re-enables public network access,
+  using grants limited to that resource group and account
+
 #### Scenario: The server is already in the target state
 - **WHEN** the server is already stopped at night or running in the morning
 - **THEN** the job succeeds without changing it

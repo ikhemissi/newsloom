@@ -9,6 +9,7 @@ import httpx
 ARM = "https://management.azure.com"
 SERVER_API = "2024-08-01"
 RESOURCE_API = "2021-04-01"
+STORAGE_API = "2023-05-01"
 GOVERNANCE_TAGS = {"CostControl": "Ignore", "SecurityControl": "Ignore"}
 STABLE = {"Ready", "Stopped"}
 
@@ -80,3 +81,12 @@ class Manager:
             except Failure:
                 failed += 1
         return {"resources": resources, "tagged": len(targets) - failed, "failed": failed}
+
+    async def restore_public_access(self, account: str) -> bool:
+        """Re-enable public network access on the Terraform state account; True if changed."""
+        url = f"{ARM}{account}?api-version={STORAGE_API}"
+        current = (await self.request("GET", url)).json().get("properties", {})
+        if current.get("publicNetworkAccess") == "Enabled":
+            return False
+        await self.request("PATCH", url, {"properties": {"publicNetworkAccess": "Enabled"}})
+        return True
