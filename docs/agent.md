@@ -129,6 +129,27 @@ Preview prompt changes locally with `bash scripts/research-preview.sh` (three
 turns over the recorded announcement week, production controller and model,
 keyword search standing in for vector search; `--replay` rebuilds the review).
 
+### Web research project and Web IQ key
+
+Owned by [`web-research`](../openspec/changes/web-research/proposal.md); see the
+[key exception ADR](adrs.md#web-iq-key-held-by-a-foundry-project-connection-exception).
+The `web-research` layer (off unless `WEB_RESEARCH_ENABLED=true`) creates the
+Foundry project `research-newsloom-<env>` and grants the agent identity Foundry
+User on that project only. The operator then stores the Web IQ key in the
+project's `webiq` connection:
+
+```bash
+azd env set WEB_RESEARCH_ENABLED true
+azd provision web-research --preview   # project + one role assignment
+azd provision web-research
+uv run --locked newsloom-platform set-webiq-connection   # hidden prompt for the key
+```
+
+The command sends the key once from memory to Azure Resource Manager and reads
+the connection back (target, category and auth type only). Rerun it to rotate
+the key. Anyone with access to that project can read the key, so grant nobody
+else access to it.
+
 Local contract validation: **51 focused cases passed**, plus **54 existing
 delegation cases**; strict types and focused lint passed. All **13 OpenSpec
 items** passed strict validation. These are local results with authored fixtures,
