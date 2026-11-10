@@ -81,6 +81,11 @@ infra:
           run: uv run --locked newsloom-platform prepare-agent-layer
           interactive: false
           continueOnError: false
+    - name: web-research
+      path: infra/web-research
+      dependsOn:
+        - application
+        - agent-identity
     - name: mcp-identity
       path: infra/mcp-identity
       dependsOn:

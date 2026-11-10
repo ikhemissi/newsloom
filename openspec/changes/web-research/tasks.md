@@ -2,7 +2,7 @@
 
 ## 1. Platform
 
-- [ ] 1.1 `web-research` layer (Foundry project, agent Foundry User on it) with Terraform tests; `newsloom-platform set-webiq-connection` (hidden prompt, ARM PUT, readback without the key); ADR for the key exception and a dated review note.
+- [x] 1.1 `web-research` layer (Foundry project, agent Foundry User on it) with Terraform tests; `newsloom-platform set-webiq-connection` (hidden prompt, ARM PUT, readback without the key); ADR for the key exception and a dated review note.
 
 ## 2. Agent
 
