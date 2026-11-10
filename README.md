@@ -117,6 +117,22 @@ pipeline jobs. Both runtime schedules continue in Azure independently of the
 developer laptop. Follow the MCP runbook for registration, private client
 configuration, isolated retrieval evaluation and operator verification.
 
+### 3. Manual step: Web IQ access for the agent
+
+Web research needs one step that cannot be automated yet: Web IQ client-ID
+bindings have no Azure Resource Manager API, so Terraform cannot create them.
+After `azd provision web-research` has created the `webiq-newsloom-<env>`
+account:
+
+1. Open [Web IQ profiles](https://webiq.microsoft.ai/profiles) with an account
+   that can manage the subscription and connect the `webiq-newsloom-<env>` account.
+2. On **Application (Client) IDs**, bind the agent identity's client ID
+   (`azd env get-value AGENT_IDENTITY_BASE64 | base64 -d`, field `client_id`).
+
+No API key is needed. Until this is done Web IQ answers 401 and research works
+without the web. See the [agent runbook](docs/agent.md#web-iq-account-and-managed-identity-access);
+remove this step if Web IQ adds an API for bindings.
+
 ## Useful commands
 
 | Task | Command |
