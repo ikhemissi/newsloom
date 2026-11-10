@@ -2,11 +2,11 @@
 
 ## 1. Platform
 
-- [x] 1.1 `web-research` layer (Foundry project, agent Foundry User on it) with Terraform tests; `newsloom-platform set-webiq-connection` (hidden prompt, ARM PUT, readback without the key); ADR for the key exception and a dated review note.
+- [ ] 1.1 Remove the `web-research` project layer and `set-webiq-connection`; delete the unused `research-newsloom-<env>` project (user-approved); Terraform-manage the Web IQ resource replacing `testwebiqtoberemoved`; document the managed-identity binding; mark the key-exception ADR superseded.
 
 ## 2. Agent
 
-- [ ] 2.1 `search_web` tool: Responses call with the MCP tool through the connection, raw result parsing, limits, failure handling; tests with a fake Responses endpoint.
+- [ ] 2.1 `search_web` tool: managed-identity token, `POST /v3/search/web`, result parsing and limits, failure handling; tests with a fake Web IQ endpoint.
 - [ ] 2.2 Planner and evidence: web IDs, claim `web_ids`, budgets, "From the web" rendering, disabled-by-default; preview locally with the real connection on stored-news gaps.
 
 ## 3. Web
@@ -16,4 +16,4 @@
 ## 4. Deliver
 
 - [ ] 4.1 Docs (`docs/agent.md`, `docs/ui.md`, `docs/adrs.md`, `docs/known-gaps.md`); `bash scripts/check.sh --all`; `npm run spec:check`.
-- [ ] 4.2 Operator enters the key; deploy through azd previews; signed-in check on a stored item that only points to its changes; record searches, tokens and cost.
+- [ ] 4.2 Deploy through azd previews; signed-in check on a stored item that only points to its changes; record searches, tokens and cost.

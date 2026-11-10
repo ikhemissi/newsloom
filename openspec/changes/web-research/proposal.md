@@ -9,14 +9,12 @@ when stored evidence is not enough (2026-11-09/10).
 
 ## What Changes
 
-- **Web IQ through a Foundry project connection (user decision 2026-11-10).** A
-  new Foundry project `research-newsloom-<env>` holds one connection to the Web IQ
-  MCP server. Its API key is entered once by the operator, stored only in that
-  connection and never in the repository, azd environment, Terraform state or
-  application settings. The agent reaches Web IQ only through the project's
-  Responses API with its managed identity (Foundry User on that project).
-  This is a recorded exception to the no-keys rule, to be reviewed from the
-  week after Ignite in case Web IQ adds Entra and RBAC support.
+- **Web IQ with the agent's managed identity (verified 2026-11-10).** Web IQ accepts
+  Microsoft Entra app-only tokens. The agent's managed identity client ID is bound
+  to the Web IQ AppID in Web IQ profiles; the agent gets a token for
+  `https://api.microsoft.ai/.default` and calls `POST https://api.microsoft.ai/v3/search/web`.
+  No key exists anywhere. A test Web IQ resource (`testwebiqtoberemoved`, created in
+  the portal) is replaced by a Terraform-managed one.
 - **The agent decides (user decision).** A `search_web` planning tool is offered
   in discovery mode when web research is enabled. The planner may use it at most
   twice per request when stored evidence does not answer the question or may be
@@ -36,8 +34,9 @@ web results in the briefing or radar.
 
 Decisions surfaced:
 - **Data leaves Newsloom:** planner-written queries (derived from the question
-  and stored evidence) go to Web IQ. No tokens or user identifiers are sent.
-- **Cost:** about $7 per 1,000 Web IQ searches plus one extra model call per web
-  search; bounded by two searches per request and measured in acceptance.
+  and stored evidence) go to Web IQ under its terms. No user tokens or user
+  identifiers are sent.
+- **Cost:** about $7 per 1,000 Web IQ searches, no extra model call; bounded by
+  two searches per request and measured in acceptance.
 - **Compatibility:** with web research disabled (default), requests, prompts and
   answers are unchanged.
