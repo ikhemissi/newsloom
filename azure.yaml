@@ -85,7 +85,6 @@ infra:
       path: infra/web-research
       dependsOn:
         - application
-        - agent-identity
     - name: mcp-identity
       path: infra/mcp-identity
       dependsOn:

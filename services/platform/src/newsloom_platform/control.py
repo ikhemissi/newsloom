@@ -752,10 +752,6 @@ def control(command: str, correlation: str, *, force: bool = False, limit: int =
         build(env, correlation, service="mcp")
     elif command == "build-operations":
         build(env, correlation, service="operations")
-    elif command == "set-webiq-connection":
-        from newsloom_platform import web_research
-
-        web_research.set_connection(env, correlation)
     elif command == "build-phase1":
         build(env, correlation, service="phase1")
     elif command == "prepare-phase1-layer":
