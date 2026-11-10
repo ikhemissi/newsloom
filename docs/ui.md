@@ -475,7 +475,7 @@ reviewer." Readers are pseudonymous and feedback text is never logged; see the
 ## Architect radar
 
 The signed-in home page (`/`) is the radar
-([change](../openspec/changes/architect-radar-home/proposal.md)): the daily briefing as a header, whose
+([change](../openspec/changes/archive/2026-11-10-architect-radar-home/proposal.md)): the daily briefing as a header, whose
 citation markers open their sources directly, then a strip of upcoming deadlines,
 "Act now", "Worth knowing" (8 entries, then "Show more") and a collapsed "When
 you have time". Each card shows its status or deadline, vendor, statement (linked

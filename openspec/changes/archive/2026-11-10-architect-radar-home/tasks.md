@@ -23,4 +23,8 @@
 ## 5. Deliver
 
 - [x] 5.1 Update `docs/ui.md`, `docs/news-api.md`, `docs/enrichment.md` and the PRD-3 capability notes; run `bash scripts/check.sh --all` and `npm run spec:check`.
-- [ ] 5.2 Deploy migrations, enrichment, MCP and web through azd previews; run the triage backfill; record tier distribution and cost; user checks the radar in their browser.
+- [x] 5.2 Deploy migrations, enrichment, MCP and web through azd previews; run the triage backfill; record tier distribution and cost; user checks the radar in their browser.
+  - Evidence (2026-11-09/10): migration 012 applied; enrichment, MCP and web deployed through image-only previews; `verify-mcp` and `verify-ui` succeeded (MCP revision 10, web revision 17 after the group fix in #20).
+  - Live bug found and fixed (#20): one card naming two vendors was sent as a one-card group and the browser rejected the radar; a contract test now runs the browser client against the real server ranking. zod JIT disabled for the CSP `eval` report.
+  - Triage backfill: four runs, 464 items and 1,128 announcements triaged, 0 failed, last two runs found nothing left. Tier distribution measured in the local preview (act now 2%, worth knowing 44%, later 54%, about $0.10/week); the live distribution was not read back.
+  - User checked the radar in their browser on 2026-11-10: "it looks good".
