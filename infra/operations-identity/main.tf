@@ -8,6 +8,8 @@ locals {
   container = "${azurerm_storage_account.backup.id}/blobServices/default/containers/${azurerm_storage_container.postgres.name}"
   snapshots = "${azurerm_storage_account.backup.id}/blobServices/default/containers/${azurerm_storage_container.snapshots.name}"
   mcp       = jsondecode(base64decode(var.workload_identities_base64)).mcp
+  state     = var.state_resource_group_name == "" ? "" : "/subscriptions/${var.subscription_id}/resourceGroups/${var.state_resource_group_name}"
+  state_id  = local.state == "" ? "" : "${local.state}/providers/Microsoft.Storage/storageAccounts/${var.state_storage_account_name}"
 }
 
 resource "azurerm_user_assigned_identity" "operations" {
@@ -173,6 +175,44 @@ resource "azurerm_management_lock" "backup" {
   notes      = "Holds database exports; remove deliberately before any deletion."
 }
 
+# Lets the wake job undo governance changes to the Terraform state storage (tags and
+# public network access), which otherwise block every deployment.
+resource "azurerm_role_assignment" "state_tags" {
+  count                            = local.state == "" ? 0 : 1
+  scope                            = local.state
+  role_definition_name             = "Tag Contributor"
+  principal_id                     = azurerm_user_assigned_identity.operations.principal_id
+  principal_type                   = "ServicePrincipal"
+  skip_service_principal_aad_check = true
+}
+
+resource "azurerm_role_definition" "state_access" {
+  count             = local.state == "" ? 0 : 1
+  name              = "newsloom-${var.environment_name}-state-access"
+  scope             = local.state_id
+  description       = "Operations: read the Terraform state account and re-enable its public network access."
+  assignable_scopes = [local.state_id]
+  permissions {
+    actions = [
+      "Microsoft.Storage/storageAccounts/read",
+      "Microsoft.Storage/storageAccounts/write",
+    ]
+    data_actions = []
+  }
+}
+
+resource "azurerm_role_assignment" "state_access" {
+  count                            = local.state == "" ? 0 : 1
+  scope                            = local.state_id
+  role_definition_id               = azurerm_role_definition.state_access[0].role_definition_resource_id
+  principal_id                     = azurerm_user_assigned_identity.operations.principal_id
+  principal_type                   = "ServicePrincipal"
+  skip_service_principal_aad_check = true
+}
+
+output "AZURE_STATE_STORAGE_ID" {
+  value = local.state_id
+}
 output "OPERATIONS_IDENTITY_BASE64" {
   value = base64encode(jsonencode({
     id           = azurerm_user_assigned_identity.operations.id

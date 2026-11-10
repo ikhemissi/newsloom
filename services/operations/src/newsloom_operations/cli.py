@@ -22,7 +22,15 @@ DATABASE_SCOPE = "https://ossrdbms-aad.database.windows.net/.default"
 MANAGEMENT_SCOPE = "https://management.azure.com/.default"
 ROLE = "newsloom_operations"
 CA = "/etc/ssl/certs/ca-certificates.crt"
-COMMANDS = ("backup", "stop-database", "start-database", "restore-tags", "nightly", "wake")
+COMMANDS = (
+    "backup",
+    "stop-database",
+    "start-database",
+    "restore-tags",
+    "restore-state-access",
+    "nightly",
+    "wake",
+)
 
 
 class Parser(argparse.ArgumentParser):
@@ -111,11 +119,23 @@ async def run(command: str, correlation: str) -> None:
                         outcome=target.lower(),
                         counts={"changed": int(sent)},
                     )
+                elif name == "restore-tags":
+                    groups = [env["AZURE_RESOURCE_GROUP_ID"]]
+                    if env.get("AZURE_STATE_RESOURCE_GROUP_ID"):
+                        groups.append(env["AZURE_STATE_RESOURCE_GROUP_ID"])
+                    for group in groups:
+                        counts = await manager.restore_tags(group)
+                        event("governance_tags", correlation, outcome="checked", counts=counts)
+                        if counts["failed"]:
+                            raise azure.Failure("governance_tags_partially_failed")
                 else:
-                    counts = await manager.restore_tags(env["AZURE_RESOURCE_GROUP_ID"])
-                    event("governance_tags", correlation, outcome="checked", counts=counts)
-                    if counts["failed"]:
-                        raise azure.Failure("governance_tags_partially_failed")
+                    changed = await manager.restore_public_access(env["AZURE_STATE_STORAGE_ID"])
+                    event(
+                        "state_storage_access",
+                        correlation,
+                        outcome="enabled",
+                        counts={"changed": int(changed)},
+                    )
             except (
                 backup.Failure,
                 azure.Failure,
@@ -135,7 +155,8 @@ async def run(command: str, correlation: str) -> None:
 
         steps = {
             "nightly": ("backup", "stop-database"),
-            "wake": ("start-database", "restore-tags"),
+            "wake": ("start-database", "restore-tags")
+            + (("restore-state-access",) if env.get("AZURE_STATE_STORAGE_ID") else ()),
         }.get(command, (command,))
         for name in steps:
             await step(name)

@@ -71,3 +71,17 @@ run "mutable_images_are_rejected" {
   }
   expect_failures = [var.image]
 }
+
+run "wake_receives_the_state_storage_ids" {
+  command = plan
+  variables {
+    state_storage_id = "/subscriptions/test/resourceGroups/rg-newsloom-test-tfstate/providers/Microsoft.Storage/storageAccounts/stnewsloomstate"
+  }
+  assert {
+    condition = (
+      local.environment.AZURE_STATE_STORAGE_ID == var.state_storage_id &&
+      local.environment.AZURE_STATE_RESOURCE_GROUP_ID == "/subscriptions/test/resourceGroups/rg-newsloom-test-tfstate"
+    )
+    error_message = "The wake job needs the state account and its resource group."
+  }
+}

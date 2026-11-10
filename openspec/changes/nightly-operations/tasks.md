@@ -8,6 +8,7 @@
 
 - [x] 2.1 Add the `operations-identity` layer (identity, roles, storage with immutability and lifecycle, locks) and the `operations` layer (nightly and wake jobs) with Terraform tests; platform build and prepare commands.
 - [x] 2.2 Migrations: create the operations principal and re-apply read-only grants on every run; tests.
+- [x] 2.4 Wake job repairs the Terraform state storage (tags on its resource group, public network access on its account) with grants scoped to them; tests.
 - [x] 2.3 New schedules for ingestion, enrichment and the briefing, with tests and readbacks updated.
 
 ## 3. Deliver

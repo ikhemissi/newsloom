@@ -184,3 +184,25 @@ async def test_failed_dump_never_writes_a_manifest(
         await backup.export(connection, fake_dump(tmp_path, 1), {}, store, datetime.now(UTC))
     assert not any(name.endswith(".json") for name in store.blobs)
     assert store.blobs == {}
+
+
+async def test_state_storage_access_is_reenabled_only_when_disabled() -> None:
+    account = (
+        "/subscriptions/s/resourceGroups/g-tfstate/providers/Microsoft.Storage/storageAccounts/st"
+    )
+    state = {"publicNetworkAccess": "Disabled"}
+    patches: list[object] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == account
+        if request.method == "PATCH":
+            patches.append(json.loads(request.content))
+            state["publicNetworkAccess"] = "Enabled"
+            return httpx.Response(200, json={})
+        return httpx.Response(200, json={"properties": dict(state)})
+
+    arm, client = manager(httpx.MockTransport(handle))
+    async with client:
+        assert await arm.restore_public_access(account) is True
+        assert await arm.restore_public_access(account) is False
+    assert patches == [{"properties": {"publicNetworkAccess": "Enabled"}}]

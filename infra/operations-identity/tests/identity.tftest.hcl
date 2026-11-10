@@ -92,3 +92,30 @@ run "snapshots_are_private_short_lived_and_written_only_by_mcp" {
     error_message = "Only the MCP identity writes the private, 7-day read snapshot."
   }
 }
+
+run "state_storage_repair_grants_are_scoped_to_the_state_account" {
+  command = apply
+  variables {
+    state_resource_group_name  = "rg-newsloom-test-tfstate"
+    state_storage_account_name = "stnewsloomstate"
+  }
+  assert {
+    condition = (
+      azurerm_role_assignment.state_tags[0].scope == "/subscriptions/${var.subscription_id}/resourceGroups/rg-newsloom-test-tfstate" &&
+      azurerm_role_assignment.state_tags[0].role_definition_name == "Tag Contributor" &&
+      toset(azurerm_role_definition.state_access[0].permissions[0].actions) == toset(["Microsoft.Storage/storageAccounts/read", "Microsoft.Storage/storageAccounts/write"]) &&
+      length(azurerm_role_definition.state_access[0].permissions[0].data_actions) == 0 &&
+      azurerm_role_assignment.state_access[0].scope == "/subscriptions/${var.subscription_id}/resourceGroups/rg-newsloom-test-tfstate/providers/Microsoft.Storage/storageAccounts/stnewsloomstate" &&
+      output.AZURE_STATE_STORAGE_ID == azurerm_role_assignment.state_access[0].scope
+    )
+    error_message = "State repair may only tag the state group and manage the state account."
+  }
+}
+
+run "no_state_grants_without_state_inputs" {
+  command = plan
+  assert {
+    condition     = length(azurerm_role_assignment.state_tags) == 0 && length(azurerm_role_assignment.state_access) == 0 && output.AZURE_STATE_STORAGE_ID == ""
+    error_message = "State repair is optional."
+  }
+}

@@ -25,6 +25,10 @@ around the clock although nobody reads Newsloom at night.
   resources that lost them. A manual-only job takes an export on demand. Ingestion and enrichment run every 30 minutes
   from 07:10 to 22:40 UTC; the briefing starts at 07:45 UTC and keeps its
   05:00 UTC slot and cutoff.
+- **State storage repair (user decision 2026-11-10).** Governance also removes the
+  tags from the Terraform state storage and disables its public network access,
+  which blocks every deployment. The wake job also merges the tags onto the state
+  resource group and re-enables public network access on the state account.
 - **Restore drill.** An operator script restores the latest export into a local
   PostgreSQL container and compares row counts with the manifest.
 
