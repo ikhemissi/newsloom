@@ -237,7 +237,7 @@ reviewers can turn that into fixes and eval cases.
 
 ## P3-C10: Architect radar
 
-**Assignment:** active [`architect-radar-home`](../openspec/changes/architect-radar-home/tasks.md).
+**Assignment:** delivered by [`architect-radar-home`](../openspec/changes/archive/2026-11-10-architect-radar-home/tasks.md).
 
 **Outcome:** At a glance, a reader sees what needs action, what is worth knowing
 and what can wait, personalised by the vendors and products they follow.
