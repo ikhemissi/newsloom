@@ -1,5 +1,6 @@
 import type { RuntimeConfig } from "../src/config";
-import type { BriefingResponse, NewsDetail, NewsItem, NewsPage, SourceCatalog } from "../src/domain";
+import type { BriefingResponse, Conversation, NewsDetail, NewsItem, NewsPage, ResearchEvent, SourceCatalog } from "../src/domain";
+import { parseAnswer } from "../src/answer";
 
 export const runtimeConfig: RuntimeConfig = {
   tenantId: crypto.randomUUID(), clientId: crypto.randomUUID(),
@@ -69,4 +70,8 @@ export function noMaterialBriefing(): BriefingResponse {
     tldr: null, sections: [], citations: [],
   };
   return result;
+}
+
+export function answerEvent(text: string, conversation: Conversation = { followUps: [], citedItemIds: [] }): ResearchEvent {
+  return { kind: "answer", answer: parseAnswer(text), text, conversation };
 }

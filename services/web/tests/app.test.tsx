@@ -4,7 +4,7 @@ import { App, AnswerView } from "../src/App";
 import { parseAnswer } from "../src/answer";
 import { UiFailure } from "../src/domain";
 import type { AuthSession, ResearchClient } from "../src/domain";
-import { briefing, detail, newsItem, sourceCatalog, page } from "./fixtures";
+import { briefing, detail, newsItem, sourceCatalog, page, answerEvent } from "./fixtures";
 
 const catalog = {
   briefing,
@@ -53,7 +53,7 @@ test("progress precedes the answer and no-match stays visible", async () => {
   const research: ResearchClient = {
     async *ask() {
       yield { kind: "progress", phase: "retrieving" };
-      yield { kind: "answer", answer: parseAnswer("No matching stored evidence.\n\nLimitation: no match.") };
+      yield answerEvent("No matching stored evidence.\n\nLimitation: no match.");
     },
     stop: vi.fn(async () => false),
   };
@@ -85,7 +85,7 @@ test("stopping does not turn partial work into a completed answer or pretend can
     async *ask() {
       yield { kind: "progress", phase: "retrieving" };
       await pending;
-      yield { kind: "answer", answer: parseAnswer("Late fixture answer.") };
+      yield answerEvent("Late fixture answer.");
     },
     stop: async () => { release?.(); return false; },
   };
@@ -102,7 +102,7 @@ test("stopping does not turn partial work into a completed answer or pretend can
 test("latest news is the default and typing/searching does not invoke the agent", async () => {
   const recent = vi.fn(async () => page([newsItem]));
   const search = vi.fn(async () => page([{ ...newsItem, title: "Ranked fixture result" }]));
-  const ask = vi.fn(async function* () { yield { kind: "answer" as const, answer: parseAnswer("Fixture") }; });
+  const ask = vi.fn(async function* () { yield answerEvent("Fixture"); });
   render(<App auth={auth(true)} catalog={{ recent, search, sources: catalog.sources, detail, briefing }} research={{ ask, stop: async () => false }} />);
   expect(await screen.findByRole("heading", { name: newsItem.title })).toBeInTheDocument();
   expect(screen.queryByRole("complementary")).toBeNull();
@@ -120,7 +120,7 @@ test("latest news is the default and typing/searching does not invoke the agent"
 });
 
 test("right panel uses displayed current-news context and close/reopen does not replay research", async () => {
-  const ask = vi.fn(async function* () { yield { kind: "answer" as const, answer: parseAnswer("Fixture answer.") }; });
+  const ask = vi.fn(async function* () { yield answerEvent("Fixture answer."); });
   render(<App auth={auth(true)} catalog={catalog} research={{ ask, stop: async () => false }} />);
   const itemAction = await screen.findByRole("button", { name: `Ask about this: ${newsItem.title}` });
   fireEvent.click(itemAction);
@@ -131,7 +131,7 @@ test("right panel uses displayed current-news context and close/reopen does not 
   fireEvent.change(screen.getByLabelText("What would you like to understand?"), { target: { value: "Explain this item" } });
   fireEvent.click(screen.getByRole("button", { name: "Ask Newsloom" }));
   expect(await screen.findByText("Fixture answer.")).toBeInTheDocument();
-  expect(ask).toHaveBeenCalledWith("Explain this item", expect.any(AbortSignal), [newsItem.id], {});
+  expect(ask).toHaveBeenCalledWith("Explain this item", expect.any(AbortSignal), [newsItem.id], {}, []);
   fireEvent.click(screen.getByRole("button", { name: "Close agent panel" }));
   expect(itemAction).toHaveFocus();
   expect(screen.queryByRole("complementary")).toBeNull();
@@ -161,4 +161,38 @@ test("sign-out prevents an unfinished read from repopulating news", async () => 
   release?.([newsItem]);
   await waitFor(() => expect(screen.getByRole("button", { name: "Sign in to read news" })).toBeInTheDocument());
   expect(screen.queryByRole("heading", { name: newsItem.title })).toBeNull();
+});
+
+test("a conversation keeps its thread, offers follow-ups with history, and starts over on demand", async () => {
+  const cited = ["00000000", "0000", "4000", "8000", "000000000001"].join("-");
+  const first = "Foundry agents gained hosted resilience. [1]\n\n[1] https://publisher.test/foundry";
+  const ask = vi.fn()
+    .mockImplementationOnce(async function* () { yield answerEvent(first, { followUps: ["And what about AWS?"], citedItemIds: [cited] }); })
+    .mockImplementationOnce(async function* () { yield answerEvent("AWS added AgentCore limits."); });
+  render(<App auth={auth(true)} catalog={catalog} research={{ ask, stop: async () => true }} />);
+  openAgent();
+  fireEvent.change(screen.getByLabelText("What would you like to understand?"), { target: { value: "What changed for Foundry agents?" } });
+  fireEvent.click(screen.getByRole("button", { name: "Ask Newsloom" }));
+  const followUp = await screen.findByRole("button", { name: "And what about AWS?" });
+  expect(screen.getByLabelText("What would you like to understand?")).toHaveValue("");
+  fireEvent.click(followUp);
+  await screen.findByText("AWS added AgentCore limits.");
+  expect(ask).toHaveBeenLastCalledWith("And what about AWS?", expect.any(AbortSignal), undefined, {},
+    [{ question: "What changed for Foundry agents?", answer: first, cited_item_ids: [cited] }]);
+  const thread = screen.getByRole("list", { name: "Conversation" });
+  expect(thread.children).toHaveLength(2);
+  expect(JSON.parse(sessionStorage.getItem("newsloom.conversation") ?? "[]")).toHaveLength(2);
+  fireEvent.click(screen.getByRole("button", { name: "New conversation" }));
+  expect(screen.queryByRole("list", { name: "Conversation" })).toBeNull();
+  expect(sessionStorage.getItem("newsloom.conversation")).toBeNull();
+});
+
+test("sign-out removes the stored conversation", async () => {
+  sessionStorage.setItem("newsloom.conversation", JSON.stringify([{ id: "t1", question: "Q?", text: "A.",
+    followUps: [], citedItemIds: [] }]));
+  render(<App auth={auth(true)} catalog={catalog} research={{ ask: vi.fn(), stop: async () => true }} />);
+  openAgent();
+  expect(screen.getByRole("list", { name: "Conversation" })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
+  await waitFor(() => expect(sessionStorage.getItem("newsloom.conversation")).toBeNull());
 });

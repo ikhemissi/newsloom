@@ -78,9 +78,12 @@ test.describe("daily shared briefing", () => {
       await expect(details).toHaveAttribute("open", "");
       await expect(question).toHaveValue("Keep the authored draft");
       expect(reads).toBe(2);
+      // On phones the panel is a full-height sheet over the news, so browsing closes it first.
+      if (width === 390) await page.getByRole("button", { name: "Close agent panel" }).click();
       await page.getByLabel("Category", { exact: true }).selectOption("agents-applications");
       await page.getByRole("button", { name: "Apply filters" }).click();
       await expect(page.getByRole("heading", { name: "Authored search result" })).toBeVisible();
+      if (width === 390) await page.getByRole("button", { name: "Agent", exact: true }).click();
       await expect(page.getByText("Current news: Authored news headline")).toBeAttached();
       expect(reads).toBe(2);
       expect(await page.locator("html").getAttribute("data-research-calls")).toBe("0");
@@ -619,6 +622,39 @@ test.describe("read-only overnight", () => {
       await page.getByRole("navigation", { name: "Sections" }).getByRole("link", { name: "My stack" }).click();
       await expect(page.getByRole("heading", { name: "My stack" })).toBeVisible();
       await expect(page.getByRole("searchbox")).toHaveCount(0);
+    });
+  }
+});
+
+test.describe("research conversation", () => {
+  for (const width of [1440, 390]) {
+    test(`${width}px keeps the thread in view, offers follow-ups and returns focus on close`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto("/tests/harness.html?follow-ups");
+      const toggle = page.getByRole("button", { name: "Agent" });
+      await toggle.click();
+      const panel = page.getByRole("complementary", { name: "Agent interactions" });
+      if (width === 390) {
+        const box = await panel.boundingBox();
+        expect(box && Math.round(box.width) === 390 && Math.round(box.height) === 900 && box.y === 0).toBe(true);
+      }
+      await page.getByLabel("What would you like to understand?").fill("Authored first question");
+      await page.getByLabel("What would you like to understand?").press("Enter");
+      const followUp = page.getByRole("button", { name: "Authored follow-up about AWS?" });
+      await expect(followUp).toBeVisible();
+      await followUp.click();
+      await expect(page.getByRole("list", { name: "Conversation" }).locator(":scope > li")).toHaveCount(2);
+      await expect(page.getByRole("list", { name: "Conversation" }).locator(":scope > li").last()).toBeInViewport();
+      expect((await new AxeBuilder({ page }).analyze()).violations.map((item) => item.id)).toEqual([]);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      if (width === 390) {
+        await page.getByRole("button", { name: "New conversation" }).focus();
+        for (let step = 0; step < 30; step++) await page.keyboard.press("Tab");
+        expect(await panel.evaluate((element) => element.contains(document.activeElement))).toBe(true);
+      }
+      await page.keyboard.press("Escape");
+      await expect(panel).toBeHidden();
+      await expect(toggle).toBeFocused();
     });
   }
 });

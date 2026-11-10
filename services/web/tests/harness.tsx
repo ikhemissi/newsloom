@@ -1,9 +1,8 @@
 import { createRoot } from "react-dom/client";
 import { App } from "../src/App";
-import { parseAnswer } from "../src/answer";
 import type { AuthSession, ResearchClient } from "../src/domain";
 import { UiFailure } from "../src/domain";
-import { architectBriefing, briefing, legacyBriefing, noMaterialBriefing, newsItem, sourceCatalog, newsDetail, page, runtimeConfig } from "./fixtures";
+import { architectBriefing, briefing, legacyBriefing, noMaterialBriefing, newsItem, sourceCatalog, newsDetail, page, runtimeConfig, answerEvent } from "./fixtures";
 import { matchesFilters } from "../src/filters";
 import { HttpCatalog } from "../src/catalog";
 import { HttpFeedback } from "../src/feedback";
@@ -45,9 +44,9 @@ const research: ResearchClient = {
       ? Array.from({ length: 60 }, (_, index) =>
         `Authored long paragraph ${index + 1}. This fixture checks independent panel scrolling without live research.`).join("\n\n")
       : "<img src=x onerror=bad()> [1]";
-    yield { kind: "answer", answer: parseAnswer(
-      `${paragraphs}\n\nLimitation: authored UI fixture only.\n\n[1] https://publisher.test/article`,
-    ) };
+    yield answerEvent(`${paragraphs}\n\nLimitation: authored UI fixture only.\n\n[1] https://publisher.test/article`,
+      parameters.has("follow-ups") ? { followUps: ["Authored follow-up about AWS?"], citedItemIds: [] }
+        : { followUps: [], citedItemIds: [] });
   },
   stop: async () => false,
 };

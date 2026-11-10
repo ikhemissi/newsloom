@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { FormEvent } from "react";
+import type { FormEvent, KeyboardEvent } from "react";
 import type { Answer, AuthSession, NewsCatalog, NewsDetail, NewsItem, Phase, ResearchClient, SourceCatalog } from "./domain";
 import { failureMessage, messages, UiFailure } from "./domain";
 import { safeHttps } from "./config";
@@ -10,6 +10,8 @@ import type { NewsRoute } from "./navigation";
 import { LocalTimestamp, localDateTimeFormat, useDisplayClock } from "./timestamps";
 import { BriefingPanel } from "./BriefingPanel";
 import { readOnlyLine, useReadOnly } from "./readOnly";
+import { clearThread, historyFor, loadThread, saveThread } from "./conversation";
+import type { Turn } from "./conversation";
 import type { FeedbackClient, ResearchSnapshot } from "./feedback";
 import { FeedbackControls, ReviewPage } from "./Feedback";
 import type { RadarCard, RadarClient } from "./radar";
@@ -31,9 +33,9 @@ function FilterChips({ snapshot }: { snapshot: FilterSnapshot }) {
     <li key={index} className="badge badge-outline">{label}</li>)}</ul>;
 }
 
-export function AnswerView({ answer }: { answer: Answer }) {
+export function AnswerView({ answer, label = "Research answer" }: { answer: Answer; label?: string }) {
   const references = useRef(new Map<number, HTMLLIElement>());
-  return <section aria-label="Research answer" className="answer">
+  return <section aria-label={label} className="answer">
     {answer.paragraphs.map((paragraph, index) => <p key={index}>
       {paragraph.text}
       {paragraph.references.map((number, referenceIndex) =>
@@ -65,7 +67,9 @@ export function App({ auth, research, catalog, feedback, radar }: {
 }) {
   const listPath = radar ? "/news" : "/";
   const [question, setQuestion] = useState("");
-  const [answer, setAnswer] = useState<Answer | null>(null);
+  const [turns, setTurns] = useState<Turn[]>(() => loadThread());
+  const [pending, setPending] = useState("");
+  const latestTurn = useRef<HTMLLIElement | null>(null);
   const [rated, setRated] = useState<{ id: string; snapshot: ResearchSnapshot } | null>(null);
   const [phase, setPhase] = useState<Phase | null>(null);
   const [busy, setBusy] = useState(false);
@@ -97,6 +101,17 @@ export function App({ auth, research, catalog, feedback, radar }: {
   const [newsError, setNewsError] = useState("");
   const [authRequired, setAuthRequired] = useState<"news" | "agent" | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
+  useEffect(() => { saveThread(turns); }, [turns]);
+  const closePanelRef = useRef<() => void>(() => undefined);
+  useEffect(() => {
+    if (!panelOpen) return;
+    const onKey = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") { event.preventDefault(); closePanelRef.current(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [panelOpen]);
+  useEffect(() => { latestTurn.current?.scrollIntoView?.({ block: "nearest" }); }, [turns.length]);
   const readOnlyAsOf = useReadOnly();
   useEffect(() => {
     document.documentElement.classList.toggle("read-only", readOnlyAsOf !== null);
@@ -296,7 +311,7 @@ export function App({ auth, research, catalog, feedback, radar }: {
     catch (failure) { setNewsError(failureMessage(failure)); }
   }
   async function signIn(resource: "news" | "agent" = "news") {
-    setError(""); setQuestion(""); setAnswer(null); setSubmittedContext(null);
+    setError(""); setQuestion(""); setSubmittedContext(null);
     try { await auth.signIn(resource); setAuthRequired(null); setSignedIn(auth.signedIn()); }
     catch (failure) { setError(failureMessage(failure)); }
   }
@@ -312,28 +327,35 @@ export function App({ auth, research, catalog, feedback, radar }: {
     setChoices(null); setChoicesError(""); setChoicesLoading(false);
     setDraft({ ...emptyDraft }); setApplied(emptySnapshot); setSubmittedContext(null);
     setNewsError(""); setLoaded(false); setLoading(false); setPanelOpen(false); setAuthRequired(null);
-    setQuestion(""); setAnswer(null); setPhase(null); setSignedIn(false); setError("");
+    setQuestion(""); setTurns([]); clearThread(); setRated(null); setPending("");
+    setPhase(null); setSignedIn(false); setError("");
     try { await research.stop(); await auth.signOut(); }
     catch (failure) { setError(failureMessage(failure)); }
   }
   async function ask(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (busy || current.current) return;
+    await send(question);
+  }
+  async function send(value: string) {
+    if (busy || current.current || !value.trim()) return;
     const controller = new AbortController();
     const id = ++run.current;
     current.current = controller;
-    setBusy(true); setError(""); setAnswer(null); setPhase(null);
+    setBusy(true); setError(""); setPhase(null); setPending(value); setQuestion("");
     const context = { item: selected, snapshot: applied };
     setSubmittedContext(context);
+    const history = historyFor(turns);
     try {
-      for await (const result of research.ask(question, controller.signal,
-        context.item ? [context.item.id] : undefined, context.snapshot.filters)) {
+      for await (const result of research.ask(value, controller.signal,
+        context.item ? [context.item.id] : undefined, context.snapshot.filters, history)) {
         if (id !== run.current) return;
         if (result.kind === "progress") setPhase(result.phase);
         else {
-          setAnswer(result.answer);
-          setRated({ id: crypto.randomUUID(), snapshot: {
-            question, answer: { paragraphs: result.answer.paragraphs },
+          const turn: Turn = { id: crypto.randomUUID(), question: value, text: result.text, answer: result.answer,
+            followUps: result.conversation.followUps, citedItemIds: result.conversation.citedItemIds };
+          setTurns((previous) => [...previous, turn]);
+          setRated({ id: turn.id, snapshot: {
+            question: value, answer: { paragraphs: result.answer.paragraphs },
             citations: result.answer.citations.map(({ number, url }) => ({ number, url })),
             filters: { ...context.snapshot.filters, ...(context.item ? { item_id: context.item.id } : {}) },
           } });
@@ -342,16 +364,31 @@ export function App({ auth, research, catalog, feedback, radar }: {
     } catch (failure) {
       if (id === run.current) {
         setError(failureMessage(failure));
+        setQuestion((current) => current || value);
         if (failure instanceof UiFailure && ["authorization", "interaction"].includes(failure.category))
           setAuthRequired("agent");
       }
     } finally {
-      if (id === run.current) { setBusy(false); current.current = null; }
+      if (id === run.current) { setBusy(false); setPending(""); current.current = null; }
     }
+  }
+  function trapSheetFocus(event: KeyboardEvent<HTMLElement>) {
+    if (event.key !== "Tab" || !window.matchMedia?.("(max-width: 1000px)").matches) return;
+    const focusable = [...event.currentTarget.querySelectorAll<HTMLElement>(
+      "button:not([disabled]), a[href], textarea:not([disabled]), input:not([disabled])")]
+      .filter((element) => element.getClientRects().length > 0);
+    const first = focusable[0], last = focusable[focusable.length - 1];
+    if (!first || !last) return;
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+  }
+  function newConversation() {
+    setTurns([]); clearThread(); setRated(null); setSubmittedContext(null); setError("");
+    composer.current?.focus();
   }
   async function stop() {
     const id = ++run.current;
-    setAnswer(null); setPhase(null);
+    setPending(""); setPhase(null);
     try {
       const confirmed = await research.stop();
       if (id === run.current) setError(confirmed ? "The agent confirmed cancellation." : messages.stopped);
@@ -371,6 +408,7 @@ export function App({ auth, research, catalog, feedback, radar }: {
     setPanelOpen(true);
     composer.current?.focus();
   }
+  closePanelRef.current = closePanel;
   function closePanel() {
     setPanelOpen(false);
     const opener = panelOpener.current;
@@ -550,7 +588,7 @@ export function App({ auth, research, catalog, feedback, radar }: {
       </div>
       </section>
       {signedIn && <aside id="agent-panel" className="agent-panel" aria-label="Agent interactions"
-        tabIndex={0} hidden={!panelOpen}>
+        tabIndex={0} hidden={!panelOpen} onKeyDown={trapSheetFocus}>
         <div className="panel-heading"><h2>Ask Newsloom</h2>
           <button className="btn btn-ghost btn-sm" onClick={closePanel}>Close agent panel</button></div>
         {!radar && <BriefingPanel catalog={catalog} active={signedIn && panelOpen} feedback={feedback} />}
@@ -565,6 +603,35 @@ export function App({ auth, research, catalog, feedback, radar }: {
           <p className="context-note">Browsing filters for the next question</p>
           <FilterChips snapshot={applied} />
         </section>
+        {busy && <div aria-live="polite" role="status" className="progress-area">
+          <span className="loading loading-spinner loading-sm" aria-hidden="true" />
+          {phase ? `${phase.charAt(0).toUpperCase()}${phase.slice(1)}` : "Connecting to the agent"}
+          <div className="phase-labels" aria-hidden="true">
+            {phases.map((value) => <span key={value} className={value === phase ? "active-phase" : ""}>{value}</span>)}
+          </div>
+        </div>}
+        {(busy || turns.length > 0) && submittedContext && <section aria-label="Submitted research context" className="context-note">
+          <p>Context used for this {busy ? "request" : "answer"}</p>
+          <p>{submittedContext.item ? `Submitted news: ${submittedContext.item.title}` : "No news item was submitted"}</p>
+          <FilterChips snapshot={submittedContext.snapshot} />
+        </section>}
+        {turns.length > 0 && <ol className="thread" aria-label="Conversation">
+          {turns.map((turn, index) => <li key={turn.id} className="turn"
+            ref={index === turns.length - 1 ? latestTurn : undefined}>
+            <p className="turn-question"><span className="sr-only">You asked: </span>{turn.question}</p>
+            <AnswerView answer={turn.answer}
+              label={index === turns.length - 1 ? "Research answer" : `Earlier answer ${index + 1}`} />
+          </li>)}
+        </ol>}
+        {!busy && turns.length > 0 && (turns[turns.length - 1]?.followUps.length ?? 0) > 0 &&
+          <div className="follow-ups" role="group" aria-label="Suggested follow-ups" data-write>
+            {turns[turns.length - 1]?.followUps.map((followUp) => <button key={followUp} type="button"
+              className="btn btn-outline btn-xs" onClick={() => void send(followUp)}>{followUp}</button>)}
+          </div>}
+        {turns.length > 0 && feedback && rated && rated.id === turns[turns.length - 1]?.id &&
+          <FeedbackControls client={feedback} label="Rate this answer"
+            target={{ type: "research", ref: rated.id }} snapshot={rated.snapshot} />}
+        {busy && pending && <p className="turn-question pending"><span className="sr-only">You asked: </span>{pending}</p>}
         <form onSubmit={(event) => void ask(event)}>
           <label htmlFor="question" className="composer-label">What would you like to understand?</label>
           <textarea ref={composer} id="question" className="textarea" rows={4} value={question} disabled={busy}
@@ -574,26 +641,13 @@ export function App({ auth, research, catalog, feedback, radar }: {
               if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); }
             }} aria-describedby="question-help" />
           <div className="composer-footer">
-            <p id="question-help">Each question is independent. Stored summaries and metadata only.</p>
+            <p id="question-help">{turns.length ? "Follow-ups use this conversation." : "Stored summaries and metadata only."}</p>
             {busy ? <button type="button" className="btn btn-outline" onClick={() => void stop()}>Stop</button>
               : <button className="btn btn-primary" type="submit" disabled={!question.trim()}>Ask Newsloom</button>}
           </div>
         </form>
-        {busy && <div aria-live="polite" role="status" className="progress-area">
-          <span className="loading loading-spinner loading-sm" aria-hidden="true" />
-          {phase ? `${phase.charAt(0).toUpperCase()}${phase.slice(1)}` : "Connecting to the agent"}
-          <div className="phase-labels" aria-hidden="true">
-            {phases.map((value) => <span key={value} className={value === phase ? "active-phase" : ""}>{value}</span>)}
-          </div>
-        </div>}
-        {(busy || answer) && submittedContext && <section aria-label="Submitted research context" className="context-note">
-          <p>Context used for this {busy ? "request" : "answer"}</p>
-          <p>{submittedContext.item ? `Submitted news: ${submittedContext.item.title}` : "No news item was submitted"}</p>
-          <FilterChips snapshot={submittedContext.snapshot} />
-        </section>}
-        {answer && <AnswerView answer={answer} />}
-        {answer && feedback && rated && <FeedbackControls client={feedback} label="Rate this answer"
-          target={{ type: "research", ref: rated.id }} snapshot={rated.snapshot} />}
+        {!busy && turns.length > 0 && <button type="button" className="btn btn-ghost btn-sm new-conversation"
+          onClick={newConversation}>New conversation</button>}
       </aside>}
       {authRequired && <div className="alert" role="alert">
         <span>Sign-in is required for {authRequired === "news" ? "news access" : "research"}.</span>
@@ -601,7 +655,7 @@ export function App({ auth, research, catalog, feedback, radar }: {
           Sign in for {authRequired === "news" ? "news" : "research"}</button>
       </div>}
       {error && <div className="alert alert-error error-notice" role="alert">{error}</div>}
-      <footer className="page-footer">No web search. No saved conversations. Citations link to the original reporting.</footer>
+      <footer className="page-footer">No web search. Conversations stay in this browser tab. Citations link to the original reporting.</footer>
     </main>
   </>;
 }

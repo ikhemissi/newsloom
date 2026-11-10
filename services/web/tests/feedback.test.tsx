@@ -3,12 +3,11 @@ import { expect, test, vi } from "vitest";
 import { App } from "../src/App";
 import { BriefingPanel } from "../src/BriefingPanel";
 import { FeedbackControls, ReviewPage } from "../src/Feedback";
-import { parseAnswer } from "../src/answer";
 import type { AuthSession, ResearchClient } from "../src/domain";
 import { UiFailure } from "../src/domain";
 import type { FeedbackClient, FeedbackEntry, ReviewItem } from "../src/feedback";
 import { HttpFeedback, MAX_COMMENT } from "../src/feedback";
-import { briefing, briefingResponse, detail, newsItem, page, runtimeConfig, sourceCatalog } from "./fixtures";
+import { briefing, briefingResponse, detail, newsItem, page, runtimeConfig, sourceCatalog, answerEvent } from "./fixtures";
 
 vi.stubGlobal("matchMedia", () => ({ matches: false }));
 
@@ -75,7 +74,7 @@ test("briefing panel rates the published version without another briefing read",
 
 test("research answers are rated with the displayed snapshot and no new research", async () => {
   const ask = vi.fn(async function* () {
-    yield { kind: "answer" as const, answer: parseAnswer("Gateway changed. [1]\n\n[1] https://publisher.test/a") };
+    yield answerEvent("Gateway changed. [1]\n\n[1] https://publisher.test/a");
   });
   const research: ResearchClient = { ask, stop: vi.fn(async () => false) };
   const feedback = client();

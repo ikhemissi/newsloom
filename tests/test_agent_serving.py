@@ -724,6 +724,7 @@ async def test_protocol_host_and_origin_controls_refuse_before_work(
         {"returnImmediately": True},
         {"taskPushNotificationConfig": {}},
         {"acceptedOutputModes": ["application/octet-stream"]},
+        {"acceptedOutputModes": ["application/json"]},
         {"historyLength": -1},
         {"historyLength": 11},
     ],

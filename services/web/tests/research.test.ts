@@ -188,3 +188,63 @@ test("A2A filters are validated structured fields frozen before asynchronous tra
   }).rejects.toThrow("invalid_filters");
   expect(token).not.toHaveBeenCalled();
 });
+
+const followUps = ["How does AWS compare?", "What changed for pricing?"];
+const cited = [["00000000", "0000", "4000", "8000", "000000000001"].join("-")];
+const conversationArtifact = { artifactId: "fixture-conversation", parts: [{
+  data: { follow_ups: followUps, cited_item_ids: cited }, mediaType: "application/json" }] };
+
+test("conversation history is sent and the conversation artifact returns follow-ups and cited items", async () => {
+  const events = fixtureEvents();
+  events.splice(3, 0, { artifactUpdate: { ...ids, artifact: conversationArtifact, lastChunk: true } } as never);
+  events[events.length - 1] = { task: { ...finalTask, artifacts: [artifact, conversationArtifact] } } as never;
+  const base = transport(events);
+  const history = [{ question: "Earlier?", answer: "Earlier answer.", cited_item_ids: cited }];
+  const fetchImpl: typeof fetch = async (input, options) => {
+    if (!String(input).endsWith("/.well-known/agent-card.json")) {
+      const params = JSON.parse(String(options?.body)).params;
+      expect(params.message.parts[0].data.history).toEqual(history);
+      expect(params.configuration.acceptedOutputModes).toEqual(["text/plain", "application/json"]);
+    }
+    return base(input, options);
+  };
+  const results = [];
+  for await (const event of new A2aResearch(config, auth, fetchImpl)
+    .ask("And what about AWS?", new AbortController().signal, undefined, {}, history)) results.push(event);
+  const answer = results.at(-1);
+  expect(answer?.kind === "answer" && answer.conversation).toEqual({ followUps, citedItemIds: cited });
+  expect(answer?.kind === "answer" && answer.text).toBe(text);
+});
+
+test("requests without history omit it, and answers without the artifact have no follow-ups", async () => {
+  const base = transport();
+  const fetchImpl: typeof fetch = async (input, options) => {
+    if (!String(input).endsWith("/.well-known/agent-card.json"))
+      expect(JSON.parse(String(options?.body)).params.message.parts[0].data).not.toHaveProperty("history");
+    return base(input, options);
+  };
+  const results = [];
+  for await (const event of new A2aResearch(config, auth, fetchImpl).ask("Fixture", new AbortController().signal))
+    results.push(event);
+  const answer = results.at(-1);
+  expect(answer?.kind === "answer" && answer.conversation).toEqual({ followUps: [], citedItemIds: [] });
+});
+
+test("an invalid conversation artifact or a mismatched final task is rejected", async () => {
+  for (const bad of [
+    { ...conversationArtifact, parts: [{ data: { follow_ups: ["x".repeat(121)], cited_item_ids: [] }, mediaType: "application/json" }] },
+    { ...conversationArtifact, parts: [{ data: { follow_ups: [], cited_item_ids: [], extra: 1 }, mediaType: "application/json" }] },
+    { ...conversationArtifact, parts: [{ data: { follow_ups: [], cited_item_ids: [] }, mediaType: "text/plain" }] },
+  ]) {
+    const events = fixtureEvents();
+    events.splice(3, 0, { artifactUpdate: { ...ids, artifact: bad, lastChunk: true } } as never);
+    await expect(async () => {
+      for await (const event of new A2aResearch(config, auth, transport(events)).ask("Fixture", new AbortController().signal)) void event;
+    }).rejects.toThrow("invalid_response");
+  }
+  const events = fixtureEvents();
+  events.splice(3, 0, { artifactUpdate: { ...ids, artifact: conversationArtifact, lastChunk: true } } as never);
+  await expect(async () => {
+    for await (const event of new A2aResearch(config, auth, transport(events)).ask("Fixture", new AbortController().signal)) void event;
+  }).rejects.toThrow("invalid_response");
+});

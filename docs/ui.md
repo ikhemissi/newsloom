@@ -500,3 +500,16 @@ Ask buttons, feedback, card actions, follow toggles and stack editing (controls
 marked `data-write`). A refused action shows "Not available while Newsloom is
 read-only overnight." The line disappears with the first live response. See the
 [operations runbook](operations.md#read-only-overnight).
+
+## Research conversations
+
+Owned by [`research-conversations`](../openspec/changes/research-conversations/proposal.md).
+The agent panel shows the conversation as a thread (question, answer, sources)
+with the composer below it; the newest answer scrolls into view, up to three
+suggested follow-ups appear as buttons under it, and "New conversation" starts
+over. Each question sends the last three turns as history (oldest answer text
+trimmed first to 12 KiB) and accepts the agent's `conversation` artifact for
+follow-ups and cited item IDs. The thread is kept in `sessionStorage` (this tab
+only), re-validated on load and removed on sign-out. Rating applies to the latest
+answer. Up to 1000px wide the panel is a full-height sheet over the news: Tab
+stays inside it, Escape closes it and focus returns to the control that opened it.

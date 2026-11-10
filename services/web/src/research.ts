@@ -6,7 +6,7 @@ import { z } from "zod";
 import type { NewsFilters } from "./domain";
 import { validateFilters } from "./filters";
 import type { RuntimeConfig } from "./config";
-import type { AuthSession, ResearchClient, ResearchEvent } from "./domain";
+import type { AuthSession, Conversation, HistoryTurn, ResearchClient, ResearchEvent } from "./domain";
 import { accessToken, UiFailure } from "./domain";
 import { MAX_ANSWER_BYTES, parseAnswer, utf8Size, validateQuestion } from "./answer";
 import { READ_ONLY_HEADER, reportReadOnly } from "./readOnly";
@@ -14,6 +14,11 @@ import { READ_ONLY_HEADER, reportReadOnly } from "./readOnly";
 const progressSchema = z.object({
   phase: z.enum(["retrieving", "planning", "synthesizing", "validating"]),
   tool_calls: z.number().int().min(0).max(8), evidence_items: z.number().int().min(0).max(10),
+}).strict();
+
+const conversationSchema = z.object({
+  follow_ups: z.array(z.string().min(1).max(120)).max(3),
+  cited_item_ids: z.array(z.uuid()).max(10),
 }).strict();
 
 type ActiveRequest = {
@@ -94,7 +99,8 @@ export class A2aResearch implements ResearchClient {
   private active: ActiveRequest | null = null;
   constructor(private config: RuntimeConfig, private auth: AuthSession, private fetchImpl: typeof fetch = fetch) {}
 
-  async *ask(value: string, signal: AbortSignal, itemIds?: readonly string[], filters: NewsFilters = {}): AsyncIterable<ResearchEvent> {
+  async *ask(value: string, signal: AbortSignal, itemIds?: readonly string[], filters: NewsFilters = {},
+    history: readonly HistoryTurn[] = []): AsyncIterable<ResearchEvent> {
     if (this.active) throw new UiFailure("overloaded");
     const question = validateQuestion(value);
     const filterSnapshot = validateFilters(filters);
@@ -125,12 +131,15 @@ export class A2aResearch implements ResearchClient {
       let artifactId: string | null = null;
       let completed = false;
       let contextId: string | null = null;
+      let conversation: Conversation = { followUps: [], citedItemIds: [] };
+      let conversationId: string | null = null;
       for await (const event of state.client.sendMessageStream(SendMessageRequest.fromJSON({
         message: { messageId: crypto.randomUUID(), role: "ROLE_USER",
           parts: [{ data: { operation: "research", question, ...(itemIds ? { item_ids: [...itemIds] } : {}),
-            ...(Object.keys(filterSnapshot).length ? { filters: filterSnapshot } : {}) },
+            ...(Object.keys(filterSnapshot).length ? { filters: filterSnapshot } : {}),
+            ...(history.length ? { history: history.map((turn) => ({ ...turn })) } : {}) },
             mediaType: "application/json" }] },
-        configuration: { acceptedOutputModes: ["text/plain"] },
+        configuration: { acceptedOutputModes: ["text/plain", "application/json"] },
       }), { signal: state.controller.signal })) {
         const payload = event.payload;
         if (!payload || payload.$case === "message" || completed) throw new UiFailure("invalid_response");
@@ -143,6 +152,15 @@ export class A2aResearch implements ResearchClient {
         if (payload.$case === "artifactUpdate") {
           const artifact = payload.value.artifact;
           const content = artifact?.parts[0]?.content;
+          if (content?.$case === "data") {
+            const parsed = conversationSchema.safeParse(content.value);
+            if (!artifact?.artifactId || artifact.parts.length !== 1 || conversationId || payload.value.append
+                || artifact.parts[0]?.mediaType !== "application/json" || !parsed.success)
+              throw new UiFailure("invalid_response");
+            conversationId = artifact.artifactId;
+            conversation = { followUps: parsed.data.follow_ups, citedItemIds: parsed.data.cited_item_ids };
+            continue;
+          }
           if (!artifact || !artifact.artifactId || artifact.parts.length !== 1 || content?.$case !== "text"
               || !["", "text/plain"].includes(artifact.parts[0]?.mediaType ?? "")
               || (artifactId && (artifactId !== artifact.artifactId || !payload.value.append))
@@ -156,11 +174,14 @@ export class A2aResearch implements ResearchClient {
         if (!status) throw new UiFailure("invalid_response");
         if (status.state === TaskState.TASK_STATE_COMPLETED) {
           if (payload.$case === "statusUpdate") continue;
-          if (payload.$case !== "task" || payload.value.artifacts.length !== 1
-              || payload.value.artifacts[0]?.artifactId !== artifactId
-              || payload.value.artifacts[0]?.parts.length !== 1
-              || payload.value.artifacts[0]?.parts[0]?.content?.$case !== "text"
-              || payload.value.artifacts[0]?.parts[0]?.content?.value !== text)
+          const artifacts = payload.$case === "task" ? payload.value.artifacts : [];
+          const answerArtifact = artifacts[0];
+          if (payload.$case !== "task" || artifacts.length !== (conversationId ? 2 : 1)
+              || answerArtifact?.artifactId !== artifactId
+              || answerArtifact.parts.length !== 1
+              || answerArtifact.parts[0]?.content?.$case !== "text"
+              || answerArtifact.parts[0]?.content?.value !== text
+              || (conversationId && artifacts[1]?.artifactId !== conversationId))
             throw new UiFailure("invalid_response");
           completed = true;
         } else if (status.state === TaskState.TASK_STATE_FAILED || status.state === TaskState.TASK_STATE_REJECTED
@@ -180,7 +201,7 @@ export class A2aResearch implements ResearchClient {
         }
       }
       if (!completed || signal.aborted || state.controller.signal.aborted) throw new UiFailure("invalid_response");
-      yield { kind: "answer", answer: parseAnswer(text) };
+      yield { kind: "answer", answer: parseAnswer(text), text, conversation };
     } catch (error) {
       if (error instanceof UiFailure) throw error;
       throw new UiFailure(state.controller.signal.aborted ? "timeout" : "invalid_response");

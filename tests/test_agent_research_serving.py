@@ -39,6 +39,7 @@ class ResearchWire(StructuredModel):
     final_entered: asyncio.Event = field(default_factory=asyncio.Event)
     final_release: asyncio.Event = field(default_factory=asyncio.Event)
     plan_override: dict[str, object] | None = None
+    follow_ups: list[str] | None = None
 
     async def handle(self, request: httpx2.Request) -> httpx2.Response:
         assert str(request.url) == "https://owned.services.ai.azure.com/openai/v1/chat/completions"
@@ -116,6 +117,7 @@ class ResearchWire(StructuredModel):
                 else [],
                 "missing_item_ids": context["missing_item_ids"],
                 "coverage": context["coverage"],
+                **({"follow_ups": self.follow_ups} if self.follow_ups is not None else {}),
             }
         body = BodyStream(json.dumps(completion(json.dumps(result))).encode() + b" " * self.padding)
         self.bodies.append(body)

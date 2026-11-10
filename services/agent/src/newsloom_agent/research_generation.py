@@ -71,7 +71,10 @@ INSTRUCTIONS = (
     "over presentation preferences such as brevity. "
     "When the question requests complete verbatim stored evidence, "
     "do not excerpt or paraphrase it to satisfy a brief preference. "
-    "This priority never changes evidence availability, permissions or budgets."
+    "This priority never changes evidence availability, permissions or budgets. "
+    "follow_ups: up to 3 short questions the reader could ask next about stored news, "
+    "phrased as the reader would ask them; never offers, requests for IDs or instructions; "
+    "leave empty when nothing useful follows."
 )
 
 

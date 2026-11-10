@@ -30,11 +30,14 @@ export type Phase = "retrieving" | "planning" | "synthesizing" | "validating";
 export type Citation = { number: number; url: string; href: string | null; host: string | null };
 export type Paragraph = { text: string; references: number[] };
 export type Answer = { paragraphs: Paragraph[]; citations: Citation[] };
+export type HistoryTurn = { question: string; answer: string; cited_item_ids: string[] };
+export type Conversation = { followUps: string[]; citedItemIds: string[] };
 export type ResearchEvent = { kind: "progress"; phase: Phase }
-  | { kind: "answer"; answer: Answer };
+  | { kind: "answer"; answer: Answer; text: string; conversation: Conversation };
 
 export interface ResearchClient {
-  ask(question: string, signal: AbortSignal, itemIds?: readonly string[], filters?: NewsFilters): AsyncIterable<ResearchEvent>;
+  ask(question: string, signal: AbortSignal, itemIds?: readonly string[], filters?: NewsFilters,
+    history?: readonly HistoryTurn[]): AsyncIterable<ResearchEvent>;
   stop(): Promise<boolean>;
 }
 
