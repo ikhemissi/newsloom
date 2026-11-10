@@ -144,7 +144,9 @@ account exists, the operator once:
    (`azd env get-value AGENT_IDENTITY_BASE64 | base64 -d`, field `client_id`).
 
 A request from the agent then returns `webResults`; without the binding Web IQ
-answers 401 and research continues without the web.
+answers 401 and research continues without the web. The binding has no Azure
+Resource Manager API today (`Microsoft.WebIQ` exposes accounts, custom search
+configurations and usages only), so Terraform cannot manage it.
 
 Local contract validation: **51 focused cases passed**, plus **54 existing
 delegation cases**; strict types and focused lint passed. All **13 OpenSpec
