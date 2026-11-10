@@ -1235,6 +1235,7 @@ name = "newsloom-operations"
 version = "0.1.0"
 source = { editable = "services/operations" }
 dependencies = [
+    { name = "aiohttp" },
     { name = "azure-identity" },
     { name = "azure-storage-blob" },
     { name = "httpx" },
@@ -1244,6 +1245,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "aiohttp", specifier = ">=3.12,<4" },
     { name = "azure-identity", specifier = ">=1.25,<2" },
     { name = "azure-storage-blob", specifier = ">=12.26,<13" },
     { name = "httpx", specifier = ">=0.28,<1" },
