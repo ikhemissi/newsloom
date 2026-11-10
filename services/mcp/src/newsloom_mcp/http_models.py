@@ -41,6 +41,7 @@ ERROR_CODES = frozenset(
         "insufficient_scope",
         "forbidden",
         "unavailable",
+        "read_only",
         "not_found",
         "method_denied",
         "request_limit",

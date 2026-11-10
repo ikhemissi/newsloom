@@ -8,7 +8,7 @@ locals {
   host            = "${local.name}.${data.azurerm_container_app_environment.existing.default_domain}"
   resource_url    = "https://${local.host}/mcp"
   browser_origins = var.allowed_origins_base64 == "" ? var.allowed_origins : toset(jsondecode(base64decode(var.allowed_origins_base64)))
-  environment = {
+  environment = merge(var.snapshot_url == "" ? {} : { SNAPSHOT_URL = var.snapshot_url }, {
     NEWS_API_ENABLED             = tostring(var.news_api_enabled)
     NEWS_BRIEFING_ENABLED        = tostring(var.news_briefing_enabled)
     FEEDBACK_REVIEWER_OBJECT_IDS = var.feedback_reviewer_object_ids
@@ -23,6 +23,52 @@ locals {
     EMBEDDINGS_DEPLOYMENT        = var.embedding_deployment
     EMBEDDINGS_MODEL             = var.embedding_model
     EMBEDDINGS_VERSION           = var.embedding_version
+  })
+}
+
+# Writes the read snapshot after the last ingestion run and before the 23:00 UTC stop.
+resource "azurerm_container_app_job" "snapshot" {
+  count                        = var.snapshot_url == "" ? 0 : 1
+  name                         = "snapshot-${trim(substr("newsloom-${var.environment_name}", 0, 23), "-")}"
+  resource_group_name          = var.resource_group_name
+  location                     = var.location
+  container_app_environment_id = var.container_app_environment_id
+  workload_profile_name        = "Consumption"
+  replica_timeout_in_seconds   = 600
+  replica_retry_limit          = 1
+  tags                         = merge(var.tags, { azd-env-name = var.environment_name })
+  schedule_trigger_config {
+    cron_expression          = "45 22 * * *"
+    parallelism              = 1
+    replica_completion_count = 1
+  }
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [local.identity.id]
+  }
+  registry {
+    server   = var.registry_endpoint
+    identity = local.identity.id
+  }
+  template {
+    container {
+      name   = "snapshot"
+      image  = var.image
+      cpu    = 0.5
+      memory = "1Gi"
+      args   = ["snapshot"]
+      env {
+        name  = "APPLICATIONINSIGHTS_CONNECTION_STRING"
+        value = var.applicationinsights_connection_string
+      }
+      dynamic "env" {
+        for_each = local.environment
+        content {
+          name  = env.key
+          value = env.value
+        }
+      }
+    }
   }
 }
 
@@ -108,4 +154,7 @@ output "MCP_APP_NAME" {
 }
 output "MCP_RESOURCE_URL" {
   value = local.resource_url
+}
+output "SNAPSHOT_JOB_NAME" {
+  value = var.snapshot_url == "" ? "" : azurerm_container_app_job.snapshot[0].name
 }

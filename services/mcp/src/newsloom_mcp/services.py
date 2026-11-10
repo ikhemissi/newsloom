@@ -27,3 +27,4 @@ class Services:
     feedback: Callable[[], AbstractAsyncContextManager[FeedbackStore]] | None = None
     feedback_reviewers: frozenset[UUID] = frozenset()
     radar: Callable[[], AbstractAsyncContextManager[RadarStore]] | None = None
+    read_only: Callable[[], datetime | None] | None = None

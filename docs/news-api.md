@@ -106,6 +106,15 @@ the first two tiers. Untriaged announcements count as "worth knowing". Stack and
 card state use the same pseudonymous reader key as feedback; responses are never
 cached and their contents never logged.
 
+### Read-only overnight
+
+While the database sleeps (see the [operations runbook](operations.md#read-only-overnight))
+the same routes answer from the nightly snapshot and add
+`X-Newsloom-Read-Only: <snapshot time>` (exposed to allowed browser origins).
+Search, feedback and reader-state routes then return `503` with error code
+`read_only`. Search results, rankings and continuation tokens are unchanged
+in meaning; detail is available for every stored item.
+
 ## Cache and execution
 
 Every request verifies the configured tenant/issuer/audience/signature/lifetime

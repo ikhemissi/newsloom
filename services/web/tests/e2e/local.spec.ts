@@ -602,3 +602,23 @@ test.describe("architect radar", () => {
     });
   }
 });
+
+test.describe("read-only overnight", () => {
+  for (const width of [1440, 390]) {
+    test(`${width}px shows one line and offers no action that needs the database`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto("/tests/harness.html?radar&read-only");
+      await expect(page.getByRole("status").filter({ hasText: /^Read-only until .+ · data as of .+$/ })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Act now · 1" })).toBeVisible();
+      for (const name of [/^Done:/, /^Snooze/, /^Follow products:/, /^Ask about this:/, /^Agent/, "Search"])
+        await expect(page.getByRole("button", { name })).toHaveCount(0);
+      await expect(page.getByRole("searchbox")).toHaveCount(0);
+      await expect(page.getByRole("group", { name: /feedback/i })).toHaveCount(0);
+      expect((await new AxeBuilder({ page }).analyze()).violations.map((item) => item.id)).toEqual([]);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await page.getByRole("navigation", { name: "Sections" }).getByRole("link", { name: "My stack" }).click();
+      await expect(page.getByRole("heading", { name: "My stack" })).toBeVisible();
+      await expect(page.getByRole("searchbox")).toHaveCount(0);
+    });
+  }
+});

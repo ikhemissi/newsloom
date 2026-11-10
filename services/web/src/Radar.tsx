@@ -60,7 +60,7 @@ function Actions({ cards, onState, onFollow, onAsk, navigate }: {
   const subject = cards.length > 1 ? `${cards.length} updates on ${first.capability}` : first.statement;
   return <div className="radar-actions">
     {cards.length === 1 && <Products card={first} navigate={navigate} />}
-    <span className="radar-buttons">
+    <span className="radar-buttons" data-write>
       <button className="btn btn-ghost btn-xs" aria-label={`Done: ${subject}`} onClick={() => onState(cards, "done")}>✓ Done</button>
       <button className="btn btn-ghost btn-xs" aria-label={`Snooze for 7 days: ${subject}`} onClick={() => onState(cards, "snoozed")}>◷ Snooze</button>
       <button className="btn btn-ghost btn-xs" aria-label={`Follow products: ${subject}`} onClick={() => onFollow(cards)}>☆ Follow</button>
@@ -161,7 +161,7 @@ function Content({ radar, handlers, moreWorth, setMoreWorth, showHidden }: {
       <h2>Hidden</h2>
       <ul>{radar.hidden.map((card) => <li key={card.id}>
         <span>{card.state === "snoozed" ? "Snoozed" : "Done"} · {card.statement}</span>
-        <button className="btn btn-ghost btn-xs" aria-label={`Restore: ${card.statement}`}
+        <button className="btn btn-ghost btn-xs" data-write aria-label={`Restore: ${card.statement}`}
           onClick={() => handlers.onState([card], null)}>Restore</button>
       </li>)}</ul>
     </section>}
@@ -211,7 +211,7 @@ export function ProductPage({ client, id, navigate, onBack }: {
     {!detail && !product.error && <p role="status">{product.loaded ? "Product not found." : "Loading product…"}</p>}
     {detail && <>
       <div className="radar-product-head"><h1>{detail.name}</h1>
-        <button className="btn btn-outline btn-sm" aria-pressed={following} onClick={() => void toggle(detail)}>
+        <button className="btn btn-outline btn-sm" data-write aria-pressed={following} onClick={() => void toggle(detail)}>
           {following ? "★ Following" : "☆ Follow"}</button></div>
       <p>{detail.vendor}{detail.related.map((related) => <span key={related.id}> · {related.relation === "part_of" ? "part of" : "replaces"}{" "}
         <a href={`/products/${related.id}`} className="link" onClick={(event) => navigate(`/products/${related.id}`, event)}>{related.name}</a></span>)}</p>
@@ -252,17 +252,17 @@ export function StackPage({ client, navigate }: { client: RadarClient; navigate:
   const name = (entry: StackEntry) => entry.kind === "product" && entry.vendor ? `${entry.name} (${entry.vendor})` : entry.name;
   return <section aria-label="My stack" className="radar-stack">
     <h1>My stack</h1>
-    <label className="radar-stack-search"><span className="sr-only">Add a vendor or product</span>
+    <label className="radar-stack-search" data-write><span className="sr-only">Add a vendor or product</span>
       <input className="input" type="search" placeholder="Add a vendor or product…" value={query}
         onChange={(event) => setQuery(event.target.value)} /></label>
-    {results.length > 0 && <ul className="radar-results" aria-label="Matches">{results.filter((entry) => !chosen.has(entry.id)).map((entry) =>
+    {results.length > 0 && <ul className="radar-results" data-write aria-label="Matches">{results.filter((entry) => !chosen.has(entry.id)).map((entry) =>
       <li key={entry.id}><button className="btn btn-ghost btn-sm" onClick={() => { setQuery(""); void save([...chosen, entry.id]); }}>
         + {name(entry)}</button></li>)}</ul>}
     {(error || stack.error) && <div role="alert" className="alert alert-error">{error || stack.error}</div>}
     <ul className="radar-chips" aria-label="Followed">{current.map((entry) => <li key={entry.id} className="badge badge-outline badge-lg">
       {entry.kind === "product" ? <a href={`/products/${entry.id}`} className="link"
         onClick={(event) => navigate(`/products/${entry.id}`, event)}>{name(entry)}</a> : name(entry)}
-      <button className="btn btn-ghost btn-xs" aria-label={`Remove ${entry.name}`}
+      <button className="btn btn-ghost btn-xs" data-write aria-label={`Remove ${entry.name}`}
         onClick={() => void save(current.filter((other) => other.id !== entry.id).map((other) => other.id))}>✕</button>
     </li>)}</ul>
   </section>;

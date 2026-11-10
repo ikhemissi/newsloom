@@ -138,6 +138,7 @@ infra:
       dependsOn:
         - mcp-identity
         - migrations
+        - operations-identity
       hooks:
         preprovision:
           shell: sh

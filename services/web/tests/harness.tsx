@@ -8,6 +8,7 @@ import { matchesFilters } from "../src/filters";
 import { HttpCatalog } from "../src/catalog";
 import { HttpFeedback } from "../src/feedback";
 import { FixtureRadar } from "./radar-fixture";
+import { reportReadOnly } from "../src/readOnly";
 import type { FixtureCard } from "./radar-fixture";
 import "../src/style.css";
 
@@ -64,6 +65,7 @@ const radar = parameters.has("radar") ? new FixtureRadar([
   radarCard("d", {}),
   radarCard("e", { tier: "later" }),
 ], () => new Date("2026-11-08T12:00:00Z")) : undefined;
+if (parameters.has("read-only")) reportReadOnly("2026-11-08T22:45:00Z");
 const container = document.getElementById("root");
 if (!container) throw new Error("Missing fixture root");
 function batch(cursor?: string) {

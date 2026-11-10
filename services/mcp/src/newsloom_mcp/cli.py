@@ -40,6 +40,12 @@ async def runtime(args: argparse.Namespace) -> None:
         )
         event("mcp_access_verification", "", outcome="success", counts=counts)
         return
+    if args.command == "snapshot":
+        from newsloom_mcp.runtime import write_snapshot
+
+        counts = await write_snapshot(Config.environment())
+        event("read_snapshot", "", outcome="completed", counts=counts)
+        return
     if args.command == "evaluate":
         import time
 
@@ -73,7 +79,10 @@ def main() -> None:
     try:
         parser = Parser(description=__doc__)
         parser.add_argument(
-            "command", nargs="?", choices=["serve", "evaluate", "verify-access"], default="serve"
+            "command",
+            nargs="?",
+            choices=["serve", "evaluate", "verify-access", "snapshot"],
+            default="serve",
         )
         parser.add_argument("--evaluation-run-id")
         parser.add_argument("--generation-deployment")

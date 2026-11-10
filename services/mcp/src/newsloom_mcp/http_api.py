@@ -48,9 +48,11 @@ from newsloom_mcp.models import DetailInput, McpFailure
 from newsloom_mcp.radar import CardInput, SearchQuery, StackInput
 from newsloom_mcp.response_cache import Entry, ResponseCache
 from newsloom_mcp.services import Services
+from newsloom_mcp.snapshot import ReadOnly
 
 API_HEADERS = frozenset({"authorization", "accept", "content-type"})
 PREFIX = "/api/v1"
+READ_ONLY_HEADER = "X-Newsloom-Read-Only"
 SCOPES: dict[str, ResultScope] = {
     "news": "page",
     "detail": "item",
@@ -237,6 +239,8 @@ class NewsApi:
             )
         except ValidationError, ValueError, UnicodeError, OverflowError:
             response = error_response(ApiFailure(400, "invalid_input"), request_id)
+        except ReadOnly:
+            response = error_response(ApiFailure(503, "read_only"), request_id)
         except (
             TrustedKeysFailure,
             psycopg.Error,
@@ -267,8 +271,12 @@ class NewsApi:
                 category=route[0] if route else "other",
                 counts={"elapsed_seconds": round(elapsed, 3), "cache": cache_state},
             )
+        as_of = self.services.read_only() if self.services.read_only else None
+        if as_of is not None:
+            response.headers[READ_ONLY_HEADER] = as_of.isoformat()
         if origin is not None:
             response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Expose-Headers"] = READ_ONLY_HEADER
             response.headers["Vary"] = (
                 "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
                 if request.method == "OPTIONS"

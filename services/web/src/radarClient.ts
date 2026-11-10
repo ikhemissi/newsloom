@@ -104,7 +104,7 @@ export class HttpRadar implements RadarClient {
     try {
       const token = await accessToken(this.auth, "news", controller.signal);
       const endpoint = this.config.newsApiUrl + path;
-      const response = await guardedFetch(endpoint, token, controller.signal, this.fetchImpl, [400, 404])(endpoint, {
+      const response = await guardedFetch(endpoint, token, controller.signal, this.fetchImpl, [400, 404], true)(endpoint, {
         method: body ? "PUT" : "GET", cache: "no-store",
         headers: { Accept: "application/json", ...(body ? { "Content-Type": "application/json" } : {}) },
         ...(body ? { body: JSON.stringify(body) } : {}),

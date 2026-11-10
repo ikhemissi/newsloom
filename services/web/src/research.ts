@@ -9,6 +9,7 @@ import type { RuntimeConfig } from "./config";
 import type { AuthSession, ResearchClient, ResearchEvent } from "./domain";
 import { accessToken, UiFailure } from "./domain";
 import { MAX_ANSWER_BYTES, parseAnswer, utf8Size, validateQuestion } from "./answer";
+import { READ_ONLY_HEADER, reportReadOnly } from "./readOnly";
 
 const progressSchema = z.object({
   phase: z.enum(["retrieving", "planning", "synthesizing", "validating"]),
@@ -42,7 +43,7 @@ function validateCard(card: AgentCard, config: RuntimeConfig): void {
 
 export function guardedFetch(
   endpoint: string, token: string | null, signal: AbortSignal, fetchImpl: typeof fetch = fetch,
-  acceptedStatuses: readonly number[] = [],
+  acceptedStatuses: readonly number[] = [], observeReadOnly = false,
 ): typeof fetch {
   let total = 0;
   return async (input, options) => {
@@ -55,6 +56,13 @@ export function guardedFetch(
     try {
       response = await fetchImpl(input, { ...options, headers, signal, credentials: "omit", redirect: "error" });
     } catch { throw new UiFailure(signal.aborted ? "timeout" : "unavailable"); }
+    if (observeReadOnly) {
+      reportReadOnly(response.headers.get(READ_ONLY_HEADER));
+      if (response.status === 503 && response.headers.has(READ_ONLY_HEADER)) {
+        await response.body?.cancel();
+        throw new UiFailure("read_only");
+      }
+    }
     if (!response.ok && !acceptedStatuses.includes(response.status)) {
       await response.body?.cancel();
       throw new UiFailure(response.status === 401 || response.status === 403 ? "authorization"

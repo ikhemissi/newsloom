@@ -156,3 +156,18 @@ def test_api_flag_is_exact_default_off_and_readback_rejects_drift(mcp_case: UiCa
             mcp_control.api_enabled({"NEWS_API_ENABLED": bad})
     with pytest.raises(PlatformFailure, match="mcp_deployment_readback_mismatch"):
         mcp_control.verify({**mcp_case.env, "NEWS_API_ENABLED": "true"}, "local")
+
+
+def test_mcp_readback_expects_the_snapshot_url_only_when_configured(mcp_case: UiCase) -> None:
+    url = "https://stnlbaktest.blob.core.windows.net/snapshots/latest.json.gz"
+    with pytest.raises(PlatformFailure, match="mcp_deployment_readback_mismatch"):
+        mcp_control.verify({**mcp_case.env, "SNAPSHOT_URL": url}, "local")
+    template = json_object(json_object(mcp_case.app["properties"])["template"])
+    containers = template["containers"]
+    assert isinstance(containers, list)
+    variables = json_object(containers[0])["env"]
+    assert isinstance(variables, list)
+    variables.append({"name": "SNAPSHOT_URL", "value": url})
+    mcp_control.verify({**mcp_case.env, "SNAPSHOT_URL": url}, "local")
+    with pytest.raises(PlatformFailure, match="mcp_deployment_readback_mismatch"):
+        mcp_control.verify(mcp_case.env, "local")
