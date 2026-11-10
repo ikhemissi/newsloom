@@ -45,7 +45,9 @@ The tenant's governance automation stops resources and removes the
 `wake` job merges both tags back onto the resource group and every resource in
 it that lacks them, using Tag Contributor on the resource group; it never
 removes or changes other tags. It starts the server first, because tagging a
-stopped server fails.
+stopped server fails. On 2026-11-10 tags merged back at 09:18 UTC were removed
+again at 10:05–10:11 UTC, so the repair is short-lived; what keeps Newsloom
+running is the morning start and the exports, not the tags.
 
 ## Deploy
 

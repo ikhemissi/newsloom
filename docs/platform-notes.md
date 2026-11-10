@@ -67,4 +67,10 @@ deleted and network settings were unchanged. The response is the
 [operations runbook](operations.md): daily exports outside the server, delete
 locks, 35-day point-in-time retention, a nightly stop and a morning wake that
 repairs the tags. A deployment that runs while tags are missing re-adds them
-(the preview shows only tag additions).
+(the preview shows only tag additions). Tags merged back at 09:18 UTC were
+removed again at 10:05–10:11 UTC the same day, so tag repair is short-lived.
+
+The briefing layer's preservation guard (`BRIEFING_PRESERVATION_SHA256`) blocked
+preparation on 2026-11-10 because the enrichment deployment's capacity had been
+raised from 10 to 100 for backfilling (user-approved). The operator re-baselined
+the fingerprint after confirming that capacity was the only difference.
