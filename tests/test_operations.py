@@ -84,7 +84,8 @@ async def test_power_reports_arm_errors_and_timeouts() -> None:
 
 
 async def test_restore_tags_merges_only_where_missing_and_counts_failures() -> None:
-    tagged = {"CostControl": "Ignore", "SecurityControl": "Ignore", "project": "newsloom"}
+    required = {"CostCenter": "research", "Owner": "lab"}
+    tagged = {**required, "project": "newsloom"}
     pages = {
         "1": {
             "value": [
@@ -103,12 +104,12 @@ async def test_restore_tags_merges_only_where_missing_and_counts_failures() -> N
             patches[path] = json.loads(request.content)
             return httpx.Response(403 if "/x/c/" in path else 200)
         if path == GROUP:
-            return httpx.Response(200, json={"tags": {"CostControl": "Ignore"}})
+            return httpx.Response(200, json={"tags": {"CostCenter": "research"}})
         return httpx.Response(200, json=pages[request.url.params.get("page", "1")])
 
     arm, client = manager(httpx.MockTransport(handle))
     async with client:
-        counts = await arm.restore_tags(GROUP)
+        counts = await arm.restore_tags(GROUP, required)
     suffix = "/providers/Microsoft.Resources/tags/default"
     assert set(patches) == {
         f"{GROUP}{suffix}",
@@ -116,7 +117,7 @@ async def test_restore_tags_merges_only_where_missing_and_counts_failures() -> N
         f"{GROUP}/providers/x/c{suffix}",
     }
     assert all(
-        body == {"operation": "Merge", "properties": {"tags": azure.GOVERNANCE_TAGS}}
+        body == {"operation": "Merge", "properties": {"tags": required}}
         for body in patches.values()
     )
     assert counts == {"resources": 3, "tagged": 2, "failed": 1}
