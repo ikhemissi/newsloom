@@ -68,8 +68,8 @@ request before Azure acceptance. No application services have been deployed.
   or deletes. This preceded the user's explicit azd-only correction. The created
   resources were a resource group, StorageV2 account, private container, and
   account-scoped `Storage Blob Data Contributor` assignment.
-- Verified both taggable resources have `SecurityControl=Ignore` and
-  `CostControl=Ignore`, supplied through the local `tags` variable map.
+- Verified both taggable resources have the tenant's governance tags,
+  supplied through the local `tags` variable map.
 - Verified shared keys and anonymous blobs are disabled, HTTPS-only access and
   TLS 1.2 are configured, and an Entra-authenticated blob listing succeeds.
 - Passed an Entra-only probe: uploaded a disposable blob, downloaded and compared

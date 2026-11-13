@@ -72,7 +72,7 @@ azd env set COST_CONTROL_TAG Ignore
 Both [bootstrap](../infra/bootstrap/main.tfvars.json) and
 [application](../infra/main.tfvars.json) variable templates expand these azd inputs
 into Terraform maps. The current tenant may change or remove resources without
-`SecurityControl=Ignore` and `CostControl=Ignore`. These are tenant-specific
+its governance tags. These are tenant-specific
 deployment settings, not Newsloom product requirements. Keep their values in the
 azd environment, not in resource definitions. The Terraform roots accept any
 common tag map, including an empty one; other tenants can adjust the deployment

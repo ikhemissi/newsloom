@@ -10,7 +10,6 @@ ARM = "https://management.azure.com"
 SERVER_API = "2024-08-01"
 RESOURCE_API = "2021-04-01"
 STORAGE_API = "2023-05-01"
-GOVERNANCE_TAGS = {"CostControl": "Ignore", "SecurityControl": "Ignore"}
 STABLE = {"Ready", "Stopped"}
 
 Token = Callable[[], Awaitable[str]]
@@ -55,10 +54,11 @@ class Manager:
             await asyncio.sleep(self.poll)
         raise Failure(f"database_{action}_timeout")
 
-    async def restore_tags(self, group: str) -> dict[str, int]:
+    async def restore_tags(self, group: str, tags: dict[str, str]) -> dict[str, int]:
+        """Merge `tags` onto the group and every resource in it that lacks one of them."""
         targets: list[str] = []
         response = await self.request("GET", f"{ARM}{group}?api-version={RESOURCE_API}")
-        if not GOVERNANCE_TAGS.items() <= (response.json().get("tags") or {}).items():
+        if not tags.items() <= (response.json().get("tags") or {}).items():
             targets.append(group)
         url: str | None = f"{ARM}{group}/resources?api-version={RESOURCE_API}"
         resources = 0
@@ -66,7 +66,7 @@ class Manager:
             page = (await self.request("GET", url)).json()
             for row in page.get("value", []):
                 resources += 1
-                if not GOVERNANCE_TAGS.items() <= (row.get("tags") or {}).items():
+                if not tags.items() <= (row.get("tags") or {}).items():
                     targets.append(str(row["id"]))
             url = page.get("nextLink")
         failed = 0
@@ -76,7 +76,7 @@ class Manager:
                     "PATCH",
                     f"{ARM}{target}/providers/Microsoft.Resources/tags/default"
                     f"?api-version={RESOURCE_API}",
-                    {"operation": "Merge", "properties": {"tags": GOVERNANCE_TAGS}},
+                    {"operation": "Merge", "properties": {"tags": tags}},
                 )
             except Failure:
                 failed += 1

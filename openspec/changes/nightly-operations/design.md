@@ -19,8 +19,8 @@ remote state; tenant governance acts on resources that lack the two tags.
     A failed dump never writes a manifest.
   - `stop-database` / `start-database`: Azure Resource Manager start/stop and
     wait for the target state; already in that state is a success.
-  - `restore-tags`: merge `CostControl=Ignore` and `SecurityControl=Ignore`
-    onto the resource group and every resource in it that lacks either; never
+  - `restore-tags`: merge the tenant's governance tags (`GOVERNANCE_TAGS`, from the
+    azd environment) onto the resource group and every resource in it that lacks one; never
     removes or changes other tags.
   - `restore-state-access`: re-enable public network access on the Terraform
     state account when governance disabled it.

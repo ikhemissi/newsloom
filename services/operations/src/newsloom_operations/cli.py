@@ -2,6 +2,7 @@
 
 import argparse
 import asyncio
+import json
 import os
 import sys
 from collections.abc import AsyncIterator
@@ -123,8 +124,11 @@ async def run(command: str, correlation: str) -> None:
                     groups = [env["AZURE_RESOURCE_GROUP_ID"]]
                     if env.get("AZURE_STATE_RESOURCE_GROUP_ID"):
                         groups.append(env["AZURE_STATE_RESOURCE_GROUP_ID"])
+                    # The tags the tenant's policies require: GOVERNANCE_TAGS, a JSON object the
+                    # infrastructure sets from the azd environment. None: nothing to restore.
+                    tags = json.loads(env.get("GOVERNANCE_TAGS") or "{}")
                     for group in groups:
-                        counts = await manager.restore_tags(group)
+                        counts = await manager.restore_tags(group, tags)
                         event("governance_tags", correlation, outcome="checked", counts=counts)
                         if counts["failed"]:
                             raise azure.Failure("governance_tags_partially_failed")

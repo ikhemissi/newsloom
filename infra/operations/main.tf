@@ -20,6 +20,8 @@ locals {
     AZURE_RESOURCE_GROUP_ID = local.group
     BACKUP_ACCOUNT_URL      = var.backup_account_url
     BACKUP_CONTAINER        = var.backup_container
+    # Tags the tenant's policies require, restored by the wake job: the project's tags except its own name.
+    GOVERNANCE_TAGS = jsonencode({ for key, value in var.tags : key => value if key != "project" })
   })
 }
 
