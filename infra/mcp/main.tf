@@ -26,7 +26,8 @@ locals {
   })
 }
 
-# Writes the read snapshot after the last ingestion run and before the 23:00 UTC stop.
+# Refreshes the read snapshot five minutes after each ingestion and enrichment start;
+# the last run (22:45) comes before the 23:00 UTC stop.
 resource "azurerm_container_app_job" "snapshot" {
   count                        = var.snapshot_url == "" ? 0 : 1
   name                         = "snapshot-${trim(substr("newsloom-${var.environment_name}", 0, 23), "-")}"
@@ -38,7 +39,7 @@ resource "azurerm_container_app_job" "snapshot" {
   replica_retry_limit          = 1
   tags                         = merge(var.tags, { azd-env-name = var.environment_name })
   schedule_trigger_config {
-    cron_expression          = "45 22 * * *"
+    cron_expression          = "15,45 7-22 * * *"
     parallelism              = 1
     replica_completion_count = 1
   }
