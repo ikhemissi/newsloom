@@ -2,8 +2,8 @@
 
 ## 1. Identity layer
 
-- [ ] 1.1 Add `infra/eval-identity/` (default off): managed identity, `pull_request` and `main` federated credentials with validated immutable-ID subjects, chat-only custom role at the model account scope, outputs for client ID, model endpoint and deployment; register the layer in `azure.yaml`. Add Terraform tests for disabled (no resources) and enabled (exact resource set, no secrets) plans.
-- [ ] 1.2 Document the layer, cost, rollback and emergency switch in `docs/development.md`; run `bash scripts/check.sh` and `npm run spec:check`.
+- [x] 1.1 Add `infra/eval-identity/` (default off): managed identity, `pull_request` and `main` federated credentials with validated immutable-ID subjects, chat-only custom role at the model account scope, outputs for client ID, model endpoint and deployment; register the layer in `azure.yaml`. Add Terraform tests for disabled (no resources) and enabled (exact resource set, no secrets) plans.
+- [x] 1.2 Document the layer, cost, rollback and emergency switch in `docs/development.md`; run `bash scripts/check.sh` and `npm run spec:check`.
 
 ## 2. Deploy and accept
 
