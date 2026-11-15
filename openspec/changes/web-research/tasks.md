@@ -7,14 +7,15 @@
 
 ## 2. Agent
 
-- [ ] 2.1 `search_web` tool: managed-identity token, `POST /v3/search/web`, result parsing and limits, failure handling; tests with a fake Web IQ endpoint.
-- [ ] 2.2 Planner and evidence: web IDs, claim `web_ids`, budgets, "From the web" rendering, disabled-by-default; preview locally with the real connection on stored-news gaps.
+- [x] 2.1 `search_web` tool: managed-identity token, `POST /v3/search/web`, result parsing and limits, failure handling; tests with a fake Web IQ endpoint.
+- [x] 2.2 Planner and evidence: web IDs, claim `web_ids`, budgets, "From the web" rendering, disabled-by-default; preview locally with the real connection on stored-news gaps.
+  - Preview (2026-11-15, `research-preview.sh --conversation web`, model local, Web IQ from the agent container with its managed identity): the first prompt never used the web (it added an October publication-date filter, found nothing and stopped). After adding the no-invented-dates rule, the web rule in the instructions and the per-turn `web_note`, three consecutive runs used the web on every turn; "What's new in Microsoft Foundry in October 2026?" listed the roundup's changes cited `[W1]` to the original post, and "has any of that changed since?" summarised the web results and stated it could not confirm later changes. A claim with no evidence once failed validation; the synthesis schema now requires stored or web IDs per claim. Turn usage was about 6–9k input and 240–430 output tokens with one Web IQ search per turn. The keyword stand-in for stored search found no stored roundup in this preview; the live check uses vector search.
 
 ## 3. Web
 
-- [ ] 3.1 Parse and render `[Wn]` web citations, labelled as web sources; tests.
+- [x] 3.1 Parse and render `[Wn]` web citations, labelled as web sources; tests.
 
 ## 4. Deliver
 
-- [ ] 4.1 Docs (`docs/agent.md`, `docs/ui.md`, `docs/adrs.md`, `docs/known-gaps.md`); `bash scripts/check.sh --all`; `npm run spec:check`.
+- [x] 4.1 Docs (`docs/agent.md`, `docs/ui.md`, `docs/adrs.md`, `docs/known-gaps.md`); `bash scripts/check.sh --all`; `npm run spec:check`.
 - [ ] 4.2 Deploy through azd previews; signed-in check on a stored item that only points to its changes; record searches, tokens and cost.

@@ -384,3 +384,13 @@ def test_layer_preview_hook_has_no_build_and_has_separate_retained_state() -> No
         '"key": "newsloom/${AZURE_ENV_NAME}-agent.tfstate"'
         in (root / "infra/agent/provider.conf.json").read_text()
     )
+
+
+def test_readback_expects_the_web_setting_only_when_enabled(deployment: Deployment) -> None:
+    web = {**deployment.env, "AGENT_RESEARCH_ENABLED": "true", "WEB_RESEARCH_ENABLED": "true"}
+    with pytest.raises(PlatformFailure):
+        agent_control.verify(web, "local")
+
+
+def test_web_setting_is_ignored_while_research_is_disabled(deployment: Deployment) -> None:
+    agent_control.verify({**deployment.env, "WEB_RESEARCH_ENABLED": "true"}, "local")

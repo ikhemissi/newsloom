@@ -148,6 +148,30 @@ answers 401 and research continues without the web. The binding has no Azure
 Resource Manager API today (`Microsoft.WebIQ` exposes accounts, custom search
 configurations and usages only), so Terraform cannot manage it.
 
+### Web research behaviour
+
+With `WEB_RESEARCH_ENABLED=true` (and research enabled) the planner is offered
+`search_web` in discovery mode, at most twice per request, while stored and web
+evidence together stay within 10 items. It should search stored news first and use
+the web when stored results are empty, only announce a change without listing it,
+or the question asks about the current state. `search_web` posts the query to Web
+IQ with the agent's managed identity and keeps at most 5 non-adult https results
+(title, URL, snippet up to 1,000 characters, last-updated date). Web results are
+untrusted data in the model context as `web_results` (`W1`…).
+
+Claims cite stored items (`evidence_ids`) and/or web results (`web_ids`); the
+synthesis schema requires one or the other. The answer lists stored-news claims
+first, then "From the web:" and web-only claims with `[Wn]` markers, then `[n] url`
+and `[Wn] url` citation lines; the footer states when web results were cited. If
+Web IQ fails, the answer uses stored news and adds "The web could not be reached
+for this request." With web research disabled the instructions, planning and
+synthesis schemas and answers are exactly as before (pinned digests in
+`tests/test_agent_web.py`).
+
+Preview with real Web IQ: `bash scripts/research-preview.sh --conversation web`
+(the model runs locally; each search runs inside the agent container with its
+managed identity).
+
 Local contract validation: **51 focused cases passed**, plus **54 existing
 delegation cases**; strict types and focused lint passed. All **13 OpenSpec
 items** passed strict validation. These are local results with authored fixtures,

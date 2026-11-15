@@ -27,8 +27,8 @@ export function failureMessage(error: unknown): string {
 }
 
 export type Phase = "retrieving" | "planning" | "synthesizing" | "validating";
-export type Citation = { number: number; url: string; href: string | null; host: string | null };
-export type Paragraph = { text: string; references: number[] };
+export type Citation = { number: number; url: string; href: string | null; host: string | null; web?: true };
+export type Paragraph = { text: string; references: number[]; webReferences?: number[] };
 export type Answer = { paragraphs: Paragraph[]; citations: Citation[] };
 export type HistoryTurn = { question: string; answer: string; cited_item_ids: string[] };
 export type Conversation = { followUps: string[]; citedItemIds: string[] };

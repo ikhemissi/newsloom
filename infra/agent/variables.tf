@@ -132,3 +132,11 @@ variable "tags" {
   type    = map(string)
   default = {}
 }
+variable "web_research_enabled" {
+  type    = bool
+  default = false
+  validation {
+    condition     = !var.web_research_enabled || var.research_enabled
+    error_message = "Web research needs research."
+  }
+}

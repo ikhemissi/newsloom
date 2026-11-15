@@ -64,6 +64,8 @@ CATEGORIES = {
     "research_result_invalid",
     "research_tool_limit",
     "research_repeated_tool",
+    "research_web_not_offered",
+    "research_web_citation_unknown",
     "research_selection_boundary",
     "research_unknown_item",
     "research_filter_relaxation",

@@ -19,6 +19,7 @@ from newsloom_agent.generation import FoundryGenerator, GenerationConfig
 from newsloom_agent.research import ResearchController
 from newsloom_agent.research_generation import FoundryResearchGenerator
 from newsloom_agent.telemetry import Telemetry
+from newsloom_agent.web import WebIq
 
 
 class Config(DelegationConfig):
@@ -29,8 +30,9 @@ class Config(DelegationConfig):
     telemetry_routing: str = Field(min_length=1, repr=False)
     allowed_origins: tuple[str, ...] = ()
     research_enabled: bool = False
+    web_research_enabled: bool = False
 
-    @field_validator("research_enabled", mode="before")
+    @field_validator("research_enabled", "web_research_enabled", mode="before")
     @classmethod
     def explicit_research_setting(cls, value: object) -> bool:
         if type(value) is bool:
@@ -63,6 +65,12 @@ class Config(DelegationConfig):
         return normalize_origins(values)
 
     @model_validator(mode="after")
+    def web_needs_research(self) -> Config:
+        if self.web_research_enabled and not self.research_enabled:
+            raise ValueError("web_research_requires_research")
+        return self
+
+    @model_validator(mode="after")
     def separate_identity(self) -> Config:
         if self.identity_client_id in (self.agent_client_id, self.mcp_audience):
             raise ValueError("separate_workload_and_api_identities_required")
@@ -84,6 +92,7 @@ class Config(DelegationConfig):
                 },
                 "telemetry_routing": env["APPLICATIONINSIGHTS_CONNECTION_STRING"],
                 "research_enabled": env.get("AGENT_RESEARCH_ENABLED", "false"),
+                "web_research_enabled": env.get("WEB_RESEARCH_ENABLED", "false"),
                 "allowed_origins": tuple(
                     env["AGENT_ALLOWED_ORIGINS"].split(",")
                     if env.get("AGENT_ALLOWED_ORIGINS")
@@ -98,6 +107,7 @@ async def application(config: Config) -> AsyncIterator[ASGIApp]:
     async with (
         ManagedIdentityCredential(client_id=str(config.identity_client_id)) as credential,
         httpx.AsyncClient(trust_env=False, follow_redirects=False, timeout=5) as client,
+        httpx.AsyncClient(trust_env=False, follow_redirects=False) as web_client,
     ):
         telemetry = Telemetry(config.telemetry_routing, str(config.identity_client_id))
         try:
@@ -111,7 +121,11 @@ async def application(config: Config) -> AsyncIterator[ASGIApp]:
                 observer=telemetry,
                 research=(
                     ResearchController(
-                        reader, FoundryResearchGenerator(config.generation, credential)
+                        reader,
+                        FoundryResearchGenerator(
+                            config.generation, credential, web=config.web_research_enabled
+                        ),
+                        WebIq(web_client, credential) if config.web_research_enabled else None,
                     )
                     if config.research_enabled
                     else None
