@@ -1,7 +1,7 @@
 # Nightly operations runbook
 
-Status: in delivery through the
-[owning change](../openspec/changes/nightly-operations/proposal.md). It protects
+Status: delivered through the
+[owning change](../openspec/changes/archive/2026-11-15-nightly-operations/proposal.md). It protects
 the data against loss and runs the database only during the day.
 
 ## What runs when
@@ -120,7 +120,7 @@ grants are recreated.
 
 ## Read-only overnight
 
-Owned by the [read-only-overnight change](../openspec/changes/read-only-overnight/proposal.md).
+Owned by the [read-only-overnight change](../openspec/changes/archive/2026-11-15-read-only-overnight/proposal.md).
 At 22:45 UTC the `snapshot-newsloom-<env>` job (API image and identity) reads,
 in one read-only transaction, every news item with its announcements, the radar
 cards of the last 30 days, their product pages, the current briefing and each

@@ -12,8 +12,10 @@ not export user tokens or browser state to automation.
 | Change (archived) | Unverified check | Why it could not run | What did run |
 | --- | --- | --- | --- |
 | `ui-news-filters` | 4.4 Relevant results for combined source/category/date and search filters | Run on 2026-11-07, see below: a search for "agentcore" returned unrelated items | Component, browser and anonymous Azure checks; signed-in filtering ran |
-| `nightly-operations` (active) | Schedules follow Paris winter time only | Container Apps cron is UTC; in summer every time is one hour later in Paris | — |
+| `nightly-operations` | Schedules follow Paris winter time only | Container Apps cron is UTC; in summer every time is one hour later in Paris | — |
 | `web-research` (active) | Web IQ client-ID binding is a manual portal step | No ARM API for bindings; review from the week after Ignite | Binding verified by a managed-identity request |
+| `nightly-operations` | A scheduled wake ending succeeded after #37 | Fix deployed 2026-11-15 after that morning's run | Manual wake succeeded; PostgreSQL started every morning |
+| `read-only-overnight` | A reader using the site during the scheduled night stop | No overnight requests 2026-11-10 to 11-15 | User check with the database stopped by the operator (daytime); snapshot runs |
 | `cached-news-api` | 4.3 Search cache hit on a repeated identical query; TTL | Signed-in run produced briefing hits but no search hit | Authorized HTTP routes and delegated MCP search succeeded on 2026-11-07 |
 
 ## Signed-in run, 2026-11-07

@@ -17,6 +17,7 @@
 ## 4. Deliver
 
 - [x] 4.1 Update `docs/operations.md`, `docs/news-api.md`, `docs/ui.md`; run `bash scripts/check.sh --all` and `npm run spec:check`.
-- [ ] 4.2 Deploy through azd previews; run the snapshot job; check the site with the database stopped (manual stop/start); user checks at night.
+- [x] 4.2 Deploy through azd previews; run the snapshot job; check the site with the database stopped (manual stop/start); user checks at night.
   - Evidence (2026-11-10): `operations-identity` preview added the `snapshots` container and grant and only appended the snapshot lifecycle rule (read back: exports 60 days after creation, snapshots 7 days after modification). `mcp` preview: image, `SNAPSHOT_URL` and the new job; revision 11 ready, `verify-mcp` succeeded. Web revision 18, `verify-ui` succeeded. Manual snapshot `snapshot-newsloom-dev-dwygk5e`: 2,311 items, 1,163 cards, 839 products, briefing included, 1,132,672 bytes. With the server stopped by the operator, `/health/ready` answered 200 in about 0.1 s and the user confirmed the read-only line, readable radar, briefing, news, item and product pages and hidden actions; the server was then started again.
-  - Open: observe the scheduled 22:45 UTC snapshot and the site during the scheduled night stop.
+  - Scheduled snapshots 2026-11-10 to 11-15: 4 of 5 succeeded (about 2,400 items, 1,300 cards, 950 products, 1.3 MB). The 11-11 run failed twice with a database connection error while `is_db_alive` was 1; #37 adds a delayed retry, SQLSTATE in the failure category and batched product pages (equal to live pages in tests). A manual run on 2026-11-15 after #37 succeeded.
+  - Not yet observed: a reader using the site during the scheduled night stop; no requests reached the API overnight in this period (recorded in known gaps).
