@@ -7,10 +7,11 @@ week, with a summary-derived TL;DR and an expandable cited briefing.
 ## Requirements
 
 ### Requirement: Daily scheduled seven-day evidence window
-The system SHALL start one shared briefing workflow daily at 05:00 UTC, using
-committed stored news with publication instants in the half-open interval
-[scheduled cutoff minus seven days, scheduled cutoff). The window MUST remain
-fixed despite delayed execution, browser timezone, filters or article selection.
+The system SHALL run one shared briefing workflow daily for the 05:00 UTC slot,
+starting at 07:45 UTC after the database wakes, using committed stored news
+with publication instants in the half-open interval [scheduled cutoff minus
+seven days, scheduled cutoff). The window MUST remain fixed despite delayed
+execution, browser timezone, filters or article selection.
 
 #### Scenario: A daily run starts late or a reader changes filters
 - **WHEN** a scheduled run starts after 05:00 UTC
