@@ -159,14 +159,14 @@ run "no_snapshot_job_without_a_snapshot_url" {
   }
 }
 
-run "nightly_snapshot_job_uses_the_mcp_identity_and_image" {
+run "snapshot_job_uses_the_mcp_identity_and_image" {
   command = plan
   variables {
     snapshot_url = "https://stnlbaktest.blob.core.windows.net/snapshots/latest.json.gz"
   }
   assert {
     condition = (
-      azurerm_container_app_job.snapshot[0].schedule_trigger_config[0].cron_expression == "45 22 * * *" &&
+      azurerm_container_app_job.snapshot[0].schedule_trigger_config[0].cron_expression == "15,45 7-22 * * *" &&
       azurerm_container_app_job.snapshot[0].template[0].container[0].args == tolist(["snapshot"]) &&
       azurerm_container_app_job.snapshot[0].template[0].container[0].image == var.image &&
       azurerm_container_app_job.snapshot[0].identity[0].identity_ids == toset([local.identity.id]) &&
@@ -174,7 +174,7 @@ run "nightly_snapshot_job_uses_the_mcp_identity_and_image" {
       local.environment.SNAPSHOT_URL == var.snapshot_url &&
       length(azurerm_container_app_job.snapshot[0].name) <= 32
     )
-    error_message = "The snapshot runs at 22:45 UTC with the MCP image and identity and no secrets."
+    error_message = "The snapshot refreshes every 30 minutes from 07:15 to 22:45 UTC with the MCP image and identity and no secrets."
   }
 }
 

@@ -14,7 +14,7 @@ every time moves one hour later in Paris.
 | 07:00 | 08:00 | `wake`: start PostgreSQL, then put back the governance tags |
 | 07:10–22:40, every 30 min | 08:10–23:40 | ingestion and enrichment |
 | 07:45 | 08:45 | briefing for the 05:00 UTC slot ([briefing runbook](briefing.md)) |
-| 22:45 | 23:45 | `snapshot`: the API writes the read snapshot |
+| 07:15–22:45, every 30 min | 08:15–23:45 | `snapshot`: the API refreshes the read snapshot after ingestion and enrichment |
 | 23:00 | 00:00 | `nightly`: export the database, then stop PostgreSQL |
 
 While the server is stopped the API serves a read-only snapshot
@@ -121,7 +121,9 @@ grants are recreated.
 ## Read-only overnight
 
 Owned by the [read-only-overnight change](../openspec/changes/archive/2026-11-15-read-only-overnight/proposal.md).
-At 22:45 UTC the `snapshot-newsloom-<env>` job (API image and identity) reads,
+Every 30 minutes from 07:15 to 22:45 UTC, five minutes after each ingestion and
+enrichment start ([snapshot-refresh change](../openspec/changes/snapshot-refresh/proposal.md)),
+the `snapshot-newsloom-<env>` job (API image and identity) reads,
 in one read-only transaction, every news item with its announcements, the radar
 cards of the last 30 days, their product pages, the current briefing and each
 reader's stack and card states (pseudonymous reader keys only; no embeddings,

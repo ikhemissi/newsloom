@@ -109,7 +109,8 @@ cached and their contents never logged.
 ### Read-only overnight
 
 While the database sleeps (see the [operations runbook](operations.md#read-only-overnight))
-the same routes answer from the nightly snapshot and add
+or is otherwise unreachable, the same routes answer from the latest read snapshot
+(refreshed every 30 minutes during the day) and add
 `X-Newsloom-Read-Only: <snapshot time>` (exposed to allowed browser origins).
 Search, feedback and reader-state routes then return `503` with error code
 `read_only`. Search results, rankings and continuation tokens are unchanged
