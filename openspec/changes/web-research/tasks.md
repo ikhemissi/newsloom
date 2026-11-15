@@ -19,3 +19,5 @@
 
 - [x] 4.1 Docs (`docs/agent.md`, `docs/ui.md`, `docs/adrs.md`, `docs/known-gaps.md`); `bash scripts/check.sh --all`; `npm run spec:check`.
 - [ ] 4.2 Deploy through azd previews; signed-in check on a stored item that only points to its changes; record searches, tokens and cost.
+  - Deployed 2026-11-15: agent revision 11 (preview: new image, build revision and `WEB_RESEARCH_ENABLED=true` only; `verify-agent` readback succeeded) and web revision 21 (preview: image and build revision; the apply also re-added the two governance tags that had been removed from the UI identity; `verify-ui` succeeded). The first web apply hit a 403 on the Terraform state after the governance pass; `newsloom-platform unblock-state` reopened it.
+  - Open (user is away): a signed-in check in the browser on a stored item that only points to its changes (for example the Foundry October roundup), and live Web IQ usage and cost per request. The only signed-in test client (`newsloom-agent verify-research`) needs the user's browser sign-in, so it was not run.
