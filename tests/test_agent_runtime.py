@@ -61,6 +61,8 @@ def test_runtime_uses_only_explicit_trusted_configuration(
         ("AGENT_RESEARCH_ENABLED", "1"),
         ("AGENT_RESEARCH_ENABLED", "yes"),
         ("AGENT_RESEARCH_ENABLED", "false "),
+        ("WEB_RESEARCH_ENABLED", "TRUE"),
+        ("WEB_RESEARCH_ENABLED", "true"),
     ],
 )
 def test_invalid_runtime_configuration_never_creates_a_credential(

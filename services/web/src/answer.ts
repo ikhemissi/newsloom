@@ -19,24 +19,33 @@ export function parseAnswer(text: string): Answer {
   const citations: Citation[] = [];
   while (blocks.length) {
     const line = blocks.at(-1);
-    const match = line ? /^\[([1-9]\d*)\] (.+)$/.exec(line) : null;
+    const match = line ? /^\[(W?)([1-9]\d*)\] (.+)$/.exec(line) : null;
     if (!match) break;
     blocks.pop();
-    const number = Number(match[1]);
-    const url = match[2];
+    const number = Number(match[2]);
+    const url = match[3];
     if (!url || !Number.isSafeInteger(number)) throw new UiFailure("invalid_response");
     const parsed = safeHttps(url);
-    citations.unshift({ number, url, href: parsed?.href ?? null, host: parsed?.hostname ?? null });
+    citations.unshift({ number, url, href: parsed?.href ?? null, host: parsed?.hostname ?? null,
+      ...(match[1] ? { web: true as const } : {}) });
   }
-  if (citations.some((citation, index) => citation.number !== index + 1))
+  const stored = citations.filter((citation) => !citation.web);
+  const web = citations.filter((citation) => citation.web);
+  // Stored citation lines come first, then web lines, each numbered from 1.
+  if (stored.some((citation, index) => citation.number !== index + 1)
+      || web.some((citation, index) => citation.number !== index + 1)
+      || citations.some((citation, index) => !citation.web && citations.slice(0, index).some((other) => other.web)))
     throw new UiFailure("invalid_response");
   const paragraphs = blocks.map((block) => {
-    const suffix = /(?: \[[1-9]\d*\])+$/.exec(block);
+    const suffix = /(?: \[W?[1-9]\d*\])+$/.exec(block);
     if (!suffix) return { text: block, references: [] };
-    const references = [...suffix[0].matchAll(/\[([1-9]\d*)\]/g)].map((match) => Number(match[1]));
-    if (references.some((number) => !citations.some((citation) => citation.number === number)))
+    const markers = [...suffix[0].matchAll(/\[(W?)([1-9]\d*)\]/g)];
+    const references = markers.filter((match) => !match[1]).map((match) => Number(match[2]));
+    const webReferences = markers.filter((match) => match[1]).map((match) => Number(match[2]));
+    if (references.some((number) => !stored.some((citation) => citation.number === number))
+        || webReferences.some((number) => !web.some((citation) => citation.number === number)))
       throw new UiFailure("invalid_response");
-    return { text: block.slice(0, -suffix[0].length), references };
+    return { text: block.slice(0, -suffix[0].length), references, ...(webReferences.length ? { webReferences } : {}) };
   });
   return { paragraphs, citations };
 }

@@ -53,7 +53,60 @@ CONVERSATIONS = {
         "Which of these would an AI solution architect need to act on first?",
     ),
     "vertex": ("What changed recently in Vertex AI?", "And what about AWS?"),
+    "web": (
+        "What's new in Microsoft Foundry in October 2026? List the actual changes.",
+        "Has any of that changed since it was announced?",
+    ),
 }
+PROBE = """
+import asyncio, base64, json, os
+import httpx
+from azure.identity.aio import ManagedIdentityCredential
+async def main():
+    async with ManagedIdentityCredential(client_id=os.environ["AZURE_CLIENT_ID"]) as c:
+        token = (await c.get_token("https://api.microsoft.ai/.default")).token
+    async with httpx.AsyncClient(timeout=20) as h:
+        r = await h.post("https://api.microsoft.ai/v3/search/web",
+            headers={"Authorization": "Bearer " + token}, json={"query": QUERY})
+        body = r.json() if r.status_code == 200 else None
+        print("WEBIQ" + json.dumps({"status": r.status_code, "body": body}))
+asyncio.run(main())
+"""
+
+
+class RemoteWebIq:
+    """Real Web IQ calls made from the agent container with its managed identity."""
+
+    async def search(self, query: str) -> tuple[object, ...]:
+        import base64
+        import subprocess
+
+        from newsloom_agent.web import WebUnavailable, parse
+
+        code = base64.b64encode(PROBE.replace("QUERY", json.dumps(query)).encode()).decode()
+        command = (
+            "az containerapp exec -g rg-newsloom-dev -n agent-newsloom-dev --command "
+            f"\"/app/.venv/bin/python -c exec(__import__('base64').b64decode('{code}'))\""
+        )
+        output = await asyncio.to_thread(
+            subprocess.run,
+            ["script", "-qec", command, "/dev/null"],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        line = next((x for x in output.stdout.splitlines() if x.startswith("WEBIQ")), "")
+        if not line:
+            raise WebUnavailable("web_preview_no_output")
+        result = json.loads(line[5:])
+        if result["status"] != 200:
+            raise WebUnavailable(f"web_status_{result['status']}")
+        found = parse(result["body"])
+        WEB_CALLS.append({"query": query, "results": [f.url for f in found]})
+        return found
+
+
+WEB_CALLS: list[dict[str, object]] = []
 
 
 def load() -> dict[UUID, NewsDetail]:
@@ -156,7 +209,7 @@ class LocalReader:
 
 
 async def converse(
-    items: dict[UUID, NewsDetail], questions: tuple[str, ...]
+    items: dict[UUID, NewsDetail], questions: tuple[str, ...], web: bool = False
 ) -> list[dict[str, object]]:
     from azure.identity.aio import AzureCliCredential
 
@@ -166,7 +219,9 @@ async def converse(
     turns: list[dict[str, object]] = []
     async with AzureCliCredential() as credential:
         controller = ResearchController(
-            LocalReader(items), FoundryResearchGenerator(config, credential)
+            LocalReader(items),
+            FoundryResearchGenerator(config, credential, web=web),
+            RemoteWebIq() if web else None,  # type: ignore[arg-type]
         )
         for question in questions:
             history = [
@@ -181,6 +236,7 @@ async def converse(
             stats = ResearchStats()
             record: dict[str, object] = {"question": question, "history_turns": len(history)}
             CALLS.clear()
+            WEB_CALLS.clear()
             try:
                 async for update in controller.run(
                     request, Authorization(caller, time.monotonic() + 180), stats
@@ -195,6 +251,7 @@ async def converse(
                 record["failure"] = str(error) or type(error).__name__
             record |= {
                 "calls": list(CALLS),
+                "web_calls": list(WEB_CALLS),
                 "tool_calls": stats.tool_calls,
                 "model_calls": stats.calls,
                 "input_tokens": stats.input_tokens,
@@ -233,7 +290,9 @@ def main() -> None:
     if args.replay:
         turns = json.loads(results.read_text())
     else:
-        turns = asyncio.run(converse(load(), CONVERSATIONS[args.conversation]))
+        turns = asyncio.run(
+            converse(load(), CONVERSATIONS[args.conversation], web=args.conversation == "web")
+        )
         results.write_text(json.dumps(turns, indent=2))
     (OUTPUT / "review.md").write_text(review(turns))
     print(f"review: {OUTPUT / 'review.md'}")

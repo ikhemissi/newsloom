@@ -43,3 +43,30 @@ test("configuration and HTTPS links do not accept caller-selected or unsafe valu
     expect(() => parseConfig(value)).toThrow("configuration");
   expect(safeHttps("javascript:alert(1)")).toBeNull();
 });
+
+const webText = [
+  "Stored news reports the launch. [1]",
+  "From the web:",
+  "The product page lists new limits. [W1] [W2]",
+  "Evidence is limited to stored summaries and metadata and the cited web search results; full articles were not accessed.",
+  "[1] https://publisher.test/a",
+  "[W1] https://web.test/one",
+  "[W2] https://web.test/two",
+].join("\n\n");
+
+test("web citations parse separately from stored ones", () => {
+  const answer = parseAnswer(webText);
+  expect(answer.citations.map((c) => [c.number, c.web ?? false, c.host])).toEqual([
+    [1, false, "publisher.test"], [1, true, "web.test"], [2, true, "web.test"],
+  ]);
+  expect(answer.paragraphs[0]).toEqual({ text: "Stored news reports the launch.", references: [1] });
+  expect(answer.paragraphs[2]).toEqual({ text: "The product page lists new limits.", references: [], webReferences: [1, 2] });
+});
+
+test("web citations must be numbered from 1, follow stored ones and exist", () => {
+  for (const bad of [
+    webText.replace("[W2] https://web.test/two", "[W3] https://web.test/two"),
+    webText.replace("[W1] [W2]", "[W1] [W4]"),
+    ["Claim. [1] [W1]", "[W1] https://web.test/one", "[1] https://publisher.test/a"].join("\n\n"),
+  ]) expect(() => parseAnswer(bad)).toThrow("invalid_response");
+});

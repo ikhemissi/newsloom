@@ -155,6 +155,8 @@ def verify(env: dict[str, str], correlation: str) -> None:
         "AGENT_CHAT_DEPLOYMENT": env["ENRICHMENT_DEPLOYMENT"],
         "APPLICATIONINSIGHTS_CONNECTION_STRING": env["APPLICATIONINSIGHTS_CONNECTION_STRING"],
     }
+    if env.get("WEB_RESEARCH_ENABLED") == "true" and research_enabled(env):
+        expected["WEB_RESEARCH_ENABLED"] = "true"
     if (
         container.get("image") != reference
         or container.get("name") != "agent"

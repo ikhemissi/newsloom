@@ -513,3 +513,11 @@ follow-ups and cited item IDs. The thread is kept in `sessionStorage` (this tab
 only), re-validated on load and removed on sign-out. Rating applies to the latest
 answer; research errors appear inside the panel and the question is restored. Up to 1000px wide the panel is a full-height sheet over the news: Tab
 stays inside it, Escape closes it and focus returns to the control that opened it.
+
+## Web sources in research answers
+
+Owned by [`web-research`](../openspec/changes/web-research/proposal.md). Answers
+that used the web show their web-only claims under "From the web:" and a separate
+**Web sources** list after **Sources**; `[Wn]` markers focus the matching web
+source, like `[n]` for stored news. Web and stored citations are each numbered
+from 1 and validated before display.

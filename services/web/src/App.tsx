@@ -34,30 +34,37 @@ function FilterChips({ snapshot }: { snapshot: FilterSnapshot }) {
 }
 
 export function AnswerView({ answer, label = "Research answer" }: { answer: Answer; label?: string }) {
-  const references = useRef(new Map<number, HTMLLIElement>());
+  const references = useRef(new Map<string, HTMLLIElement>());
+  const stored = answer.citations.filter((citation) => !citation.web);
+  const web = answer.citations.filter((citation) => citation.web);
+  const key = (number: number, isWeb: boolean) => `${isWeb ? "W" : ""}${number}`;
+  const list = (citations: typeof stored, isWeb: boolean) => <ol className="citations">
+    {citations.map((citation) => <li key={key(citation.number, isWeb)} tabIndex={-1}
+      ref={(element) => {
+        if (element) references.current.set(key(citation.number, isWeb), element);
+        else references.current.delete(key(citation.number, isWeb));
+      }}>
+      [{key(citation.number, isWeb)}] {citation.href
+        ? <a href={citation.href} target="_blank" rel="noopener noreferrer" className="link">
+          {citation.host} <span className="sr-only">(opens in a new tab)</span>
+        </a> : <span>{citation.url} (unsafe link disabled)</span>}
+    </li>)}
+  </ol>;
   return <section aria-label={label} className="answer">
-    {answer.paragraphs.map((paragraph, index) => <p key={index}>
+    {answer.paragraphs.map((paragraph, index) => <p key={index}
+      className={paragraph.text === "From the web:" ? "answer-web-heading" : undefined}>
       {paragraph.text}
       {paragraph.references.map((number, referenceIndex) =>
         <button key={`${number}-${referenceIndex}`} className="btn btn-link btn-xs"
           aria-label={`Focus citation ${number}`}
-          onClick={() => references.current.get(number)?.focus()}>[{number}]</button>)}
+          onClick={() => references.current.get(key(number, false))?.focus()}>[{number}]</button>)}
+      {(paragraph.webReferences ?? []).map((number, referenceIndex) =>
+        <button key={`W${number}-${referenceIndex}`} className="btn btn-link btn-xs"
+          aria-label={`Focus web source ${number}`}
+          onClick={() => references.current.get(key(number, true))?.focus()}>[W{number}]</button>)}
     </p>)}
-    {answer.citations.length > 0 && <>
-      <h2>Sources</h2>
-      <ol className="citations">
-        {answer.citations.map((citation) => <li key={citation.number} tabIndex={-1}
-          ref={(element) => {
-            if (element) references.current.set(citation.number, element);
-            else references.current.delete(citation.number);
-          }}>
-          [{citation.number}] {citation.href
-            ? <a href={citation.href} target="_blank" rel="noopener noreferrer" className="link">
-              {citation.host} <span className="sr-only">(opens in a new tab)</span>
-            </a> : <span>{citation.url} (unsafe link disabled)</span>}
-        </li>)}
-      </ol>
-    </>}
+    {stored.length > 0 && <><h2>Sources</h2>{list(stored, false)}</>}
+    {web.length > 0 && <><h2>Web sources</h2>{list(web, true)}</>}
   </section>;
 }
 

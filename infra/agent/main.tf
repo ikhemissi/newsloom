@@ -6,7 +6,7 @@ locals {
   }
   resource_url    = var.enabled ? "https://${local.name}.${data.azurerm_container_app_environment.existing[0].default_domain}/a2a" : ""
   allowed_origins = var.allowed_origins_base64 == "" ? var.allowed_origins : toset(jsondecode(base64decode(var.allowed_origins_base64)))
-  environment = {
+  environment = merge(var.web_research_enabled ? { WEB_RESEARCH_ENABLED = "true" } : {}, {
     AZURE_CLIENT_ID        = local.identity.client_id
     AGENT_TENANT_ID        = var.tenant_id
     AGENT_API_CLIENT_ID    = var.api_client_id
@@ -18,7 +18,7 @@ locals {
     MCP_RESOURCE_URL       = var.mcp_resource_url
     MODEL_ENDPOINT         = var.model_endpoint
     AGENT_CHAT_DEPLOYMENT  = var.chat_deployment
-  }
+  })
 }
 data "azurerm_container_app_environment" "existing" {
   count               = local.count

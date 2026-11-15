@@ -207,3 +207,16 @@ test("a failed research request is reported inside the panel and the question is
   expect(await within(panel).findByRole("alert")).toHaveTextContent("The service is unavailable");
   expect(screen.getByLabelText("What would you like to understand?")).toHaveValue("And what about AWS?");
 });
+
+test("web sources render as their own list and their markers focus them", () => {
+  render(<AnswerView answer={parseAnswer([
+    "Stored claim. [1]", "From the web:", "Web claim. [W1]",
+    "[1] https://publisher.test/a", "[W1] https://web.test/one",
+  ].join("\n\n"))} />);
+  expect(screen.getByRole("heading", { name: "Web sources" })).toBeInTheDocument();
+  expect(screen.getByText("From the web:")).toHaveClass("answer-web-heading");
+  fireEvent.click(screen.getByRole("button", { name: "Focus web source 1" }));
+  expect(document.activeElement).toHaveTextContent("[W1] web.test");
+  fireEvent.click(screen.getByRole("button", { name: "Focus citation 1" }));
+  expect(document.activeElement).toHaveTextContent("[1] publisher.test");
+});

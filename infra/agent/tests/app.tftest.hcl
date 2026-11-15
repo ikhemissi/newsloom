@@ -115,6 +115,31 @@ run "research_requires_enabled_agent" {
   }
   expect_failures = [var.research_enabled]
 }
+run "web_research_adds_only_its_setting" {
+  command = plan
+  variables {
+    research_enabled     = true
+    web_research_enabled = true
+  }
+  assert {
+    condition     = local.environment.WEB_RESEARCH_ENABLED == "true" && local.environment.AGENT_RESEARCH_ENABLED == "true"
+    error_message = "Web research is one extra setting on the same app."
+  }
+}
+run "web_research_is_absent_by_default" {
+  command = plan
+  assert {
+    condition     = !contains(keys(local.environment), "WEB_RESEARCH_ENABLED")
+    error_message = "Without web research the app settings are unchanged."
+  }
+}
+run "web_research_requires_research" {
+  command = plan
+  variables {
+    web_research_enabled = true
+  }
+  expect_failures = [var.web_research_enabled]
+}
 run "reject_mutable_image" {
   command = plan
   variables {

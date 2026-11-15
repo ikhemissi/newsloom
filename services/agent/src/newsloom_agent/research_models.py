@@ -22,6 +22,10 @@ MAX_HISTORY_TURNS = 3
 MAX_HISTORY_BYTES = 12 * 1024
 MAX_FOLLOW_UPS = 3
 MAX_FOLLOW_UP_CHARS = 120
+MAX_WEB_SEARCHES = 2
+MAX_WEB_RESULTS = 5
+MAX_WEB_QUERY_CHARS = 400
+WebId = Annotated[str, Field(pattern=r"^W(?:[1-9]|10)$")]
 
 SourceId = Annotated[str, Field(strict=True, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$", max_length=128)]
 ResearchLimit = Annotated[int, Field(strict=True, ge=1, le=5)]
@@ -227,10 +231,35 @@ class SearchCall(ResearchContract):
     arguments: SearchArguments
 
 
+class WebSearchArguments(ResearchContract):
+    query: str = Field(strict=True, min_length=1, max_length=MAX_WEB_QUERY_CHARS, repr=False)
+
+    @field_validator("query")
+    @classmethod
+    def meaningful_query(cls, value: str) -> str:
+        return bounded_text(value, MAX_WEB_QUERY_CHARS * 4).strip()
+
+
+class WebSearchCall(ResearchContract):
+    tool: Literal["search_web"]
+    arguments: WebSearchArguments
+
+
 ToolCall = Annotated[
-    RecentCall | DetailCall | SourcesCall | SearchCall, Field(discriminator="tool")
+    RecentCall | DetailCall | SourcesCall | SearchCall | WebSearchCall,
+    Field(discriminator="tool"),
 ]
-ToolName = Literal["get_recent_news", "get_news_item", "list_sources", "search_news"]
+ToolName = Literal["get_recent_news", "get_news_item", "list_sources", "search_news", "search_web"]
+
+
+class WebResult(ResearchContract):
+    """One public web search result; untrusted data like stored news."""
+
+    id: WebId
+    title: Annotated[str, Field(min_length=1, max_length=200)] = Field(repr=False)
+    url: str = Field(repr=False)
+    snippet: Annotated[str, Field(max_length=1000)] = Field(repr=False)
+    updated: str | None = Field(default=None, max_length=40, repr=False)
 
 
 class ResearchPlan(ResearchContract):
@@ -326,9 +355,21 @@ class SourcesResult(ResearchContract):
 
 class ResearchClaim(ResearchContract):
     text: str = Field(strict=True, repr=False)
-    evidence_ids: Annotated[
-        tuple[UUID, ...], Field(min_length=1, max_length=MAX_EVIDENCE_ITEMS)
-    ] = Field(repr=False)
+    evidence_ids: Annotated[tuple[UUID, ...], Field(max_length=MAX_EVIDENCE_ITEMS)] = Field(
+        repr=False
+    )
+    # Omitted from model schemas and output unless web results were supplied.
+    web_ids: Annotated[tuple[WebId, ...], Field(max_length=MAX_EVIDENCE_ITEMS)] = Field(
+        default=(), repr=False, exclude_if=lambda value: not value
+    )
+
+    @model_validator(mode="after")
+    def supported(self) -> Self:
+        if not self.evidence_ids and not self.web_ids:
+            raise ValueError("claim_without_evidence")
+        if len(set(self.web_ids)) != len(self.web_ids):
+            raise ValueError("duplicate_web_ids")
+        return self
 
     @field_validator("text")
     @classmethod
@@ -386,6 +427,7 @@ class ResearchAnswer(ResearchContract):
 
 class SynthesisScope(ResearchContract):
     coverage: Literal["complete", "partial", "none", "discovery"]
+    web_ids: tuple[WebId, ...] = Field(default=(), repr=False)
     missing_item_ids: Annotated[tuple[UUID, ...], Field(max_length=MAX_SELECTED_ITEMS)] = Field(
         repr=False
     )
@@ -400,6 +442,8 @@ class SynthesisScope(ResearchContract):
             self.missing_item_ids
         ):
             raise AgentFailure("research_coverage_invalid")
+        if any(not set(claim.web_ids) <= set(self.web_ids) for claim in answer.claims):
+            raise AgentFailure("research_web_citation_unknown")
 
 
 class ResearchReceipt(ResearchContract):
