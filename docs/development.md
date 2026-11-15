@@ -8,13 +8,9 @@
 | Future product behavior, user stories, and acceptance criteria | [Phase 1 capabilities](prd-1-capabilities.md), [Phase 2 capabilities](prd-2-capabilities.md), [Phase 3 capabilities](prd-3-capabilities.md) |
 | Architectural choices and rationale | [ADRs](adrs.md) |
 | Repository guarantees and bootstrap acceptance | [OpenSpec repository foundation](../openspec/specs/repository-foundation/spec.md) |
-| Delivered Azure platform contracts | [Persistent platform](../openspec/specs/persistent-azure-platform/spec.md), [workload access](../openspec/specs/workload-access/spec.md), [safe telemetry](../openspec/specs/safe-telemetry/spec.md) |
-| Delivered enrichment and MCP contracts | [News enrichment](../openspec/specs/news-enrichment/spec.md), [MCP serving](../openspec/specs/mcp-serving/spec.md), [news search](../openspec/specs/news-search/spec.md) |
-| Delivered Phase 1 acceptance contract | [Phase acceptance](../openspec/specs/phase1-acceptance/spec.md) |
-| Delivered agent transport and identity contracts | [A2A serving](../openspec/specs/a2a-serving/spec.md), [delegated MCP access](../openspec/specs/delegated-mcp-access/spec.md) |
-| Delivered bounded research contract | [News research](../openspec/specs/news-research/spec.md) |
-| Delivered evaluation foundation contract | [Agent evaluation](../openspec/specs/agent-evaluation/spec.md) |
-| Commands and operational procedures | This guide, the [Azure bootstrap runbook](azure-bootstrap.md), the [platform runbook](azure-platform.md), and the [evaluation runbook](agent-evaluation.md) |
+| What is deployed and how it fits together | [README](../README.md) |
+| Delivered contracts, one spec per capability | [`openspec/specs`](../openspec/specs/) |
+| Commands and operational procedures | This guide and the runbooks listed in the [README](../README.md#documentation) |
 | Capacity warnings and real-world input lessons | [Platform notes](platform-notes.md) |
 | AI contributor working instructions | [AGENTS.md](../AGENTS.md) |
 

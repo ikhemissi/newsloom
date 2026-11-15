@@ -1,5 +1,22 @@
 # Agent evaluation
 
+## Current status
+
+| Part | Status |
+| --- | --- |
+| Evaluation foundation (DeepEval scoring, Foundry publication, Terraform-owned storage) | Delivered and archived ([spec](../openspec/specs/agent-evaluation/spec.md)) |
+| Briefing replay and live evals in CI | Delivered ([CI live evals](../openspec/specs/ci-live-evals/spec.md), [development guide](development.md#live-evals-in-ci)); about $0.015 per live run |
+| Frozen deployed-agent baseline (12 cases, 8 judge controls) | Tooling delivered; no complete run yet ([change](../openspec/changes/agent-quality-baseline/tasks.md)) |
+
+Baseline attempts so far: snapshot 1 halted at case b05 after calibration passed;
+snapshot 2 timed out opening the capture session; a snapshot-3 preparation on
+2026-11-07 stopped before any paid run. The suite predates research conversations
+and web research: web-backed answers end with a different evidence line and
+`[Wn]` citations that its deterministic checks do not accept, so running it
+unchanged would fail those cases on format rather than quality.
+
+The sections below keep the foundation and baseline history.
+
 ## Status and scope
 
 This is the delivered [evaluation foundation](../openspec/changes/archive/2026-10-30-agent-evaluation-foundation/proposal.md),
@@ -1176,7 +1193,7 @@ paid limits, imported-score provenance and actual API/UI acceptance still apply.
 
 ## Locked local setup
 
-Follow the [repository setup](../README.md#local-development) for the application.
+Follow the [repository setup](../README.md#build-and-test) for the application.
 The non-packaged [evaluation project](../tools/agent-evaluation/pyproject.toml)
 has its own lock and environment and is explicitly excluded from the application
 workspace. It is not a seventh runtime package or a production service.

@@ -1,18 +1,13 @@
 # Daily news briefing
 
-Status: worker, protected API and panel UI deployed as early access in the
-[owning change](../openspec/changes/archive/2026-11-07-daily-news-briefing/tasks.md). The corrected
-job runs daily at 07:45 UTC for the 05:00 UTC slot, after the database wakes
-([operations runbook](operations.md)). A first full artifact was published by an
-explicitly authorized controlled retry on 2026-11-03; actual scheduled execution
-and signed-in qualitative acceptance remain open. Earlier failed attempts and
-their costs remain in append-only history and the original call rows.
-The [architect-focused refinement](../openspec/changes/archive/2026-11-07-architect-focused-briefing/tasks.md)
-is now deployed consumer-first. Its new editorial policy takes effect at the
-next valid 05:00 UTC slot; deployment does not rewrite today's successful report.
-[PRD-3](prd-3.md) owns sequencing; [capabilities](prd-3-capabilities.md) own
-product behavior. The [news API](news-api.md) and [UI runbook](ui.md) own their
-existing transport and browser boundaries.
+Status: delivered and archived ([daily briefing](../openspec/changes/archive/2026-11-07-daily-news-briefing/tasks.md),
+[architect focus](../openspec/changes/archive/2026-11-07-architect-focused-briefing/tasks.md),
+[guarded refresh](../openspec/changes/archive/2026-11-05-guarded-briefing-refresh/tasks.md)),
+with signed-in acceptance recorded on 2026-11-07. The `brief` job runs daily at
+07:45 UTC for the 05:00 UTC slot, after the database wakes
+([operations runbook](operations.md)). Every briefing is kept with its TL;DR, and
+readers can rate it ([feedback](ui.md#reader-feedback)). [PRD-3](prd-3.md) owns
+sequencing; [capabilities](prd-3-capabilities.md) own product behaviour.
 
 ## What readers receive
 
