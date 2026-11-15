@@ -115,7 +115,8 @@ repository variable `EVAL_CLIENT_ID` is set; a live failure fails the required
 `evals` check. It signs in through GitHub OIDC as the `id-newsloom-<env>-ci-eval`
 managed identity (layer `eval-identity`, off unless `EVAL_IDENTITY_ENABLED=true`),
 which may only call chat completions on the model account. Each run is one
-briefing generation on the synthetic golden week, a few cents.
+briefing generation on the synthetic golden week: about 7,000 tokens and
+$0.015 per run, about three minutes (measured 2026-11-15).
 
 ```bash
 azd env set EVAL_IDENTITY_ENABLED true
