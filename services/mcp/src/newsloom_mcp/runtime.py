@@ -12,6 +12,7 @@ import httpx
 import psycopg
 from azure.identity.aio import ManagedIdentityCredential
 from newsloom_core.briefing import BriefingRead
+from newsloom_core.diagnostics import event
 from newsloom_core.model_transport import ModelClient, TransportLimits
 from newsloom_core.origins import normalize_origins
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -151,10 +152,28 @@ async def write_snapshot(config: Config) -> dict[str, int]:
         ManagedIdentityCredential(client_id=str(config.client_id)) as credential,
         httpx.AsyncClient(follow_redirects=False, trust_env=False) as client,
     ):
-        token = await credential.get_token(DATABASE_SCOPE)
-        async with await connect(config, token.token, 60) as current, current.transaction():
-            await current.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
-            snapshot = await build(current, datetime.now(UTC))
+        for attempt in range(2):
+            try:
+                token = await credential.get_token(DATABASE_SCOPE)
+                async with (
+                    await connect(config, token.token, 60) as current,
+                    current.transaction(),
+                ):
+                    await current.execute(
+                        "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"
+                    )
+                    snapshot = await build(current, datetime.now(UTC))
+                break
+            except psycopg.OperationalError as error:
+                event(
+                    "read_snapshot",
+                    "",
+                    outcome="retrying" if attempt == 0 else "failed",
+                    category=f"OperationalError_{error.sqlstate or 'connection'}",
+                )
+                if attempt:
+                    raise
+                await asyncio.sleep(60)
         data = snapshot.encode()
 
         async def storage() -> str:

@@ -89,4 +89,8 @@ class Manager:
         if current.get("publicNetworkAccess") == "Enabled":
             return False
         await self.request("PATCH", url, {"properties": {"publicNetworkAccess": "Enabled"}})
+        after = (await self.request("GET", url)).json().get("properties", {})
+        if after.get("publicNetworkAccess") != "Enabled":
+            # A policy rewrites the value when the account lacks its exemption tags.
+            raise Failure("state_access_reverted")
         return True

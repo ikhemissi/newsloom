@@ -72,6 +72,9 @@ async def test_snapshot_stores_match_the_database(
             assert await radar.stack(reader) == await live.stack(reader)
         foundry = next(e for e in await live.search("foundry") if e.kind == "product")
         assert await radar.product(foundry.id) == await live.product(foundry.id)
+        assert restored.products
+        for detail in restored.products:
+            assert detail == await live.product(detail.id)
 
         news = SnapshotNews(restored)
         stored = NewsRepository(admin, "m", "v")
