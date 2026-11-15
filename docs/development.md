@@ -107,6 +107,30 @@ evaluation suite runs in parallel workers. Work on a branch with a draft PR; mar
 it ready when you want the full check and evals. Use `azd env select dev` for the
 existing environment; see the [state runbook](azure-bootstrap.md).
 
+### Live evals in CI
+
+Owned by [`ci-live-evals`](../openspec/changes/ci-live-evals/proposal.md). The
+`evals` job runs `scripts/eval.sh --live` on ready PRs and `main` when the
+repository variable `EVAL_CLIENT_ID` is set; a live failure fails the required
+`evals` check. It signs in through GitHub OIDC as the `id-newsloom-<env>-ci-eval`
+managed identity (layer `eval-identity`, off unless `EVAL_IDENTITY_ENABLED=true`),
+which may only call chat completions on the model account. Each run is one
+briefing generation on the synthetic golden week, a few cents.
+
+```bash
+azd env set EVAL_IDENTITY_ENABLED true
+azd provision eval-identity --preview && azd provision eval-identity
+gh variable set EVAL_CLIENT_ID --body "$(azd env get-value EVAL_IDENTITY_CLIENT_ID)"
+gh variable set AZURE_TENANT_ID --body "$(az account show --query tenantId -o tsv)"
+gh variable set EVAL_MODEL_ENDPOINT --body "$(azd env get-value MODEL_ENDPOINT)"
+gh variable set EVAL_BRIEFING_DEPLOYMENT --body "$(azd env get-value BRIEFING_DEPLOYMENT)"
+```
+
+Emergency switch: `gh variable delete EVAL_CLIENT_ID` (CI skips live evals and
+says so). Full rollback: also set `EVAL_IDENTITY_ENABLED=false` and provision the
+layer to remove the identity, credentials and role. A model outage blocks merges
+until the job is re-run or the switch is used.
+
 Iterate on model-driven behavior locally before deploying. For the briefing, see
 the [preview workflow](briefing.md#local-preview).
 
