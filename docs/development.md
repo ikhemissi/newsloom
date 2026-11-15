@@ -109,7 +109,7 @@ existing environment; see the [state runbook](azure-bootstrap.md).
 
 ### Live evals in CI
 
-Owned by [`ci-live-evals`](../openspec/changes/ci-live-evals/proposal.md). The
+Owned by [`ci-live-evals`](../openspec/changes/archive/2026-11-15-ci-live-evals/proposal.md). The
 `evals` job runs `scripts/eval.sh --live` on ready PRs and `main` when the
 repository variable `EVAL_CLIENT_ID` is set; a live failure fails the required
 `evals` check. It signs in through GitHub OIDC as the `id-newsloom-<env>-ci-eval`
