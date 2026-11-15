@@ -52,9 +52,10 @@ Every resource, including the bootstrap state resource group and storage account
 must keep the `CostControl` and `SecurityControl` tags from `RESOURCE_TAGS`. When
 they were missing on the state storage, tenant governance disabled its public
 network access, and every layer's `terraform init` failed with a storage
-`AuthorizationFailure` (403). Recover with `azd provision bootstrap --preview`
-(it should only restore the tags and `public_network_access`), then apply after
-review. The bootstrap layer keeps local state, so it is not blocked by the outage.
+`AuthorizationFailure` (403). Recover with `uv run --locked newsloom-platform unblock-state`
+(merges `RESOURCE_TAGS` onto the state group and account and re-enables public
+access), or with a reviewed `azd provision bootstrap`. The wake job does the same
+every morning; see the [operations runbook](operations.md#governance-tags). The bootstrap layer keeps local state, so it is not blocked by the outage.
 
 ## Governance automation (2026-11-10)
 

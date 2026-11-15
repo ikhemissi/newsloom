@@ -63,6 +63,58 @@ def rest(url: str, category: str, *, body: object | None = None, resource: str =
         return azure([*arguments, "--method", "post", "--body", f"@{temporary.name}"], category)
 
 
+def resource_tags(env: dict[str, str]) -> dict[str, str]:
+    """RESOURCE_TAGS from the azd environment, as `key=value,key=value`."""
+    tags: dict[str, str] = {}
+    for pair in filter(None, (part.strip() for part in env.get("RESOURCE_TAGS", "").split(","))):
+        key, separator, value = pair.partition("=")
+        if not separator or not key.strip():
+            raise PlatformFailure("invalid_resource_tags")
+        tags[key.strip()] = value.strip()
+    return tags
+
+
+def unblock_state(env: dict[str, str], correlation: str) -> None:
+    """Undo the tenant governance changes that block Terraform state access: merge the
+    deployment tags onto the state resource group and account, then re-enable public
+    network access and confirm it held."""
+    group, account = env["RS_RESOURCE_GROUP"], env["RS_STORAGE_ACCOUNT"]
+    tags = resource_tags(env)
+    if not tags:
+        raise PlatformFailure("resource_tags_required")
+    pairs = [f"{key}={value}" for key, value in tags.items()]
+    state = json_object(
+        azure(["storage", "account", "show", "-g", group, "-n", account], "state_account")
+    )
+    for resource in (
+        f"/subscriptions/{env['AZURE_SUBSCRIPTION_ID']}/resourceGroups/{group}",
+        text_field(state, "id"),
+    ):
+        azure(
+            ["tag", "update", "--resource-id", resource, "--operation", "Merge", "--tags", *pairs],
+            "state_tags",
+        )
+    updated = json_object(
+        azure(
+            [
+                "storage",
+                "account",
+                "update",
+                "-g",
+                group,
+                "-n",
+                account,
+                "--public-network-access",
+                "Enabled",
+            ],
+            "state_access",
+        )
+    )
+    if updated.get("publicNetworkAccess") != "Enabled":
+        raise PlatformFailure("state_access_reverted")
+    event("state_storage", "unblocked", correlation, counts={"tags": len(tags)})
+
+
 def source_hash(root: Path) -> str:
     paths = {
         Path("pyproject.toml"),
@@ -752,6 +804,8 @@ def control(command: str, correlation: str, *, force: bool = False, limit: int =
         build(env, correlation, service="mcp")
     elif command == "build-operations":
         build(env, correlation, service="operations")
+    elif command == "unblock-state":
+        unblock_state(env, correlation)
     elif command == "build-phase1":
         build(env, correlation, service="phase1")
     elif command == "prepare-phase1-layer":

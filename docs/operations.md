@@ -53,6 +53,21 @@ blocked by an overnight governance change. On 2026-11-10 tags merged back at 09:
 again at 10:05–10:11 UTC, so the repair is short-lived; what keeps Newsloom
 running is the morning start and the exports, not the tags.
 
+Tag writes that a resource refuses (some resource types return Forbidden or a
+server error) are logged as `governance_tags` with outcome `partial`; they do not
+fail the wake job. The state-access step re-reads the account and fails with
+`state_access_reverted` if a policy turned public access off again.
+
+Observed timing (2026-11-11 to 11-15): the wake job unblocks the state storage at
+about 07:03 UTC, and governance strips its tags and disables public access again
+at about 11:00–11:20 UTC. To deploy outside that window, unblock it first with the
+operator's own sign-in (tags come from `RESOURCE_TAGS` in the azd environment):
+
+```bash
+uv run --locked newsloom-platform unblock-state
+```
+
+
 ## Deploy
 
 Provision in this order, reviewing every preview:

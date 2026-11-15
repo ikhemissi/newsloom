@@ -44,7 +44,7 @@ from newsloom_mcp.radar import (
     CardInput,
     ProductDetail,
     Radar,
-    RadarRepository,
+    Related,
     StackEntry,
     card,
     rank,
@@ -135,12 +135,7 @@ async def build(connection: AsyncConnection[tuple[object, ...]], now: datetime) 
             )
         ).fetchall()
     )
-    radar = RadarRepository(connection)
-    products = []
-    for identifier in sorted({p.id for c in cards for p in c.products}):
-        detail = await radar.product(identifier)
-        if detail is not None:
-            products.append(detail)
+    products = await product_details(connection, sorted({p.id for c in cards for p in c.products}))
     stacks: dict[str, list[UUID]] = defaultdict(list)
     for reader, entity in await (
         await connection.execute("SELECT reader,entity_id FROM public.reader_stack")
@@ -183,6 +178,82 @@ async def build(connection: AsyncConnection[tuple[object, ...]], now: datetime) 
         states=dict(states),
         briefing=await read_briefing(connection, cutoff_at(now)) if published else None,
     )
+
+
+async def product_details(
+    connection: AsyncConnection[tuple[object, ...]], ids: list[UUID]
+) -> list[ProductDetail]:
+    """The same pages as `RadarRepository.product`, read in four queries instead of four per
+    product."""
+    if not ids:
+        return []
+    heads = await (
+        await connection.execute(
+            "SELECT e.id,e.canonical_name,v.canonical_name FROM public.entities e "
+            "JOIN public.entities v ON v.id=e.vendor_id WHERE e.id=ANY(%s) AND e.kind='product'",
+            (ids,),
+        )
+    ).fetchall()
+    aliases: dict[UUID, list[str]] = defaultdict(list)
+    for entity, alias in await (
+        await connection.execute(
+            "SELECT entity_id,alias FROM public.entity_aliases WHERE entity_id=ANY(%s) "
+            "ORDER BY alias",
+            (ids,),
+        )
+    ).fetchall():
+        aliases[entity].append(str(alias))  # type: ignore[index]
+    related: dict[UUID, list[Related]] = defaultdict(list)
+    for source, target, name, relation in await (
+        await connection.execute(
+            "SELECT r.source_id,t.id,t.canonical_name,r.relation FROM public.entity_relations r "
+            "JOIN public.entities t ON t.id=r.target_id WHERE r.source_id=ANY(%s) "
+            "ORDER BY t.canonical_name",
+            (ids,),
+        )
+    ).fetchall():
+        related[source].append(  # type: ignore[index]
+            Related.model_validate({"id": target, "name": name, "relation": relation})
+        )
+    links: dict[UUID, list[UUID]] = defaultdict(list)
+    for announcement, entity in await (
+        await connection.execute(
+            "SELECT announcement_id,entity_id FROM public.announcement_entities "
+            "WHERE entity_id=ANY(%s)",
+            (ids,),
+        )
+    ).fetchall():
+        links[entity].append(announcement)  # type: ignore[index,arg-type]
+    linked = sorted({a for values in links.values() for a in values})
+    timeline_cards: dict[UUID, Card] = {}
+    if linked:
+        for row in await (
+            await connection.execute(
+                "SELECT " + CARD_COLUMNS + CARD_JOINS + " WHERE a.id=ANY(%s) GROUP BY a.id,n.id",
+                (linked,),
+            )
+        ).fetchall():
+            item = card(row)
+            timeline_cards[item.id] = item
+    details = []
+    for identifier, name, vendor in heads:
+        assert isinstance(identifier, UUID)
+        timeline = sorted(
+            (timeline_cards[a] for a in links.get(identifier, []) if a in timeline_cards),
+            key=lambda item: item.published_at,
+            reverse=True,
+        )[:100]
+        details.append(
+            ProductDetail(
+                id=identifier,
+                name=str(name),
+                vendor=str(vendor),
+                aliases=tuple(a for a in aliases.get(identifier, []) if a != str(name).casefold()),
+                related=tuple(related.get(identifier, [])),
+                timeline=tuple(timeline),
+            )
+        )
+    return sorted(details, key=lambda detail: detail.id)
 
 
 def newest_first(item: NewsItem) -> tuple[float, int]:

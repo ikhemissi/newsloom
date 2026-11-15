@@ -207,3 +207,62 @@ async def test_state_storage_access_is_reenabled_only_when_disabled() -> None:
         assert await arm.restore_public_access(account) is True
         assert await arm.restore_public_access(account) is False
     assert patches == [{"properties": {"publicNetworkAccess": "Enabled"}}]
+
+
+async def test_a_reverted_state_access_change_is_reported() -> None:
+    account = (
+        "/subscriptions/s/resourceGroups/g-tfstate/providers/Microsoft.Storage/storageAccounts/st"
+    )
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        if request.method == "PATCH":
+            return httpx.Response(200, json={})
+        return httpx.Response(200, json={"properties": {"publicNetworkAccess": "Disabled"}})
+
+    arm, client = manager(httpx.MockTransport(handle))
+    async with client:
+        with pytest.raises(azure.Failure, match="state_access_reverted"):
+            await arm.restore_public_access(account)
+
+
+async def test_wake_succeeds_when_only_some_tag_writes_are_refused(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from newsloom_operations import cli
+
+    class Credential:
+        def __init__(self, **_: object) -> None: ...
+        async def __aenter__(self) -> Credential:
+            return self
+
+        async def __aexit__(self, *_: object) -> None: ...
+
+    async def power(self: object, server: str, target: str, within: float = 0) -> bool:
+        return True
+
+    async def tags(self: object, group: str, required: dict[str, str]) -> dict[str, int]:
+        return {"resources": 34, "tagged": 20, "failed": 2}
+
+    async def access(self: object, account: str) -> bool:
+        return True
+
+    monkeypatch.setattr(cli, "ManagedIdentityCredential", Credential)
+    monkeypatch.setattr(azure.Manager, "power", power)
+    monkeypatch.setattr(azure.Manager, "restore_tags", tags)
+    monkeypatch.setattr(azure.Manager, "restore_public_access", access)
+    for key, value in {
+        "AZURE_CLIENT_ID": "client",
+        "POSTGRES_SERVER_ID": "/server",
+        "AZURE_RESOURCE_GROUP_ID": GROUP,
+        "AZURE_STATE_RESOURCE_GROUP_ID": GROUP + "-tfstate",
+        "AZURE_STATE_STORAGE_ID": GROUP + "-tfstate/providers/x/st",
+        "GOVERNANCE_TAGS": '{"Owner": "team"}',
+    }.items():
+        monkeypatch.setenv(key, value)
+    await cli.run("wake", "local")
+    events = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+    assert [e["outcome"] for e in events if e["event"] == "governance_tags"] == [
+        "partial",
+        "partial",
+    ]
+    assert not [e for e in events if e["event"] == "operations_step"]

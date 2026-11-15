@@ -127,11 +127,16 @@ async def run(command: str, correlation: str) -> None:
                     # The tags the tenant's policies require: GOVERNANCE_TAGS, a JSON object the
                     # infrastructure sets from the azd environment. None: nothing to restore.
                     tags = json.loads(env.get("GOVERNANCE_TAGS") or "{}")
+                    # Best effort: governance removes the tags again within hours and a few
+                    # resource types refuse tag writes, so refusals are reported, not fatal.
                     for group in groups:
                         counts = await manager.restore_tags(group, tags)
-                        event("governance_tags", correlation, outcome="checked", counts=counts)
-                        if counts["failed"]:
-                            raise azure.Failure("governance_tags_partially_failed")
+                        event(
+                            "governance_tags",
+                            correlation,
+                            outcome="partial" if counts["failed"] else "checked",
+                            counts=counts,
+                        )
                 else:
                     changed = await manager.restore_public_access(env["AZURE_STATE_STORAGE_ID"])
                     event(
@@ -153,6 +158,11 @@ async def run(command: str, correlation: str) -> None:
                     str(error)
                     if isinstance(error, backup.Failure | azure.Failure)
                     else f"{name.replace('-', '_')}_{type(error).__name__}"
+                    + (
+                        f"_{error.sqlstate}"
+                        if isinstance(error, psycopg.Error) and error.sqlstate
+                        else ""
+                    )
                 )
                 event("operations_step", correlation, outcome="failed", category=category)
                 failures.append(name)
