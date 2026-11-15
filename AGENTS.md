@@ -2,12 +2,11 @@
 
 ## Context and sources
 
-- The repository and shared Azure foundations are implemented and verified.
-  Ingestion has a real runtime; see its [runbook and acceptance status](docs/ingestion.md).
-  Enrichment is implemented; see its [runbook and acceptance status](docs/enrichment.md).
-  MCP is deployed with verified user sign-in and read-only tools; see its
-  [runbook and acceptance status](docs/mcp.md).
-  See [README](README.md) and the [platform runbook](docs/azure-platform.md).
+- Newsloom is deployed in one development environment: ingestion, enrichment,
+  briefing, MCP and news API, the A2A research agent (conversations, web research)
+  and the web app, with nightly operations. The [README](README.md) summarises
+  what runs; each capability's runbook in `docs/` owns its operations and status,
+  and [known gaps](docs/known-gaps.md) lists checks that could not run.
 - Follow [documentation ownership](docs/development.md#documentation-ownership).
   Read the relevant phase PRD and capability document before changing behavior;
   use [ADRs](docs/adrs.md) for decisions and [platform notes](docs/platform-notes.md)
@@ -36,7 +35,7 @@
 
 ## Validation
 
-Install dependencies using the [README](README.md#local-development). The primary
+Install dependencies using the [README](README.md#build-and-test). The primary
 check is `bash scripts/check.sh`; it is also used by CI and azd hooks.
 
 | Change | Focused command |

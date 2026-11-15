@@ -1,14 +1,14 @@
 # PRD-3: Agent UI
 
-Status: signed-in news/search/context UI deployed as early access; full automated
-Azure and phase acceptance remain pending. Source/category/date filters are
-deployed early access in their active slice, with signed-in acceptance still open.
-Full phase acceptance still requires [Phase 2](prd-2.md), including its final
-tests/evals slice. On 2026-10-31 the user explicitly approved a narrow sequencing
-exception: deliver the minimal signed-in research/citation journey using the
-verified Phase 2 backend while its remaining evaluation acceptance stays open.
-The [`ui-spike-and-shell` change](../openspec/changes/archive/2026-11-04-ui-spike-and-shell/proposal.md)
-owns this first delivery, not a declaration that either phase is complete.
+Status (2026-11-15): the web app is deployed early access with the architect
+radar, news browsing, item and product pages, the daily briefing, research
+conversations with web research, reader feedback and read-only overnight mode.
+Most slices are archived with signed-in evidence; checks that could not run are
+listed in [known gaps](known-gaps.md). Full phase acceptance still needs Step
+3.15 and the Phase 2 [agent baseline](prd-2.md).
+
+On 2026-10-31 the user approved delivering the browser journey before Phase 2's
+evaluations were complete; this early-access exception still applies.
 
 This document owns phase sequencing and capability-to-slice assignments.
 [Capabilities](prd-3-capabilities.md) own behavior, user stories, acceptance
@@ -22,23 +22,17 @@ See [the ADRs](adrs.md) for technical choices.
 | 3.1 | `ui-spike-and-shell` | [P3-C01](prd-3-capabilities.md#p3-c01-browser-sign-in-with-organizational-identity), [P3-C06](prd-3-capabilities.md#p3-c06-supported-ui-integration-and-verified-azure-hosting), and minimal [P3-C02](prd-3-capabilities.md#p3-c02-streaming-research-chat)/[P3-C03](prd-3-capabilities.md#p3-c03-visible-navigable-article-citations)/[P3-C05](prd-3-capabilities.md#p3-c05-inert-rendering-and-accessibility-basics): sign in, ask, progress, validated answer, citations; not an empty shell |
 | 3.2 | `ui-news-feed` | [P3-C07](prd-3-capabilities.md#p3-c07-news-feed-search-and-item-context): latest-news landing, top MCP search and closable right-hand A2A panel with current-news context; remaining [P3-C02](prd-3-capabilities.md#p3-c02-streaming-research-chat)/[P3-C03](prd-3-capabilities.md#p3-c03-visible-navigable-article-citations)/[P3-C05](prd-3-capabilities.md#p3-c05-inert-rendering-and-accessibility-basics) context/rendering |
 | 3.3 | `ui-news-filters` | [P3-C04](prd-3-capabilities.md#p3-c04-source-category-and-date-shortcuts), filtering in [P3-C07](prd-3-capabilities.md#p3-c07-news-feed-search-and-item-context): explicit source/category/local-calendar browsing and structured A2A constraints |
-| 3.4 | `cached-news-api` (deployed early access) | Same MCP app, delegated `news.read` and workload identity; authorize before every cache lookup/hit; 60-second bounded process-local cache, detail and browse-only cursor contracts; authenticated live API/cache acceptance open in the [API runbook](news-api.md) |
-| 3.5 | `ui-http-news-catalog` (deployed early access) | HTTP-only NewsCatalog, shareable stored-item pages, explicit 20-item Load more capped at 200 displayed items; retain A2A interactions and MCP agent tools; signed-in acceptance remains open |
-| 3.6 | `daily-news-briefing` (active) | [P3-C08](prd-3-capabilities.md#p3-c08-shared-daily-weekly-news-briefing): user-requested shared 05:00 UTC seven-day briefing, summary-derived TL;DR and collapsed full summary, measured usage without a daily spending cap; acceptance remains in its owning checklist |
-| 3.7 | `architect-focused-briefing` (active) | Refine [P3-C08](prd-3-capabilities.md#p3-c08-shared-daily-weekly-news-briefing) with material architectural signals, variable up-to-five-minute output, concise metadata and no duplicate browse badges; preserve earlier open acceptance |
-| 3.7a | `guarded-briefing-refresh` (active) | User-requested audited same-day revision of the published P3-C08 artifact; ordinary once-daily scheduling and failed-run retry unchanged |
-| 3.8 | Phase tests and versioned evaluations | [P3-C05](prd-3-capabilities.md#p3-c05-inert-rendering-and-accessibility-basics)/[P3-C06](prd-3-capabilities.md#p3-c06-supported-ui-integration-and-verified-azure-hosting) deployed acceptance; return to the parked [Phase 2 evaluations](prd-2.md) after the requested briefing |
+| 3.4 | `cached-news-api` (archived) | Same MCP app, delegated `news.read` and workload identity; authorize before every cache lookup; 60-second bounded cache, detail and browse cursors |
+| 3.5 | `ui-http-news-catalog` (archived) | HTTP news catalogue, shareable stored-item pages, explicit Load more capped at 200 items |
+| 3.6 | `daily-news-briefing` (archived) | [P3-C08](prd-3-capabilities.md#p3-c08-shared-daily-weekly-news-briefing): shared seven-day briefing, TL;DR and collapsed full summary |
+| 3.7 | `architect-focused-briefing`, `guarded-briefing-refresh` (archived) | Briefing focused on material architectural changes; audited same-day revision |
+| 3.8 | `user-feedback` (archived) | [P3-C09](prd-3-capabilities.md#p3-c09-reader-feedback): ratings and comments on briefings and answers, reviewer queue, eval cases |
+| 3.9 | `full-article-acquisition`, `announcement-graph` (archived, PRD-1 data) | Article text and announcements linked to products and vendors, feeding the radar |
+| 3.10 | `architect-radar-home` (archived) | [P3-C10](prd-3-capabilities.md#p3-c10-architect-radar): radar home page, followed products, product pages |
+| 3.11 | `nightly-operations`, `read-only-overnight` (archived) | Daily export, night stop, read-only snapshot and browser state |
+| 3.12 | `research-conversations` (deployed, user check open) | Conversation panel, last three turns as context, suggested follow-ups |
+| 3.13 | `web-research` (deployed, user check open) | Web IQ search in discovery mode, separate web citations |
+| 3.14 | `snapshot-refresh` (deployed) | Read-only snapshot refreshed every 30 minutes during the day |
+| 3.15 | Phase tests and versioned evaluations | [P3-C05](prd-3-capabilities.md#p3-c05-inert-rendering-and-accessibility-basics)/[P3-C06](prd-3-capabilities.md#p3-c06-supported-ui-integration-and-verified-azure-hosting) deployed acceptance; then the versioned [Phase 2 baseline](prd-2.md) |
 
 Use [the development guide](development.md#openspec) to execute each slice.
-
-The user approved local feed implementation while the first UI's remaining
-release evidence/publication stays open. The
-[feed checklist](../openspec/changes/archive/2026-11-04-ui-news-feed/tasks.md) retains that release
-prerequisite. Filters (P3-C04), item-detail routing, multi-selection and pagination
-remain subsequent slices; this delivery does not claim the whole phase complete.
-
-On 2026-11-01 the user approved selective publication followed by filters while
-unavailable automated regular-browser Azure checks stay open in their original
-ledgers. This is an early-access sequencing exception, not a change to full phase
-acceptance. Details/pagination belong with the API contract; no API/cache/HTTP
-adapter or new evaluation run is implemented by the filters slice.

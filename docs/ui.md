@@ -1,35 +1,23 @@
 # Browser UI runbook
 
-The [daily briefing](briefing.md) panel extension is deployed early access.
-It displays a shared TL;DR above a collapsed full summary when an artifact is
-available, without generation on reads/expansion or changes to research context.
-The first full artifact is now published after an explicitly authorized,
-audited same-day retry: a 1,026-word summary with an 82-word TL;DR. Earlier
-rejected/incomplete attempts were retained, not hidden or reset. Actual
-scheduled execution and signed-in qualitative acceptance remain open.
+## Current status
 
-The [HTTP catalogue migration](../openspec/changes/archive/2026-11-04-ui-http-news-catalog/tasks.md)
-is deployed early access with stored-item pages and capped browse continuation.
-Local checks and owning image/config/asset/identity/backend preservation passed;
-new authenticated regular-browser/cache/deployed accessibility acceptance remains
-open. Use [HTTP catalogue migration](#http-catalogue-migration) for current behavior
-and commands. The initial-UI/MCP sections below retain historical deployment/
-rollback context; their old user confirmations are not new HTTP acceptance.
+Deployed early access as `web-newsloom-<env>` (one warm replica), behind
+single-tenant Entra sign-in. Signed-in checks that could not run are in
+[known gaps](known-gaps.md); [PRD-3](prd-3.md) owns sequencing and
+[capabilities](prd-3-capabilities.md) own behaviour.
 
-Status: deployed early access. The user confirmed latest news, submitted search,
-contextual agent interaction and independent panel scrolling in their regular
-browser. Full automated Azure acceptance remains open; this is not full phase acceptance.
-Implementation commit `9153485d1cdffb1f7d982c239786a90369f8e316` passed exact-source
-CI run `41329362328`; measured-status commit
-`14e5956b36869d764040abe8298a4b31a8c5c2c4` passed separate CI `41330011319`.
-On 2026-11-01 the user approved selective publication and filter implementation
-with those unavailable checks explicitly open. Automation can control the
-integrated VS Code browser, not their existing regular-browser session; another
-test-browser sign-in or exported authentication state is not permitted.
-The [owning change](../openspec/changes/archive/2026-11-04-ui-spike-and-shell/tasks.md) records actual
-checks. [PRD-3](prd-3.md) owns sequencing; [capabilities](prd-3-capabilities.md)
-and the [stack ADR](adrs.md#ui-stack-comparison) own behavior and decisions.
-PRD-2 evaluations remain open.
+| Feature | Section |
+| --- | --- |
+| Architect radar (home page), followed products, product pages | [Architect radar](#architect-radar) |
+| News list, search, filters, item pages | [HTTP catalogue migration](#http-catalogue-migration), [filters](#source-category-and-date-filters), [toolbar](#compact-news-toolbar), [timestamps](#browser-local-timestamps) |
+| Daily briefing | [Daily shared briefing](#daily-shared-briefing) |
+| Research conversations and web sources | [Research conversations](#research-conversations), [web sources](#web-sources-in-research-answers) |
+| Reader feedback | [Reader feedback](#reader-feedback) |
+| Read-only mode while the database sleeps | [Read-only overnight](#read-only-overnight) |
+| Local development, configuration, deployment, rollback | [Local development](#local-development), [authentication](#authentication-and-configuration), [deployment](#deployment-and-acceptance), [rollback](#rollback) |
+
+Sections on the first UI and MCP-based browsing keep their deployment history.
 
 ## Compact news toolbar
 

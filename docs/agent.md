@@ -1,9 +1,25 @@
-# Agent skeleton runbook
+# Agent runbook
 
-The early-access browser slice adds exact-origin CORS and owning origin readback.
-Its [UI runbook](ui.md#agent-browser-origin) owns configuration and browser
-acceptance status. This implementation is not evidence of a deployed UI or
-completion of PRD-2 evaluations.
+## Current status
+
+The A2A research agent `agent-newsloom-<env>` is deployed:
+
+- **Research** over stored news, cited `[n]`, through the MCP tools on behalf of
+  the signed-in reader ([request contracts](#research-request-contracts)).
+- **Conversations:** the last three turns as context and up to three suggested
+  follow-ups ([conversation history](#conversation-history-and-follow-ups)); the
+  user's three-turn check is open.
+- **Web research** through Web IQ with the agent's managed identity, discovery
+  questions only, cited `[Wn]` in a separate section
+  ([Web IQ access](#web-iq-account-and-managed-identity-access),
+  [behaviour](#web-research-behaviour)); `WEB_RESEARCH_ENABLED=true`. The Web IQ
+  client-ID binding is a manual step ([README](../README.md#3-manual-step-web-iq-access-for-the-agent)).
+
+Deploy with `newsloom-platform build-agent` and `prepare-agent-layer`, then
+`azd provision agent --preview` and `azd provision agent`; check with
+`newsloom-platform verify-agent`. Preview model-driven changes first with
+`scripts/research-preview.sh`. The sections below keep the delivery history of
+Steps 2.1 and 2.2 with their measured evidence.
 
 ## Status and scope
 
@@ -976,7 +992,7 @@ does not call Azure, MCP, Entra or a real model and is not a deployed agent.
 
 ## Local commands
 
-Install through the [workspace setup](../README.md#local-development), then:
+Install through the [workspace setup](../README.md#build-and-test), then:
 
 ```bash
 uv run --isolated --locked --no-dev --package newsloom-agent newsloom-agent check-runtime

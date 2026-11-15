@@ -1,32 +1,21 @@
 # MCP serving operations
 
-The additive [news HTTP API](news-api.md) shares this app only when explicitly
-enabled. Its authorization-before-cache, route policy and bounded cache are
-independent of MCP protocol authentication; the existing UI remains on MCP until
-the separate adapter slice. Follow that runbook and ledger for API delivery status.
+## Current status
 
-The [feed UI runbook](ui.md#latest-news-search-and-optional-research) owns the
-pending browser delivery. MCP has locally tested exact-origin browser CORS
-for modern POST `/mcp`; native/agent clients remain unchanged. Configure
-`MCP_ALLOWED_ORIGINS` with canonical exact HTTPS origins; the owning preparation
-hook produces `MCP_ALLOWED_ORIGINS_BASE64` for azd. Preflight uses the fixed modern
-headers and consumes no authentication/tool/model work. Actual method, origin,
-authorization and failure boundaries remain enforced.
+Delivered and archived ([change](../openspec/changes/archive/2026-10-26-mcp-server/tasks.md));
+behaviour is in the [MCP serving](../openspec/specs/mcp-serving/spec.md) and
+[news search](../openspec/specs/news-search/spec.md) specs. The `mcp-newsloom-<env>`
+app runs one always-on replica and also hosts:
 
-Use `newsloom-platform prepare-mcp-layer` after the owning image build, and
-`newsloom-platform verify-mcp-layer` for bounded independent ARM image/config/
-origin/profile readback. The existing `verify-mcp` workload/model probe is not
-a substitute for browser readiness. No browser cloud acceptance is claimed yet.
+- the [news HTTP API](news-api.md) used by the web app;
+- the read-only fallback and the `snapshot` job, refreshed every 30 minutes
+  (see [read-only overnight](operations.md#read-only-overnight)).
 
-Status: delivered with local, real-model retrieval, actual workload-denial
-and warning-free VS Code/Copilot browser sign-in acceptance.
-[Implementation CI](https://github.com/ikhemissi/newsloom/actions/runs/40133602862)
-and [separate evidence-head CI](https://github.com/ikhemissi/newsloom/actions/runs/40133806766)
-passed. The change is archived; [phase-wide acceptance](phase1-acceptance.md)
-is also complete and verified.
-See the [archived change](../openspec/changes/archive/2026-10-26-mcp-server/tasks.md)
-for evidence and the delivered [serving](../openspec/specs/mcp-serving/spec.md)
-and [search](../openspec/specs/news-search/spec.md) contracts for behavior.
+Deploy with `uv run --locked newsloom-platform build-mcp`, then
+`azd provision mcp --preview` and `azd provision mcp`; check with
+`newsloom-platform verify-mcp` (workload and model probe) and
+`newsloom-platform verify-mcp-layer` (image, configuration, origins). Browser
+origins come from `MCP_ALLOWED_ORIGINS`, prepared as `MCP_ALLOWED_ORIGINS_BASE64`.
 
 ## Read-only tools and public data
 
