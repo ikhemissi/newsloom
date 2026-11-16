@@ -122,7 +122,7 @@ grants are recreated.
 
 Owned by the [read-only-overnight change](../openspec/changes/archive/2026-11-15-read-only-overnight/proposal.md).
 Every 30 minutes from 07:15 to 22:45 UTC, five minutes after each ingestion and
-enrichment start ([snapshot-refresh change](../openspec/changes/snapshot-refresh/proposal.md)),
+enrichment start ([snapshot-refresh change](../openspec/changes/archive/2026-11-16-snapshot-refresh/proposal.md)),
 the `snapshot-newsloom-<env>` job (API image and identity) reads,
 in one read-only transaction, every news item with its announcements, the radar
 cards of the last 30 days, their product pages, the current briefing and each

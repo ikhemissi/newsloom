@@ -1,22 +1,38 @@
 # overnight-read-only Specification
 
 ## Purpose
-Keep Newsloom readable from a nightly snapshot while the database sleeps, with
+Keep Newsloom readable from a read snapshot, refreshed during the day, while the database sleeps or is unreachable, with
 actions that need the database clearly unavailable.
 
 ## Requirements
 
-### Requirement: Nightly read snapshot
-The system SHALL write one snapshot before the nightly database stop containing
-news items with details and announcements, radar cards of the last 30 days,
-their product pages, the current briefing and each reader's stack and card
-states keyed by the existing pseudonymous reader key. It MUST NOT contain
-embeddings, tokens or article bodies, and access MUST use the MCP managed
-identity with Entra only.
+### Requirement: Read snapshot refreshed during the day
+The system SHALL refresh the read snapshot every 30 minutes from 07:15 to
+22:45 UTC, five minutes after each scheduled ingestion and enrichment start,
+so the latest snapshot before the nightly database stop is written at 22:45
+UTC.
 
 #### Scenario: The snapshot job runs
-- **WHEN** the job runs at 22:45 UTC
+- **WHEN** the job runs at a quarter past or a quarter to the hour between
+  07:15 and 22:45 UTC
 - **THEN** it replaces the latest snapshot and logs only counts
+
+#### Scenario: The API is serving from the snapshot
+- **WHEN** a refreshed snapshot replaces the latest one
+- **THEN** the API serves the refreshed data after its next ETag check, without
+  a restart
+
+### Requirement: Read snapshot contents and access
+The snapshot SHALL contain news items with details and announcements, radar
+cards of the last 30 days, their product pages, the current briefing and each
+reader's stack and card states keyed by the existing pseudonymous reader key.
+It MUST NOT contain embeddings, tokens or article bodies, and access MUST use
+the MCP managed identity with Entra only.
+
+#### Scenario: A snapshot is written
+- **WHEN** the snapshot job writes the latest snapshot
+- **THEN** it contains the listed read data and no embeddings, tokens or
+  article bodies
 
 ### Requirement: Read-only serving without the database
 When the database cannot be reached, the API SHALL serve the radar, briefing,

@@ -30,9 +30,9 @@ See [the ADRs](adrs.md) for technical choices.
 | 3.9 | `full-article-acquisition`, `announcement-graph` (archived, PRD-1 data) | Article text and announcements linked to products and vendors, feeding the radar |
 | 3.10 | `architect-radar-home` (archived) | [P3-C10](prd-3-capabilities.md#p3-c10-architect-radar): radar home page, followed products, product pages |
 | 3.11 | `nightly-operations`, `read-only-overnight` (archived) | Daily export, night stop, read-only snapshot and browser state |
-| 3.12 | `research-conversations` (deployed, user check open) | Conversation panel, last three turns as context, suggested follow-ups |
-| 3.13 | `web-research` (deployed, user check open) | Web IQ search in discovery mode, separate web citations |
-| 3.14 | `snapshot-refresh` (deployed) | Read-only snapshot refreshed every 30 minutes during the day |
+| 3.12 | `research-conversations` (archived) | Conversation panel, last three turns as context, suggested follow-ups |
+| 3.13 | `web-research` (archived) | Web IQ search in discovery mode, separate web citations |
+| 3.14 | `snapshot-refresh` (archived) | Read-only snapshot refreshed every 30 minutes during the day |
 | 3.15 | Phase tests and versioned evaluations | [P3-C05](prd-3-capabilities.md#p3-c05-inert-rendering-and-accessibility-basics)/[P3-C06](prd-3-capabilities.md#p3-c06-supported-ui-integration-and-verified-azure-hosting) deployed acceptance; then the versioned [Phase 2 baseline](prd-2.md) |
 
 Use [the development guide](development.md#openspec) to execute each slice.
