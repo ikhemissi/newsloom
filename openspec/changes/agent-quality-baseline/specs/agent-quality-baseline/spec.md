@@ -28,6 +28,31 @@ Changing any frozen input MUST require a new version and approval.
 - **THEN** execution fails explicitly without replacement evidence, a refreshed
   denominator, silently regenerated questions or relabelled baseline results
 
+#### Scenario: Suite version 2 is prepared
+- **WHEN** the operator freezes suite version 2
+- **THEN** it contains the 12 version-1 cases with unchanged oracles plus two web
+  cases, and ten authored judge controls including one supported and one
+  unsupported web control
+- **AND** version-1 fixtures, approvals, journals and attempts stay unchanged
+
+### Requirement: Web-backed baseline cases
+Version 2 web cases SHALL be open, unconstrained discovery requests. Their
+semantic score SHALL use the stored items and web results the agent used in that
+request, as returned in its JSON conversation artifact, held only in memory and
+fingerprinted. Structural checks SHALL validate `[n]` and `[Wn]` markers against
+their citation lists and require HTTPS web URLs. Every other case MUST contain no
+web citation.
+
+#### Scenario: A web case completes
+- **WHEN** the agent answers b13 or b14 with web claims
+- **THEN** each web claim is judged against the returned web result it cites and
+  each stored claim against the stored summary it cites
+- **AND** the answer's web citations exactly match the returned web results
+
+#### Scenario: A non-web case cites the web
+- **WHEN** a selected or constrained case answer contains a `[Wn]` citation
+- **THEN** the contract check fails for that case
+
 ### Requirement: Actual user-preserving research capture
 Live baseline answers SHALL come from the retained deployed A2A agent under
 the existing signed-in public-client flow. Successful cases MUST bind validated

@@ -68,10 +68,33 @@ production monitoring.
   Report observed tokens, estimated cost and unobserved reservations separately;
   do not expand the suite to consume the available budget.
 
+### Version 2 (2026-11-16)
+
+The agent gained research conversations and web research after the suite was
+frozen. Web-backed answers end with a different evidence line and `[Wn]`
+citations that v1's deterministic checks reject, so a v1 run would fail on
+format rather than quality. The user chose a versioned suite:
+
+- **Prerequisite:** `web-research-scope` is deployed, so constrained and
+  selected-item requests never use the web. The 12 v1 cases (all selected or
+  constrained) keep their oracles, thresholds and expected outcomes.
+- **Suite v2** adds two web cases: b13, an open unconstrained question about
+  recent changes to a named platform, expected to be answered with at least one
+  web claim; and b14, an open question comparing a stored announcement with its
+  current status, expected to use stored and web evidence.
+- **Web evidence** cannot be frozen before generation. A web case is judged
+  against the stored items and web results the agent actually used in that
+  request (`web_results` in its JSON conversation artifact), captured in memory
+  only, fingerprinted and never saved. Two authored web judge controls (one
+  supported, one unsupported) join the eight calibration controls.
+- **Envelope:** a new approval profile with 14 live requests; every other bound
+  is inherited from v6. v1's fixture, journals, approvals and failed attempts
+  stay unchanged and historical.
+
 Out of scope: candidate modifications/comparisons, automatic optimization,
 online sampling or trace harvesting, new Foundry-hosted agents, new models,
-capacity, grants, resources, dependencies or production data writes; web,
-memory and PRD-3. This baseline does not alone declare Phase 2 complete.
+capacity, grants, resources, dependencies or production data writes; memory
+and PRD-3. This baseline does not alone declare Phase 2 complete.
 Pause after the entire PRD-2 delivery, before PRD-3, as already recorded there.
 
 ## Capabilities
