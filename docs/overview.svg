@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" width="1200" height="675" viewBox="0 0 1200 675" role="img" aria-labelledby="title desc">
   <title id="title">Newsloom</title>
-  <desc id="desc">Newsloom reads 41 AI news feeds every half hour. A pipeline of Container Apps jobs screens each entry for prompt injection, summarises it and links it to the products it concerns, using Microsoft Foundry models. The news is stored in PostgreSQL with pgvector and served by an MCP server and news API, as the signed-in user, to a web app, to GitHub Copilot and other MCP clients, and to a research agent over A2A 1.0 that also searches the web and cites every claim.</desc>
+  <desc id="desc">Newsloom reads 41 AI news feeds every half hour. A pipeline of Container Apps jobs screens each entry for prompt injection, summarises it and links it to the products it concerns, using Microsoft Foundry models. The news is stored in PostgreSQL with pgvector and served by an MCP server and news API, as the signed-in user, to a web app, to GitHub Copilot and other MCP clients, and to a research agent over A2A 1.0 that also searches the web with Web IQ and cites every claim. The pipeline and the agent call the models.</desc>
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
       <path d="M0,0 L10,5 L0,10 z" fill="#3d4466"/>
@@ -72,25 +72,32 @@
 
   <!-- Web app -->
   <g filter="url(#shadow)">
-    <rect x="938" y="160" width="214" height="84" rx="12" fill="#ffffff" stroke="#3d4466" stroke-width="1.5"/>
+    <rect x="938" y="136" width="214" height="80" rx="12" fill="#ffffff" stroke="#3d4466" stroke-width="1.5"/>
   </g>
-  <text class="name" x="1045" y="194" text-anchor="middle">Web app</text>
-  <text class="kind" x="1045" y="217" text-anchor="middle">radar · news · briefing</text>
+  <text class="name" x="1045" y="169" text-anchor="middle">Web app</text>
+  <text class="kind" x="1045" y="192" text-anchor="middle">radar · news · briefing</text>
 
   <!-- GitHub Copilot -->
   <g filter="url(#shadow)">
-    <rect x="938" y="283" width="214" height="84" rx="12" fill="#ffffff" stroke="#3d4466" stroke-width="1.5"/>
+    <rect x="938" y="236" width="214" height="80" rx="12" fill="#ffffff" stroke="#3d4466" stroke-width="1.5"/>
   </g>
-  <text class="name" x="1045" y="317" text-anchor="middle">GitHub Copilot</text>
-  <text class="kind" x="1045" y="340" text-anchor="middle">and other MCP clients</text>
+  <text class="name" x="1045" y="269" text-anchor="middle">GitHub Copilot</text>
+  <text class="kind" x="1045" y="292" text-anchor="middle">and other MCP clients</text>
 
   <!-- Research agent -->
   <g filter="url(#shadow)">
-    <rect x="938" y="406" width="214" height="108" rx="12" fill="#efedff" stroke="#5b4fd6" stroke-width="2"/>
+    <rect x="938" y="336" width="214" height="100" rx="12" fill="#efedff" stroke="#5b4fd6" stroke-width="2"/>
   </g>
-  <text class="name" x="1045" y="439" text-anchor="middle">Research agent</text>
-  <text class="kind" x="1045" y="461" text-anchor="middle">A2A 1.0 · web search</text>
-  <text class="note" x="1045" y="489" text-anchor="middle">cites every claim</text>
+  <text class="name" x="1045" y="368" text-anchor="middle">Research agent</text>
+  <text class="kind" x="1045" y="390" text-anchor="middle">A2A 1.0 · conversations</text>
+  <text class="note" x="1045" y="416" text-anchor="middle">cites every claim</text>
+
+  <!-- Web IQ -->
+  <g filter="url(#shadow)">
+    <rect x="938" y="466" width="214" height="76" rx="12" fill="#ffffff" stroke="#3d4466" stroke-width="1.5"/>
+  </g>
+  <text class="name" x="1045" y="497" text-anchor="middle">Web IQ</text>
+  <text class="kind" x="1045" y="519" text-anchor="middle">web search, cited apart</text>
 
   <!-- Foundry models -->
   <g filter="url(#shadow)">
@@ -103,12 +110,13 @@
   <line x1="224" y1="325" x2="246" y2="325" stroke="#3d4466" stroke-width="2" marker-end="url(#arrow)"/>
   <line x1="458" y1="325" x2="492" y2="325" stroke="#3d4466" stroke-width="2" marker-end="url(#arrow)"/>
   <line x1="684" y1="325" x2="712" y2="325" stroke="#3d4466" stroke-width="2" marker-end="url(#arrow)"/>
-  <line x1="894" y1="285" x2="936" y2="214" stroke="#3d4466" stroke-width="2" marker-end="url(#arrow)"/>
-  <line x1="894" y1="325" x2="936" y2="325" stroke="#3d4466" stroke-width="2" marker-end="url(#arrow)"/>
-  <line x1="936" y1="440" x2="896" y2="380" stroke="#3d4466" stroke-width="2" marker-end="url(#arrow)"/>
-  <text class="edge" x="906" y="420" text-anchor="end">as you</text>
-  <line x1="498" y1="485" x2="460" y2="455" stroke="#138a7a" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#arrow-teal)"/>
-  <line x1="894" y1="485" x2="936" y2="470" stroke="#138a7a" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#arrow-teal)"/>
+  <line x1="894" y1="280" x2="936" y2="186" stroke="#3d4466" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="894" y1="300" x2="936" y2="280" stroke="#3d4466" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="936" y1="380" x2="896" y2="370" stroke="#3d4466" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="440" y1="468" x2="496" y2="482" stroke="#138a7a" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#arrow-teal)"/>
+  <line x1="950" y1="436" x2="896" y2="470" stroke="#138a7a" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#arrow-teal)"/>
+
+  <line x1="1045" y1="436" x2="1045" y2="464" stroke="#3d4466" stroke-width="2" marker-end="url(#arrow)"/>
 
   <!-- Standards -->
   <text class="footer" x="48" y="574" font-weight="700" fill="#1b1f3b">Open protocols and widely adopted APIs</text>
