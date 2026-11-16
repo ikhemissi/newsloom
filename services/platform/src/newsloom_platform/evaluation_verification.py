@@ -1212,10 +1212,11 @@ def runtime_snapshot(
                 }
         elif kind == "microsoft.dbforpostgresql/flexibleservers":
             data_boundaries[identifier] = database_boundary(reader, identifier, env)
-    # Later-delivered workloads (web UI, daily briefing job) are the only allowed additions.
+    # Later-delivered workloads (web UI, daily briefing, operations jobs) are the only
+    # allowed additions.
     later = {
-        f"web-newsloom-{env['AZURE_ENV_NAME']}",
-        f"brief-newsloom-{env['AZURE_ENV_NAME']}",
+        f"{name}-newsloom-{env['AZURE_ENV_NAME']}"
+        for name in ("web", "brief", "wake", "backup", "nightly", "snapshot")
     }
     runtime = [
         identifier.rsplit("/", 1)[-1]

@@ -10,7 +10,12 @@
 
 Baseline attempts so far: snapshot 1 halted at case b05 after calibration passed;
 snapshot 2 timed out opening the capture session; a snapshot-3 preparation on
-2026-11-07 stopped before any paid run. The suite predates research conversations
+2026-11-07 stopped before any paid run. Snapshot 4 (suite v2, 2026-11-16)
+froze readiness, then three approved attempts halted before any judge call. Two
+causes were fixed: the judge check still required the deployment's original 10
+capacity units (it is 100 since 2026-11-08; Terraform owns it and readiness
+previews prove it), and concurrent halts wrote `budget.json` at the same time,
+which masked that error as `baseline_checkpoint_failed`. The suite predates research conversations
 and web research: web-backed answers end with a different evidence line and
 `[Wn]` citations that its deterministic checks do not accept, so running it
 unchanged would fail those cases on format rather than quality.

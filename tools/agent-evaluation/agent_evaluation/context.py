@@ -151,7 +151,10 @@ class Context:
             or text(model, "version") != "2026-03-17"
             or text(model, "format") != "OpenAI"
             or text(sku, "name") != "DataZoneStandard"
-            or sku.get("capacity") != 10
+            # Capacity is Terraform-owned; readiness previews prove it has not drifted.
+            or not isinstance(capacity := sku.get("capacity"), int)
+            or isinstance(capacity, bool)
+            or capacity < 1
             or properties.get("provisioningState") != "Succeeded"
         ):
             raise EvaluationFailure("judge_deployment_drift")

@@ -27,7 +27,7 @@ def deployment() -> dict[str, JsonValue]:
             "model": {"name": "gpt-5.4-mini", "version": "2026-03-17", "format": "OpenAI"},
             "provisioningState": "Succeeded",
         },
-        "sku": {"name": "DataZoneStandard", "capacity": 10},
+        "sku": {"name": "DataZoneStandard", "capacity": 100},
     }
 
 
@@ -62,7 +62,9 @@ async def test_shared_schedule_exact_boundaries(
     "change",
     [
         {"sku": {"name": "Standard", "capacity": 10}},
-        {"sku": {"name": "DataZoneStandard", "capacity": 11}},
+        {"sku": {"name": "DataZoneStandard", "capacity": 0}},
+        {"sku": {"name": "DataZoneStandard", "capacity": "10"}},
+        {"sku": {"name": "DataZoneStandard", "capacity": True}},
         {"properties": {"model": {"name": "foreign", "version": "2026-03-17", "format": "OpenAI"}}},
         {
             "properties": {
