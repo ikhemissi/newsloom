@@ -121,12 +121,17 @@ class ScriptedConnection:
 class ScriptedReader:
     results: list[ResearchToolResult | AgentFailure]
     connections: list[ScriptedConnection] = field(default_factory=list)
+    cited: list[tuple[UUID, ...]] = field(default_factory=list)
     closed: int = 0
 
     @asynccontextmanager
     async def research(
-        self, authorization: Authorization, selected_ids: tuple[UUID, ...] | None = None
+        self,
+        authorization: Authorization,
+        selected_ids: tuple[UUID, ...] | None = None,
+        cited_ids: tuple[UUID, ...] = (),
     ) -> AsyncIterator[ResearchConnection]:
+        self.cited.append(cited_ids)
         connection = ScriptedConnection(authorization, self.results)
         self.connections.append(connection)
         try:
@@ -437,6 +442,23 @@ def test_valid_narrower_search_and_server_filter_violation() -> None:
     )
     state.authorize(newer)
     state.add(item, newer.arguments)
+
+
+def test_discovery_beyond_the_evidence_budget_keeps_the_first_ten_items() -> None:
+    state = EvidenceState(ResearchRequest(operation="research", question="Vertex AI"))
+    found = [detail(str(index)) for index in range(15)]
+    for batch in range(3):
+        call = SearchCall(tool="search_news", arguments=SearchArguments(query=str(batch)))
+        state.authorize(call)
+        items = found[batch * 5 : batch * 5 + 5]
+        state.accept(
+            call,
+            SearchResults.model_validate(
+                {"items": [{**metadata(item).model_dump(), "similarity": 0.5} for item in items]}
+            ),
+        )
+    assert list(state.metadata) == [item.id for item in found[:10]]
+    assert not state.web_offered
 
 
 def test_evidence_deduplication_conflicts_and_exact_unique_record_limit() -> None:

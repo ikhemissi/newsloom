@@ -190,7 +190,8 @@ export class A2aResearch implements ResearchClient {
           const category = part?.$case === "text" ? part.value : "";
           throw new UiFailure(status.state === TaskState.TASK_STATE_CANCELED ? "cancelled"
             : status.state === TaskState.TASK_STATE_AUTH_REQUIRED || category === "authorization_expired"
-              ? "authorization" : category === "request_timeout" ? "timeout" : "unavailable");
+              ? "authorization" : category === "request_timeout" ? "timeout"
+                : category.startsWith("research_") ? "unanswered" : "unavailable");
         } else if (payload.$case === "statusUpdate" && status.message) {
           const part = status.message.parts[0]?.content;
           if (status.message.parts.length !== 1 || part?.$case !== "text")
