@@ -109,6 +109,7 @@ class RecentAgent:
         self.receipt: str | None = None
         self.follow_ups: tuple[str, ...] = ()
         self.cited: tuple[str, ...] = ()
+        self.web_results: tuple[dict[str, object], ...] = ()
         self.failure_category = "agent_execution_failed"
 
     @overload
@@ -267,6 +268,15 @@ class ResearchAgent(RecentAgent):
                             contents=[Content.from_text(update.text[offset : offset + 1024])],
                         )
                     self.follow_ups = update.answer.follow_ups
+                    self.web_results = tuple(
+                        {
+                            "number": number,
+                            "title": item.title,
+                            "url": item.url,
+                            "snippet": item.snippet,
+                        }
+                        for number, item in enumerate(update.web, start=1)
+                    )
                     self.cited = tuple(
                         dict.fromkeys(
                             str(item_id)
@@ -570,12 +580,16 @@ class TaskEvents(EventQueue):
         await self.publish(update)
 
     async def conversation_artifact(self) -> None:
-        """Suggested questions and cited item IDs (in citation order) as a separate JSON
-        artifact, only for callers that accept JSON."""
+        """Suggested questions, cited item IDs and cited web results (in citation order) as a
+        separate JSON artifact, only for callers that accept JSON."""
         task = self.record.task
         value = struct_pb2.Value()
         ParseDict(
-            {"follow_ups": list(self.agent.follow_ups), "cited_item_ids": list(self.agent.cited)},
+            {
+                "follow_ups": list(self.agent.follow_ups),
+                "cited_item_ids": list(self.agent.cited),
+                "web_results": list(self.agent.web_results),
+            },
             value,
         )
         artifact = Artifact(

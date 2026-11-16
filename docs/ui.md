@@ -510,4 +510,5 @@ Owned by [`web-research`](../openspec/changes/archive/2026-11-16-web-research/pr
 that used the web show their web-only claims under "From the web:" and a separate
 **Web sources** list after **Sources**; `[Wn]` markers focus the matching web
 source, like `[n]` for stored news. Web and stored citations are each numbered
-from 1 and validated before display.
+from 1 and validated before display. The optional `web_results` field of the
+conversation artifact is accepted and not displayed.

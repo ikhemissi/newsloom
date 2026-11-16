@@ -95,6 +95,7 @@ class ResearchProgress:
 class ResearchResult:
     answer: ResearchAnswer
     text: str
+    web: tuple[WebResult, ...] = ()
 
 
 def eligible(item: NewsMetadata, filters: ResearchFilters) -> bool:
@@ -123,10 +124,18 @@ class EvidenceState:
     web_failed: bool = False
 
     @property
+    def constrained(self) -> bool:
+        filters = self.request.filters
+        return bool(
+            filters.source or filters.category or filters.tags or filters.from_ or filters.to
+        )
+
+    @property
     def web_offered(self) -> bool:
         return (
             self.web_enabled
             and self.request.item_ids is None
+            and not self.constrained
             and self.web_searches < MAX_WEB_SEARCHES
             and len(self.metadata) + len(self.web) < MAX_EVIDENCE_ITEMS
         )
@@ -561,6 +570,9 @@ class ResearchController:
                 text = render_answer(answer, state, state.details)
                 remaining(delegated)
                 await asyncio.sleep(0)
-                yield ResearchResult(answer, text)
+                cited_web = dict.fromkeys(
+                    web_id for claim in answer.claims for web_id in claim.web_ids
+                )
+                yield ResearchResult(answer, text, tuple(state.web[web_id] for web_id in cited_web))
         except TimeoutError:
             raise AgentFailure("request_timeout") from None

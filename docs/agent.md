@@ -170,7 +170,9 @@ configurations and usages only), so Terraform cannot manage it.
 ### Web research behaviour
 
 With `WEB_RESEARCH_ENABLED=true` (and research enabled) the planner is offered
-`search_web` in discovery mode, at most twice per request, while stored and web
+`search_web` in discovery mode without source, category, tag or date constraints
+([`web-research-scope`](../openspec/changes/web-research-scope/proposal.md): a
+constraint means stored news within those limits), at most twice per request, while stored and web
 evidence together stay within 10 items. It should search stored news first and use
 the web when stored results are empty, only announce a change without listing it,
 or the question asks about the current state. `search_web` posts the query to Web
@@ -186,6 +188,11 @@ Web IQ fails, the answer uses stored news and adds "The web could not be reached
 for this request." With web research disabled the instructions, planning and
 synthesis schemas and answers are exactly as before (pinned digests in
 `tests/test_agent_web.py`).
+
+For callers that accept JSON, the `conversation` artifact also lists the cited
+web results as `web_results` (`number`, `title`, `url`, `snippet`, in `[Wn]` order),
+so evaluators can check web claims against what the agent used; the agent stores
+nothing.
 
 Preview with real Web IQ: `bash scripts/research-preview.sh --conversation web`
 (the model runs locally; each search runs inside the agent container with its

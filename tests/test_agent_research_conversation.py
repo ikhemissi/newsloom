@@ -219,6 +219,7 @@ async def test_follow_ups_are_a_json_artifact_only_for_callers_that_accept_json(
         assert MessageToDict(data[0].parts[0].data) == {
             "follow_ups": research_wire.follow_ups,
             "cited_item_ids": [str(endpoint[1].item.id)],
+            "web_results": [],
         }
     else:
         assert data == []
