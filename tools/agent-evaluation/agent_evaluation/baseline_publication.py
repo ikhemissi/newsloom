@@ -15,8 +15,11 @@ from agent_evaluation.baseline_inputs import (
     METRICS,
     BaselineResult,
     CaseId,
+    CaseIdV1,
     MetricId,
     Score,
+    case_ids,
+    semantic_cases,
 )
 from agent_evaluation.baseline_provenance import Digest, document_digest
 from agent_evaluation.context import Context
@@ -37,7 +40,7 @@ Mutation = Literal["evaluation", "run"]
 
 class BaselinePublicationRow(StrictModel):
     protocol: Literal["baseline-v1"]
-    case_id: CaseId
+    case_id: CaseIdV1
     metric_id: MetricId
     metric_origin: MetricOrigin
     score: Score
@@ -54,6 +57,10 @@ class BaselinePublicationRow(StrictModel):
         if self.metric_origin != ORIGINS[self.metric_id]:
             raise ValueError("baseline_metric_origin_mismatch")
         return self
+
+
+class BaselinePublicationRowV2(BaselinePublicationRow):
+    case_id: CaseId  # type: ignore[assignment]
 
 
 class ReportState(StrictModel):
@@ -102,7 +109,7 @@ class BaselinePublicationState(StrictModel):
 
 class ReportReference(StrictModel):
     metric_id: MetricId
-    cases: StrictInt = Field(ge=8, le=12)
+    cases: StrictInt = Field(ge=8, le=14)
     evaluation_id: str = Field(pattern=r"^[a-zA-Z0-9_-]{1,256}$")
     run_id: str = Field(pattern=r"^[a-zA-Z0-9_-]{1,256}$")
     report_url: str = Field(max_length=4096)
@@ -112,7 +119,7 @@ class ReportReference(StrictModel):
         url = urlsplit(self.report_url)
         query = parse_qs(url.query, strict_parsing=True, max_num_fields=1, keep_blank_values=True)
         if (
-            self.cases != (12 if self.metric_id == "contract_adherence" else 8)
+            self.cases not in ((12, 14) if self.metric_id == "contract_adherence" else (8, 10))
             or url.scheme != "https"
             or url.netloc != "ai.azure.com"
             or self.report_url != url.geturl()
@@ -134,7 +141,7 @@ class BaselinePublicationReceipt(StrictModel):
     protocol: Literal["baseline-v1"]
     outcome: Literal["api_verified"]
     ui_verified: StrictBool
-    cases: StrictInt = Field(ge=12, le=12)
+    cases: StrictInt = Field(ge=12, le=14)
     metric_reports: tuple[ReportReference, ...] = Field(min_length=3, max_length=3)
     approval_sha256: Digest
     results_sha256: Digest
@@ -142,7 +149,16 @@ class BaselinePublicationReceipt(StrictModel):
 
     @model_validator(mode="after")
     def actual_api_not_ui_claim(self) -> Self:
-        if self.ui_verified or tuple(row.metric_id for row in self.metric_reports) != METRICS:
+        if (
+            self.ui_verified
+            or self.cases == 13
+            or tuple(row.metric_id for row in self.metric_reports) != METRICS
+            or any(
+                row.cases
+                != (self.cases if row.metric_id == "contract_adherence" else self.cases - 4)
+                for row in self.metric_reports
+            )
+        ):
             raise ValueError("invalid_baseline_publication_receipt")
         return self
 
@@ -172,11 +188,18 @@ class BaselinePublisher:
             or progress.scores != result.scores
             or not usage.usage_complete
             or (usage.admission_halted and stored is None)
-            or usage.attempts < sum(row.judge_attempts for row in progress.controls) + 8
+            or usage.attempts
+            < sum(row.judge_attempts for row in progress.controls)
+            + len(semantic_cases(budget.frozen.suite_version))
             or tuple(row.receipt for row in budget.agents.values()) != result.cases
         ):
             raise EvaluationFailure("baseline_publication_measurement_incomplete")
         self.budget, self.run, self.result = budget, run, result
+        self.row_model = (
+            BaselinePublicationRow
+            if budget.frozen.suite_version == "v1"
+            else BaselinePublicationRowV2
+        )
         self.result_hash = document_digest(result.model_dump(mode="json"))
         self.endpoint = project_endpoint(
             context.environment["AGENT_EVALUATION_PROJECT_ENDPOINT"],
@@ -240,19 +263,21 @@ class BaselinePublisher:
     def rows(self) -> tuple[BaselinePublicationRow, ...]:
         proof = self.result.provenance
         return tuple(
-            BaselinePublicationRow(
-                protocol="baseline-v1",
-                case_id=value.case_id,
-                metric_id=value.metric_id,
-                metric_origin=ORIGINS[value.metric_id],
-                score=value.score,
-                fixture_sha256=proof.fixture_sha256,
-                frozen_sha256=self.budget.approval.frozen_sha256,
-                configuration_sha256=self.run.canonical_sha256,
-                results_sha256=self.result_hash,
-                evaluator_source_sha256=proof.evaluator_source_sha256,
-                capture_source_sha256=proof.capture_source_sha256,
-                accepted_image_sha256=proof.accepted_runtime.image_sha256,
+            self.row_model.model_validate(
+                {
+                    "protocol": "baseline-v1",
+                    "case_id": value.case_id,
+                    "metric_id": value.metric_id,
+                    "metric_origin": ORIGINS[value.metric_id],
+                    "score": value.score,
+                    "fixture_sha256": proof.fixture_sha256,
+                    "frozen_sha256": self.budget.approval.frozen_sha256,
+                    "configuration_sha256": self.run.canonical_sha256,
+                    "results_sha256": self.result_hash,
+                    "evaluator_source_sha256": proof.evaluator_source_sha256,
+                    "capture_source_sha256": proof.capture_source_sha256,
+                    "accepted_image_sha256": proof.accepted_runtime.image_sha256,
+                }
             )
             for value in self.result.scores
             if value.metric_id == self.current
@@ -340,7 +365,7 @@ class BaselinePublisher:
         if request.url.path == self.eval_path + "/" + str(state.evaluation_id):
             criteria = value.get("testing_criteria")
             config = value.get("data_source_config")
-            schema = native_rows.wire_schema(BaselinePublicationRow)
+            schema = native_rows.wire_schema(self.row_model)
             if (
                 not isinstance(criteria, list)
                 or len(criteria) != 1
@@ -431,7 +456,7 @@ class BaselinePublisher:
             ):
                 raise EvaluationFailure("publication_item_execution_error")
         row = native_rows.read_row(
-            BaselinePublicationRow, item.get("datasource_item"), canonical_text_only=True
+            self.row_model, item.get("datasource_item"), canonical_text_only=True
         )
         expected = {value.case_id: value for value in self.rows()}
         score = metric.get("score")
@@ -501,7 +526,7 @@ class BaselinePublisher:
                         metadata=self.metadata(),
                         data_source_config={
                             "type": "custom",
-                            "item_schema": native_rows.wire_schema(BaselinePublicationRow),
+                            "item_schema": native_rows.wire_schema(self.row_model),
                         },
                         testing_criteria=[
                             {
@@ -601,7 +626,7 @@ class BaselinePublisher:
             protocol="baseline-v1",
             outcome="api_verified",
             ui_verified=False,
-            cases=12,
+            cases=len(case_ids(self.budget.frozen.suite_version)),
             metric_reports=tuple(receipts),
             approval_sha256=self.run.canonical_sha256,
             results_sha256=self.result_hash,

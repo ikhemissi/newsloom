@@ -19,7 +19,7 @@ from agent_evaluation.baseline_admission import (
 )
 from agent_evaluation.baseline_budget import BaselineBudget, BaselineRun
 from agent_evaluation.baseline_capture import CaptureSession
-from agent_evaluation.baseline_inputs import FrozenBaseline, parse_document
+from agent_evaluation.baseline_inputs import FrozenBaseline, case_ids, parse_document
 from agent_evaluation.baseline_provenance import document_digest
 from agent_evaluation.baseline_scoring import BaselineCompletion
 from agent_evaluation.baseline_workflow import execute_workflow
@@ -190,7 +190,7 @@ async def run(
             ["azd", "env", "get-values"],
             ["az", "account", "show"],
         ) or (arguments[:4] == ["az", "rest", "--method", "get"] and "--url" in arguments):
-            after_capture = len(budget.agents) == 12 and all(
+            after_capture = len(budget.agents) == len(case_ids(frozen.suite_version)) and all(
                 row.receipt is not None for row in budget.agents.values()
             )
             await budget.admit("metadata_after" if after_capture else "metadata_before")

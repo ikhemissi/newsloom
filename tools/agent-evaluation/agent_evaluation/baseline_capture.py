@@ -5,9 +5,14 @@ from typing import Literal
 from pydantic import Field, JsonValue, StrictBool, StrictInt, StrictStr
 
 from agent_evaluation.baseline_budget import BaselineBudget, BaselineRun
-from agent_evaluation.baseline_inputs import CaseId, CaseReceipt, load_fixture, parse_document
+from agent_evaluation.baseline_inputs import CaseId, CaseReceipt, WebResult, parse_document
 from agent_evaluation.baseline_ipc import PrivateCaptureProcess
-from agent_evaluation.baseline_scoring import EvidenceSnapshot, TransientAnswer
+from agent_evaluation.baseline_scoring import (
+    EvidenceSnapshot,
+    TransientAnswer,
+    observed_evidence_digest,
+    observed_evidence_valid,
+)
 from agent_evaluation.inputs import ROOT, StrictModel
 from agent_evaluation.policy import EvaluationFailure
 
@@ -38,6 +43,7 @@ class WireReceipt(StrictModel):
 class CaptureReply(StrictModel):
     answer: StrictStr | None = Field(repr=False)
     evidence: tuple[EvidenceSnapshot, ...] = Field(max_length=10, repr=False)
+    web_results: tuple[WebResult, ...] = Field(default=(), max_length=10, repr=False)
     http_status: Literal[200, 401, 403]
     receipt: WireReceipt | None
     elapsed_ms: StrictInt = Field(ge=0, le=120000)
@@ -104,7 +110,7 @@ class CaptureSession:
         if not self.opened or self.worker.closed:
             raise EvaluationFailure("baseline_capture_not_open")
         frozen = self.budget.frozen
-        template = next(row for row in load_fixture().cases if row.case_id == case_id)
+        template = next(row for row in frozen.fixture().cases if row.case_id == case_id)
         oracle = next(row for row in frozen.oracles.cases if row.case_id == case_id)
         selected = next(
             (row for row in frozen.bindings.filters if row.alias == template.filter_alias), None
@@ -125,6 +131,9 @@ class CaptureSession:
             "expected_status": oracle.expected_http_status,
             "wrong_audience": template.kind == "wrong_audience",
         }
+        web = template.kind == "web"
+        if web:
+            payload["conversation"] = True
         data = await self.worker.exchange(
             case_id,
             payload,
@@ -139,6 +148,8 @@ class CaptureSession:
             or denied != (captured.receipt is None)
             or denied != (captured.answer is None)
             or (denied and captured.evidence)
+            or (not web and captured.web_results)
+            or (web and not observed_evidence_valid(captured.evidence, captured.web_results))
         ):
             raise EvaluationFailure("baseline_capture_outcome_mismatch")
         wire = captured.receipt
@@ -164,6 +175,9 @@ class CaptureSession:
             elapsed_ms=captured.elapsed_ms,
             user_preserved=False if wire is None else wire.user_preserved,
             no_model_work_verified=False,
+            observed_evidence_sha256=(
+                observed_evidence_digest(captured.evidence, captured.web_results) if web else None
+            ),
         )
         await self.budget.observe_agent(receipt)
         answer = (
@@ -174,6 +188,7 @@ class CaptureSession:
                 answer=captured.answer,
                 evidence=captured.evidence,
                 receipt=receipt,
+                web_results=captured.web_results,
             )
         )
         if answer is not None:

@@ -48,7 +48,7 @@ from newsloom_agent.research_models import (
     SourcesArguments,
 )
 from newsloom_core.auth import EntraTokenVerifier
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 MCP_CALLBACK = "http://127.0.0.1:33418"
 TOOLS: dict[str, type[BaseModel]] = {
@@ -144,6 +144,7 @@ class CaptureLimits:
         "baseline-12x8-v4",
         "baseline-12x8-v5",
         "baseline-12x8-v6",
+        "baseline-14x10-v7",
     ] = "baseline-12x8-v1"
 
     def authorize(self, operation: str, amount: int = 1) -> None:
@@ -169,7 +170,7 @@ class CaptureLimits:
             60
             if self.limit_profile == "baseline-12x8-v1"
             else 180
-            if self.limit_profile in ("baseline-12x8-v5", "baseline-12x8-v6")
+            if self.limit_profile in ("baseline-12x8-v5", "baseline-12x8-v6", "baseline-14x10-v7")
             else 120
         )
         if self.metadata_reads >= maximum:
@@ -193,6 +194,7 @@ class CaptureLimits:
             "baseline-12x8-v4": 9,
             "baseline-12x8-v5": 9,
             "baseline-12x8-v6": 9,
+            "baseline-14x10-v7": 9,
         }[self.limit_profile]
         if self.sign_ins >= maximum:
             raise AgentFailure("baseline_capture_sign_in_limit")
@@ -623,10 +625,20 @@ async def evidence_session(
             yield reader
 
 
+class WebCitation(BaseModel):
+    model_config = ConfigDict(strict=True, extra="forbid", frozen=True)
+
+    number: int = Field(ge=1, le=10)
+    title: str = Field(min_length=1, max_length=200, repr=False)
+    url: str = Field(pattern=r"^https://[^\s]+$", max_length=2048, repr=False)
+    snippet: str = Field(max_length=1000, repr=False)
+
+
 @dataclass(frozen=True, repr=False)
 class TransientResearch:
     invocation: ResearchInvocation
     evidence: tuple[NewsDetail, ...]
+    web_results: tuple[WebCitation, ...] = ()
 
 
 class BoundedA2AResponse(httpx.AsyncByteStream):
@@ -725,7 +737,11 @@ async def capture_research(
     reader: EvidenceSource,
     request: ResearchRequest,
     expected: Mapping[UUID, str | None],
+    *,
+    conversation: bool = False,
 ) -> TransientResearch:
+    if conversation and (expected or request.item_ids is not None):
+        raise AgentFailure("baseline_capture_arguments_invalid")
     async with public_admission(settings, public, reader.limits):
         caller = await AgentVerifier(
             public, settings.agent.tenant, settings.agent.agent_client_id
@@ -753,6 +769,7 @@ async def capture_research(
             request,
             request_hook=admission.request,
             response_hook=admission.response,
+            **({"conversation": True} if conversation else {}),
         )
     if admission.sent != 1 or admission.reads != 1:
         raise AgentFailure("baseline_capture_research_dispatch_incomplete")
@@ -762,7 +779,23 @@ async def capture_research(
         item = await reader.item(item_id)
         if (None if item is None else fingerprint(item.model_dump(mode="json"))) != expected_hash:
             raise AgentFailure("baseline_capture_evidence_drift")
-    return TransientResearch(result, tuple(evidence))
+    if not conversation:
+        return TransientResearch(result, tuple(evidence))
+    document = result.conversation
+    cited = None if document is None else document.get("cited_item_ids")
+    web = None if document is None else document.get("web_results")
+    if not isinstance(cited, list) or not isinstance(web, list):
+        raise AgentFailure("baseline_capture_receipt_missing")
+    for value in cited:
+        item = await reader.item(UUID(str(value)))
+        if item is None:
+            raise AgentFailure("baseline_capture_evidence_drift")
+        evidence.append(item)
+    try:
+        web_results = tuple(WebCitation.model_validate(value) for value in web)
+    except ValidationError:
+        raise AgentFailure("baseline_capture_web_results_invalid") from None
+    return TransientResearch(result, tuple(evidence), web_results)
 
 
 async def sign_in_agent(

@@ -8,16 +8,19 @@ from pydantic import BaseModel, Field, JsonValue, StrictStr, model_validator
 
 from agent_evaluation.baseline_budget import BaselineBudget, BaselineRun
 from agent_evaluation.baseline_inputs import (
-    CASE_IDS,
-    SEMANTIC_CASES,
-    Alias,
+    WEB_CASES,
+    BaselineFixtureV2,
     BaselineResult,
     CaseId,
     CaseReceipt,
+    CitedAlias,
     ControlMeasurement,
     MetricScore,
     ScoringProgress,
-    load_fixture,
+    WebResult,
+    case_ids,
+    numbered_web_results,
+    semantic_cases,
 )
 from agent_evaluation.baseline_provenance import document_digest
 from agent_evaluation.inputs import StrictModel
@@ -41,7 +44,7 @@ SNAPSHOT_FIELDS = {
 
 
 class EvidenceSnapshot(StrictModel):
-    alias: Alias
+    alias: CitedAlias
     item: dict[str, JsonValue] = Field(repr=False)
 
     @model_validator(mode="after")
@@ -72,16 +75,85 @@ class EvidenceSnapshot(StrictModel):
         return self
 
 
+def observed_evidence_digest(
+    evidence: tuple[EvidenceSnapshot, ...], web_results: tuple[WebResult, ...]
+) -> str:
+    return document_digest(
+        {
+            "items": [
+                {"alias": snapshot.alias, "sha256": document_digest(snapshot.item)}
+                for snapshot in evidence
+            ],
+            "web_results": [value.model_dump(mode="json") for value in web_results],
+        }
+    )
+
+
+def observed_evidence_valid(
+    evidence: tuple[EvidenceSnapshot, ...], web_results: tuple[WebResult, ...]
+) -> bool:
+    return (
+        tuple(snapshot.alias for snapshot in evidence)
+        == tuple(f"s{index}" for index in range(1, len(evidence) + 1))
+        and len({snapshot.item["id"] for snapshot in evidence}) == len(evidence)
+        and numbered_web_results(web_results)
+        and len(evidence) + len(web_results) <= 10
+    )
+
+
+def web_judge_evidence(
+    items: list[dict[str, JsonValue]], web_results: tuple[WebResult, ...]
+) -> str:
+    parts = (
+        []
+        if not items
+        else [json.dumps(items, sort_keys=True, separators=(",", ":"), allow_nan=False)]
+    )
+    parts.extend(
+        "Web search result [W"
+        + str(value.number)
+        + "]\nTitle: "
+        + value.title
+        + "\nURL: "
+        + value.url
+        + "\nSnippet: "
+        + value.snippet
+        for value in web_results
+    )
+    return "\n\n".join(parts)
+
+
 class TransientAnswer(StrictModel):
     case_id: CaseId
     answer: StrictStr = Field(min_length=1, max_length=16384, repr=False)
     evidence: Annotated[tuple[EvidenceSnapshot, ...], Field(max_length=10, repr=False)]
     receipt: CaseReceipt
+    web_results: Annotated[tuple[WebResult, ...], Field(max_length=10, repr=False)] = ()
 
     def verify_frozen(self, budget: BaselineBudget) -> None:
         row = budget.agents.get(self.case_id)
         bindings = {item.alias: item for item in budget.frozen.bindings.items}
         oracle = next(case for case in budget.frozen.oracles.cases if case.case_id == self.case_id)
+        if self.case_id in WEB_CASES:
+            if (
+                row is None
+                or row.receipt is None
+                or row.receipt != self.receipt
+                or self.receipt.case_id != self.case_id
+                or self.receipt.outcome == "denied"
+                or self.receipt.answer_sha256 != hashlib.sha256(self.answer.encode()).hexdigest()
+                or len(self.answer.encode()) > 16384
+                or not observed_evidence_valid(self.evidence, self.web_results)
+                or self.receipt.observed_evidence_sha256
+                != observed_evidence_digest(self.evidence, self.web_results)
+            ):
+                raise EvaluationFailure("baseline_transient_answer_mismatch")
+            for snapshot in self.evidence:
+                item_id = snapshot.item["id"]
+                if not isinstance(item_id, str):
+                    raise EvaluationFailure("baseline_transient_evidence_mismatch")
+                UUID(item_id)
+            return
         if (
             row is None
             or row.receipt is None
@@ -92,6 +164,7 @@ class TransientAnswer(StrictModel):
             or len(self.answer.encode()) > 16384
             or len({item.alias for item in self.evidence}) != len(self.evidence)
             or {item.alias for item in self.evidence} != set(oracle.required_aliases)
+            or self.web_results
         ):
             raise EvaluationFailure("baseline_transient_answer_mismatch")
         for snapshot in self.evidence:
@@ -108,6 +181,10 @@ class TransientAnswer(StrictModel):
             UUID(item_id)
 
     def judge_evidence(self) -> str:
+        if self.case_id in WEB_CASES:
+            return web_judge_evidence(
+                [snapshot.item for snapshot in self.evidence], self.web_results
+            )
         return json.dumps(
             [snapshot.item for snapshot in self.evidence],
             sort_keys=True,
@@ -136,7 +213,8 @@ class BaselineScorer:
             raise EvaluationFailure("baseline_scorer_binding_mismatch")
         run.claim_scoring()
         self.budget, self.run, self.completion = budget, run, completion
-        self.fixture = load_fixture()
+        self.suite = budget.frozen.suite_version
+        self.fixture = budget.frozen.fixture()
         self.progress = ScoringProgress(
             protocol="baseline-v1",
             approval_sha256=run.canonical_sha256,
@@ -146,6 +224,7 @@ class BaselineScorer:
             pending_case=None,
             controls=(),
             scores=(),
+            suite_version=self.suite,
         )
         self.attempted_cases: set[CaseId] = set()
 
@@ -176,11 +255,13 @@ class BaselineScorer:
             self.progress = self.progress.model_copy(update={"pending_control": control.control_id})
             await self.save()
             passed = False
+            question, evidence = self.fixture.control_question, self.fixture.control_evidence
+            if isinstance(self.fixture, BaselineFixtureV2) and control.control_id in ("c09", "c10"):
+                question = self.fixture.web_control_question
+                evidence = web_judge_evidence([], self.fixture.web_control_results)
             try:
                 score, attempts = await self.measured(
-                    question=self.fixture.control_question,
-                    evidence=self.fixture.control_evidence,
-                    answer=control.answer,
+                    question=question, evidence=evidence, answer=control.answer
                 )
                 passed = (
                     score >= self.fixture.thresholds.supported_min
@@ -218,7 +299,10 @@ class BaselineScorer:
     async def score(self, captured: TransientAnswer) -> MetricScore:
         if self.progress.state not in ("calibrated", "scoring"):
             raise EvaluationFailure("baseline_calibration_required")
-        if captured.case_id not in SEMANTIC_CASES or captured.case_id in self.attempted_cases:
+        if (
+            captured.case_id not in semantic_cases(self.suite)
+            or captured.case_id in self.attempted_cases
+        ):
             raise EvaluationFailure("baseline_case_scoring_not_admitted")
         captured.verify_frozen(self.budget)
         self.budget.guard()
@@ -256,7 +340,7 @@ class BaselineScorer:
 
     def semantic_gate_passed(self) -> bool:
         rows = [value for value in self.progress.scores if value.metric_id == "faithfulness"]
-        if {value.case_id for value in rows} != set(SEMANTIC_CASES):
+        if {value.case_id for value in rows} != set(semantic_cases(self.suite)):
             return False
         values = [Decimal(repr(value.score)) for value in rows]
         return all(
@@ -269,7 +353,7 @@ class BaselineScorer:
         row = self.budget.agents.get(case_id)
         expected = (
             {"citation_validity", "contract_adherence"}
-            if case_id in SEMANTIC_CASES
+            if case_id in semantic_cases(self.suite)
             else {"contract_adherence"}
         )
         if (
@@ -294,7 +378,7 @@ class BaselineScorer:
         if self.progress.state != "scoring":
             raise EvaluationFailure("baseline_scoring_incomplete")
         cases = []
-        for case_id in CASE_IDS:
+        for case_id in case_ids(self.suite):
             row = self.budget.agents.get(case_id)
             if row is None or row.receipt is None:
                 raise EvaluationFailure("baseline_scoring_incomplete")
@@ -305,6 +389,7 @@ class BaselineScorer:
             frozen_sha256=self.budget.approval.frozen_sha256,
             cases=tuple(cases),
             scores=self.progress.scores,
+            suite_version=self.suite,
         )
         await self.run.save_results(result)
         self.progress = self.progress.model_copy(update={"state": "completed"})

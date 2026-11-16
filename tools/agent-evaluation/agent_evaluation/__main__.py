@@ -19,9 +19,10 @@ def main() -> int:
     commands.add_parser(
         "validate", help="Validate frozen fixtures and provenance; no Azure access."
     )
-    commands.add_parser(
+    validation = commands.add_parser(
         "baseline-validate", help="Validate authored baseline contracts; no sign-in or Azure work."
     )
+    validation.add_argument("--suite", choices=("v1", "v2"), default="v1")
     commands.add_parser(
         "baseline-ipc-check", help="Check isolated worker pipes; no sign-in or Azure work."
     )
@@ -69,7 +70,7 @@ def main() -> int:
         print(json.dumps(receipt, sort_keys=True))
         return 0
     if args.command == "baseline-validate":
-        from agent_evaluation.baseline_inputs import fixture_digest, load_fixture
+        from agent_evaluation.baseline_inputs import load_suite, suite_digest
         from agent_evaluation.baseline_provenance import (
             capture_source_digest,
             evaluator_source_digest,
@@ -77,18 +78,20 @@ def main() -> int:
         )
 
         try:
-            fixture = load_fixture()
+            fixture = load_suite(args.suite)
             receipt = {
                 "outcome": "validated",
                 "protocol": "baseline-v1",
                 "cases": len(fixture.cases),
                 "controls": len(fixture.controls),
-                "fixture_sha256": fixture_digest(),
-                "evaluator_source_sha256": evaluator_source_digest(),
+                "fixture_sha256": suite_digest(args.suite),
+                "evaluator_source_sha256": evaluator_source_digest(args.suite),
                 "capture_source_sha256": capture_source_digest(),
                 "production_inputs_sha256": verify_production_inputs(),
                 "model_calls": 0,
             }
+            if args.suite != "v1":
+                receipt["suite_version"] = args.suite
         except EvaluationFailure, OSError, ValueError:
             print(json.dumps({"outcome": "failure", "category": "baseline_validation_error"}))
             return 1

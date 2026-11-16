@@ -6,7 +6,7 @@ from azure.ai.projects.aio import AIProjectClient
 
 from agent_evaluation.baseline_budget import BaselineBudget, BaselineRun
 from agent_evaluation.baseline_checks import check_answer
-from agent_evaluation.baseline_inputs import CASE_IDS, SEMANTIC_CASES, CaseId, CaseReceipt
+from agent_evaluation.baseline_inputs import CaseId, CaseReceipt, case_ids, semantic_cases
 from agent_evaluation.baseline_publication import BaselinePublisher
 from agent_evaluation.baseline_scoring import BaselineCompletion, BaselineScorer, TransientAnswer
 from agent_evaluation.context import Context
@@ -37,7 +37,7 @@ async def execute_workflow(
         captured_all = False
         try:
             await capture.open()
-            for case_id in CASE_IDS:
+            for case_id in case_ids(budget.frozen.suite_version):
                 # The same bounded readiness guard protects agent and judge dispatch.
                 if budget.judge.ready is not None:
                     await budget.judge.ready()
@@ -46,7 +46,7 @@ async def execute_workflow(
         finally:
             await capture.close(graceful=captured_all)
         for receipt, answer in answers:
-            if receipt.case_id in SEMANTIC_CASES:
+            if receipt.case_id in semantic_cases(budget.frozen.suite_version):
                 if answer is None:
                     from agent_evaluation.policy import EvaluationFailure
 
@@ -57,6 +57,7 @@ async def execute_workflow(
                 receipt,
                 None if answer is None else answer.answer,
                 () if answer is None else answer.evidence,
+                () if answer is None else answer.web_results,
             )
             await scorer.record_contracts(receipt.case_id, checked.metric_scores())
         result = await scorer.finish()

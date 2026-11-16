@@ -21,12 +21,13 @@ from a2a.types import (
     Message,
     Part,
     Role,
+    SendMessageConfiguration,
     SendMessageRequest,
     TaskState,
     TaskStatus,
 )
 from a2a.utils.errors import A2AError
-from google.protobuf.json_format import Parse
+from google.protobuf.json_format import MessageToDict, Parse
 from google.protobuf.struct_pb2 import Value
 from pydantic import field_validator, model_validator
 
@@ -468,21 +469,68 @@ class ResearchInvocation:
     text: str
     counts: dict[str, int]
     receipt: ResearchReceipt | None = None
+    conversation: dict[str, object] | None = None
 
 
-def research_message(request: ResearchRequest) -> SendMessageRequest:
-    return SendMessageRequest(
-        message=Message(
-            message_id=str(uuid4()),
-            role=Role.ROLE_USER,
-            parts=[
-                Part(
-                    data=Parse(request.model_dump_json(by_alias=True), Value()),
-                    media_type="application/json",
-                )
-            ],
-        )
+def research_message(request: ResearchRequest, *, conversation: bool = False) -> SendMessageRequest:
+    message = Message(
+        message_id=str(uuid4()),
+        role=Role.ROLE_USER,
+        parts=[
+            Part(
+                data=Parse(request.model_dump_json(by_alias=True), Value()),
+                media_type="application/json",
+            )
+        ],
     )
+    if not conversation:
+        return SendMessageRequest(message=message)
+    return SendMessageRequest(
+        message=message,
+        configuration=SendMessageConfiguration(
+            accepted_output_modes=["text/plain", "application/json"]
+        ),
+    )
+
+
+def conversation_document(data: Value) -> dict[str, object]:
+    """Validate the JSON conversation artifact; web results keep their [Wn] order."""
+    value = MessageToDict(data)
+    if (
+        not isinstance(value, dict)
+        or set(value) != {"follow_ups", "cited_item_ids", "web_results"}
+        or len(json.dumps(value).encode()) > 64 * 1024
+    ):
+        raise AgentFailure("agent_research_artifact_invalid")
+    follow_ups, cited, web = value["follow_ups"], value["cited_item_ids"], value["web_results"]
+    if (
+        not isinstance(follow_ups, list)
+        or not isinstance(cited, list)
+        or not isinstance(web, list)
+        or len(follow_ups) > 3
+        or len(cited) + len(web) > 10
+        or not all(isinstance(item, str) for item in follow_ups)
+        or not all(isinstance(item, str) for item in cited)
+    ):
+        raise AgentFailure("agent_research_artifact_invalid")
+    results: list[dict[str, object]] = []
+    for number, item in enumerate(web, start=1):
+        if (
+            not isinstance(item, dict)
+            or set(item) != {"number", "title", "url", "snippet"}
+            or isinstance(item["number"], bool)
+            or item["number"] != number
+            or not all(isinstance(item[key], str) for key in ("title", "url", "snippet"))
+        ):
+            raise AgentFailure("agent_research_artifact_invalid")
+        results.append({**item, "number": number})
+    try:
+        item_ids = [str(UUID(item)) for item in cited]
+    except ValueError:
+        raise AgentFailure("agent_research_artifact_invalid") from None
+    if item_ids != cited or len(set(item_ids)) != len(item_ids):
+        raise AgentFailure("agent_research_artifact_invalid")
+    return {"follow_ups": follow_ups, "cited_item_ids": item_ids, "web_results": results}
 
 
 def raise_research_failure(status: TaskStatus) -> None:
@@ -505,6 +553,7 @@ async def invoke_research(
     *,
     request_hook: Callable[[httpx.Request], Awaitable[None]] | None = None,
     response_hook: Callable[[httpx.Response], Awaitable[None]] | None = None,
+    conversation: bool = False,
 ) -> ResearchInvocation:
     try:
         if http.headers.get("authorization"):
@@ -548,17 +597,36 @@ async def invoke_research(
                 chunks: list[str] = []
                 task_id = ""
                 progress_events = events = size = 0
-                async for response in client.send_message(research_message(request)):
+                document: dict[str, object] | None = None
+                async for response in client.send_message(
+                    research_message(request, conversation=conversation)
+                ):
                     events += 1
                     if events > 64:
                         raise AgentFailure("agent_research_event_limit")
                     if response.HasField("task"):
                         raise_research_failure(response.task.status)
                         task_id = response.task.id
-                    if response.HasField("artifact_update"):
+                    if (
+                        conversation
+                        and response.HasField("artifact_update")
+                        and response.artifact_update.artifact.name == "conversation"
+                    ):
                         artifact = response.artifact_update.artifact
                         if (
-                            not progress_events
+                            document is not None
+                            or not chunks
+                            or len(artifact.parts) != 1
+                            or artifact.parts[0].WhichOneof("content") != "data"
+                            or artifact.parts[0].media_type != "application/json"
+                        ):
+                            raise AgentFailure("agent_research_artifact_invalid")
+                        document = conversation_document(artifact.parts[0].data)
+                    elif response.HasField("artifact_update"):
+                        artifact = response.artifact_update.artifact
+                        if (
+                            document is not None
+                            or not progress_events
                             or len(artifact.parts) != 1
                             or artifact.parts[0].WhichOneof("content") != "text"
                         ):
@@ -590,16 +658,23 @@ async def invoke_research(
                             ):
                                 raise AgentFailure("agent_research_progress_invalid")
                             progress_events += 1
-                if not task_id or not chunks or not size:
+                if not task_id or not chunks or not size or conversation != (document is not None):
                     raise AgentFailure("agent_research_not_completed")
                 task = await client.get_task(GetTaskRequest(id=task_id, history_length=2))
                 raise_research_failure(task.status)
                 if (
                     task.status.state != TaskState.TASK_STATE_COMPLETED
                     or len(task.status.message.parts) != 1
-                    or len(task.artifacts) != 1
+                    or len(task.artifacts) != (2 if conversation else 1)
                     or len(task.artifacts[0].parts) != 1
                     or task.artifacts[0].parts[0].text != "".join(chunks)
+                ):
+                    raise AgentFailure("agent_research_readback_invalid")
+                if conversation and (
+                    task.artifacts[1].name != "conversation"
+                    or len(task.artifacts[1].parts) != 1
+                    or task.artifacts[1].parts[0].WhichOneof("content") != "data"
+                    or conversation_document(task.artifacts[1].parts[0].data) != document
                 ):
                     raise AgentFailure("agent_research_readback_invalid")
                 receipt = ResearchReceipt.model_validate_json(task.status.message.parts[0].text)
@@ -619,6 +694,7 @@ async def invoke_research(
                         "task_reads": 1,
                     },
                     receipt,
+                    document,
                 )
             finally:
                 await client.close()

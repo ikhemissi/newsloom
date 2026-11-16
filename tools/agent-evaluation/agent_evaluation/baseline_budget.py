@@ -64,7 +64,13 @@ LimitProfile = Literal[
     "baseline-12x8-v4",
     "baseline-12x8-v5",
     "baseline-12x8-v6",
+    "baseline-14x10-v7",
 ]
+HUNDRED_USD_PROFILES: Final = ("baseline-12x8-v6", "baseline-14x10-v7")
+
+
+def live_requests(profile: LimitProfile) -> int:
+    return 14 if profile == "baseline-14x10-v7" else 12
 
 
 def operation_limits(profile: LimitProfile) -> dict[Operation, int]:
@@ -73,7 +79,7 @@ def operation_limits(profile: LimitProfile) -> dict[Operation, int]:
         **(
             {
                 "metadata_before": 180
-                if profile in ("baseline-12x8-v5", "baseline-12x8-v6")
+                if profile in ("baseline-12x8-v5", *HUNDRED_USD_PROFILES)
                 else 120,
                 "sign_ins": {
                     "baseline-12x8-v2": 6,
@@ -81,6 +87,7 @@ def operation_limits(profile: LimitProfile) -> dict[Operation, int]:
                     "baseline-12x8-v4": 9,
                     "baseline-12x8-v5": 9,
                     "baseline-12x8-v6": 9,
+                    "baseline-14x10-v7": 9,
                 }[profile],
             }
             if profile != "baseline-12x8-v1"
@@ -141,7 +148,7 @@ class BaselineApproval(StrictModel):
             Decimal(self.prior_model_exposure_usd) > 0 and self.prior_usage_sha256 is None
         ):
             raise ValueError("baseline_prior_exposure_invalid")
-        if self.maximum_usd != ("100" if self.limit_profile == "baseline-12x8-v6" else "10"):
+        if self.maximum_usd != ("100" if self.limit_profile in HUNDRED_USD_PROFILES else "10"):
             raise ValueError("baseline_profile_cost_limit")
         if any(
             getattr(self.preparation_counts, name) > limit
@@ -166,6 +173,7 @@ class BaselineApproval(StrictModel):
             or not timedelta(0) < self.expires_at - self.approved_at <= timedelta(hours=3)
             or not timedelta(0) <= now - self.prices_verified_at <= timedelta(days=1)
             or self.frozen_sha256 != document_digest(frozen.model_dump(mode="json", by_alias=True))
+            or (self.limit_profile == "baseline-14x10-v7") != (frozen.suite_version == "v2")
             or Decimal(self.embedding_input_per_million_usd) <= 0
             or any(
                 getattr(self.preparation_counts, name) != 0
@@ -241,7 +249,7 @@ class BaselineBudgetReceipt(StrictModel):
             or not 0 <= self.judge.input_tokens_observed <= 80 * 400000
             or not 0 <= self.judge.output_tokens_observed <= 80 * 1024
             or Decimal(self.combined_exposure_usd)
-            > (100 if self.limit_profile == "baseline-12x8-v6" else 10)
+            > (100 if self.limit_profile in HUNDRED_USD_PROFILES else 10)
             or Decimal(self.combined_exposure_usd) < amounts[2]
             or Decimal(self.combined_exposure_usd) < Decimal(self.prior_model_exposure_usd)
             or not 0 <= self.judge.request_bytes <= 5 * 1024 * 1024
@@ -393,7 +401,9 @@ class BaselineBudget:
     async def admit_agent(self, case_id: CaseId) -> None:
         async with self.admission:
             self.guard()
-            if case_id in self.agents or len(self.agents) >= 12:
+            if case_id in self.agents or len(self.agents) >= live_requests(
+                self.approval.limit_profile
+            ):
                 raise EvaluationFailure("baseline_agent_slot_consumed")
             if case_id not in {case.case_id for case in self.frozen.oracles.cases}:
                 raise EvaluationFailure("baseline_foreign_case")
