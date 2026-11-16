@@ -316,6 +316,7 @@ class BaselineBudget:
         self.halted = False
         self.started = False
         self.admission = asyncio.Lock()
+        self.checkpoint_lock = asyncio.Lock()
         self.prices = prices
         self.embedding_attempt_usd = (
             Decimal(approval.embedding_input_per_million_usd)
@@ -381,11 +382,13 @@ class BaselineBudget:
         await self.checkpoint()
 
     async def checkpoint(self) -> None:
-        try:
-            await self.persist(self.receipt())
-        except OSError, EvaluationFailure:
-            self.halted = self.judge.halted = True
-            raise EvaluationFailure("baseline_checkpoint_failed") from None
+        # Workflow and DeepEval tasks can halt concurrently; journal writes must not overlap.
+        async with self.checkpoint_lock:
+            try:
+                await self.persist(self.receipt())
+            except OSError, EvaluationFailure:
+                self.halted = self.judge.halted = True
+                raise EvaluationFailure("baseline_checkpoint_failed") from None
 
     async def judge_checkpoint(self, receipt: BudgetReceipt) -> None:
         await self.checkpoint()

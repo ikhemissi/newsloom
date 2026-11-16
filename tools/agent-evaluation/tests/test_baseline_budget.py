@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 import json
 from datetime import UTC, datetime, timedelta
@@ -323,6 +324,22 @@ async def test_approval_is_once_only_even_when_json_whitespace_changes(tmp_path:
     assert not (tmp_path / "replayed").exists()
     encoded = recovered.model_dump_json()
     assert all(f'"{name}":' not in encoded for name in ("answer", "summary", "question", "reason"))
+
+
+async def test_concurrent_halts_serialize_journal_writes(tmp_path: Path) -> None:
+    value = frozen()
+    approved = approval(value)
+    data = approved.model_dump_json().encode()
+    run = BaselineRun(
+        tmp_path / "run", data, hashlib.sha256(data).hexdigest(), value, registry=tmp_path / "r"
+    )
+    budget = BaselineBudget(approved, value, persist=run.checkpoint, ready=ready)
+    await budget.start()
+    await asyncio.gather(budget.halt(), budget.halt(), budget.halt())
+    recovered = BaselineRun.read_budget(
+        tmp_path / "run", data, hashlib.sha256(data).hexdigest(), registry=tmp_path / "r"
+    )
+    assert recovered.halted
 
 
 async def test_checkpoint_failure_never_admits_work() -> None:

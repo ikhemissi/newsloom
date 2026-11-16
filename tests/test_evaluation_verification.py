@@ -1540,6 +1540,10 @@ def test_live_snapshot_reads_complete_runtime_inventory(
     for name, kind in (
         (f"web-newsloom-{env['AZURE_ENV_NAME']}", "containerApps"),
         (f"brief-newsloom-{env['AZURE_ENV_NAME']}", "jobs"),
+        *(
+            (f"{name}-newsloom-{env['AZURE_ENV_NAME']}", "jobs")
+            for name in ("wake", "backup", "nightly", "snapshot")
+        ),
     ):
         identifier = verification.group_id(env) + f"/providers/Microsoft.App/{kind}/{name}"
         resources.append({"id": identifier, "type": "Microsoft.App/" + kind})
