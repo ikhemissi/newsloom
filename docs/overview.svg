@@ -70,19 +70,19 @@
   <text class="note" x="804" y="342" text-anchor="middle">read-only tools</text>
   <text class="note" x="804" y="364" text-anchor="middle">as the signed-in user</text>
 
-  <!-- Web app -->
+  <!-- GitHub Copilot (top) -->
   <g filter="url(#shadow)">
     <rect x="938" y="136" width="214" height="80" rx="12" fill="#ffffff" stroke="#3d4466" stroke-width="1.5"/>
   </g>
-  <text class="name" x="1045" y="169" text-anchor="middle">Web app</text>
-  <text class="kind" x="1045" y="192" text-anchor="middle">radar · news · briefing</text>
+  <text class="name" x="1045" y="169" text-anchor="middle">GitHub Copilot</text>
+  <text class="kind" x="1045" y="192" text-anchor="middle">and other MCP clients</text>
 
-  <!-- GitHub Copilot -->
+  <!-- Web app (middle) -->
   <g filter="url(#shadow)">
     <rect x="938" y="236" width="214" height="80" rx="12" fill="#ffffff" stroke="#3d4466" stroke-width="1.5"/>
   </g>
-  <text class="name" x="1045" y="269" text-anchor="middle">GitHub Copilot</text>
-  <text class="kind" x="1045" y="292" text-anchor="middle">and other MCP clients</text>
+  <text class="name" x="1045" y="269" text-anchor="middle">Web app</text>
+  <text class="kind" x="1045" y="292" text-anchor="middle">radar · news · briefing</text>
 
   <!-- Research agent -->
   <g filter="url(#shadow)">
@@ -117,8 +117,8 @@
   <line x1="950" y1="436" x2="896" y2="470" stroke="#138a7a" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#arrow-teal)"/>
 
   <line x1="804" y1="402" x2="804" y2="450" stroke="#138a7a" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#arrow-teal)"/>
-  <path d="M1152,176 H1172 V386 H1154" fill="none" stroke="#3d4466" stroke-width="2" marker-end="url(#arrow)"/>
-  <text class="edge" x="1184" y="281" text-anchor="middle" transform="rotate(90 1184 281)">A2A</text>
+  <line x1="1045" y1="316" x2="1045" y2="334" stroke="#3d4466" stroke-width="2" marker-end="url(#arrow)"/>
+  <text class="edge" x="1056" y="330">A2A</text>
   <line x1="1045" y1="436" x2="1045" y2="464" stroke="#3d4466" stroke-width="2" marker-end="url(#arrow)"/>
 
   <!-- Standards -->
