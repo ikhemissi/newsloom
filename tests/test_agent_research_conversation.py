@@ -12,7 +12,7 @@ from google.protobuf.json_format import MessageToDict
 from newsloom_agent.app import create_app
 from newsloom_agent.models import AgentFailure
 from newsloom_agent.research import EvidenceState, ResearchController, ResearchResult, render_answer
-from newsloom_agent.research_generation import ResearchStats
+from newsloom_agent.research_generation import ResearchStats, synthesis_schema
 from newsloom_agent.research_models import (
     MAX_HISTORY_BYTES,
     DetailArguments,
@@ -121,9 +121,27 @@ async def test_a_follow_up_rereads_an_earlier_citation_and_cites_only_current_ev
     result = updates[-1]
     assert isinstance(result, ResearchResult) and earlier.url in result.text
     assert reader.cited == [(earlier.id,)]
+    assert model.final_scopes[0].evidence_ids == (earlier.id,)
     assert json.loads(model.contexts[0])["request"]["history"][0]["cited_item_ids"] == [
         str(earlier.id)
     ]
+
+
+async def test_a_follow_up_cannot_cite_an_earlier_item_it_did_not_reread() -> None:
+    reread, unread = detail("Cedar"), detail("Birch")
+    reader = ScriptedReader([ItemResult(found=True, item=reread)])
+    model = ScriptedModel(
+        [plan(DetailCall(tool="get_news_item", arguments=DetailArguments(id=reread.id))), plan()],
+        answer((unread,)),
+    )
+    request = research(history=[turn(ids=[reread.id, unread.id])])
+    with pytest.raises(AgentFailure, match="research_citation_unknown"):
+        async for _ in ResearchController(reader, model).run(
+            request, authorization(), ResearchStats()
+        ):
+            pass
+    schema = json.dumps(synthesis_schema(model.final_scopes[0]))
+    assert str(reread.id) in schema and str(unread.id) not in schema
 
 
 def test_follow_ups_are_bounded_plain_questions() -> None:

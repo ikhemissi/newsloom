@@ -552,6 +552,7 @@ class ResearchController:
                             coverage=state.coverage,
                             missing_item_ids=state.missing_ids,
                             web_ids=tuple(state.web),
+                            evidence_ids=tuple(state.details),
                         ),
                     )
                 remaining(delegated)

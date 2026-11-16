@@ -147,6 +147,7 @@ class ScriptedModel:
     contexts: list[str] = field(default_factory=list)
     final_calls: int = 0
     scopes: list[PlanningScope] = field(default_factory=list)
+    final_scopes: list[SynthesisScope] = field(default_factory=list)
 
     async def plan(
         self,
@@ -172,6 +173,7 @@ class ScriptedModel:
         *,
         scope: SynthesisScope,
     ) -> ResearchAnswer:
+        self.final_scopes.append(scope)
         self.contexts.append(context)
         self.final_calls += 1
         stats.admit(final=True)
