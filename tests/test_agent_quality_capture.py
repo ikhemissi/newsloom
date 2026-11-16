@@ -481,6 +481,7 @@ def test_capture_limits_reject_one_over_without_dispatch() -> None:
         ("baseline-12x8-v4", 120, 9),
         ("baseline-12x8-v5", 180, 9),
         ("baseline-12x8-v6", 180, 9),
+        ("baseline-14x10-v7", 180, 9),
     ],
 )
 def test_root_capture_profile_exact_read_and_sign_in_limits(
@@ -491,6 +492,7 @@ def test_root_capture_profile_exact_read_and_sign_in_limits(
         "baseline-12x8-v4",
         "baseline-12x8-v5",
         "baseline-12x8-v6",
+        "baseline-14x10-v7",
     ],
     reads: int,
     flows: int,
@@ -775,3 +777,203 @@ async def test_public_admission_denies_foreign_or_unfunded_requests_and_restores
                 await http.get(card)
         assert http.event_hooks == before
     assert sent == [card]
+
+
+@pytest.mark.parametrize("cited", [False, True])
+async def test_actual_a2a_web_capture_reads_conversation_and_rereads_cited_items(
+    delegated: DelegationCase,
+    monkeypatch: pytest.MonkeyPatch,
+    cited: bool,
+) -> None:
+    from newsloom_agent.research_models import (
+        DetailArguments,
+        DetailCall,
+        ItemResult,
+        ResearchAnswer,
+        SearchResults,
+    )
+    from newsloom_agent.web import Found
+    from test_agent_research import ScriptedModel, ScriptedReader, detail, metadata, plan
+    from test_agent_web import SEARCH, WEB, FakeWeb
+
+    authorization = await delegated.authorization()
+    config = CaptureSettings(
+        ClientSettings(
+            tenant=delegated.config.tenant,
+            agent_client_id=delegated.config.agent_client_id,
+            mcp_audience=delegated.config.mcp_audience,
+            mcp_url=delegated.config.mcp_url,
+            public_client_id=authorization.caller.client_id,
+            resource_url="https://agent.test/a2a",
+        ),
+        uuid4(),
+    )
+    item = detail()
+    claims: list[dict[str, object]] = [
+        {"text": "WEB_CLAIM_CANARY", "evidence_ids": [], "web_ids": ["W1"]}
+    ]
+    if cited:
+        claims.insert(0, {"text": "Stored authored claim.", "evidence_ids": [str(item.id)]})
+    model = ScriptedModel(
+        [
+            plan(SEARCH, WEB),
+            plan(DetailCall(tool="get_news_item", arguments=DetailArguments(id=item.id))),
+            plan(),
+        ],
+        ResearchAnswer.model_validate(
+            {
+                "outcome": "supported",
+                "claims": claims,
+                "limitations": [],
+                "missing_item_ids": [],
+                "coverage": "discovery",
+            }
+        ),
+    )
+    reader = ScriptedReader(
+        [
+            SearchResults.model_validate(
+                {"items": [{**metadata(item).model_dump(), "similarity": 0.9}]}
+            ),
+            ItemResult(found=True, item=item),
+        ]
+    )
+    web = FakeWeb(
+        (
+            Found("WEB_TITLE_CANARY", "https://web.test/1", "WEB_SNIPPET_CANARY", None),
+            Found("Unused", "https://web.test/2", "Unused", None),
+        )
+    )
+    evidence = MemoryEvidence(authorization.caller, item, False)
+    admitted: list[tuple[str, int]] = []
+    evidence.limits.permit = lambda operation, amount: admitted.append((operation, amount))
+    registry = TaskRegistry()
+    original = httpx.AsyncClient
+    async with original(
+        transport=httpx.ASGITransport(
+            create_app(
+                delegated.adapter,
+                delegated.agent_verifier,
+                public_url=config.agent.resource_url,
+                registry=registry,
+                research=ResearchController(reader, model, web),
+            )
+        )
+    ) as app:
+
+        async def route(request: httpx.Request) -> httpx.Response:
+            response = await app.request(
+                request.method, str(request.url), headers=request.headers, content=request.content
+            )
+            return httpx.Response(
+                response.status_code, content=response.content, headers=response.headers
+            )
+
+        class LocalClient(httpx.AsyncClient):
+            def __init__(
+                self,
+                *,
+                trust_env: bool,
+                follow_redirects: bool,
+                timeout: float,
+                headers: Mapping[str, str],
+                event_hooks: Mapping[str, list[Callable[[httpx.Request], Awaitable[None]]]],
+            ) -> None:
+                super().__init__(
+                    trust_env=trust_env,
+                    follow_redirects=follow_redirects,
+                    timeout=timeout,
+                    headers=headers,
+                    event_hooks=event_hooks,
+                    transport=httpx.MockTransport(route),
+                )
+
+        async with original(transport=httpx.MockTransport(route)) as public:
+            monkeypatch.setattr("httpx.AsyncClient", LocalClient)
+            monkeypatch.setattr(
+                "newsloom_agent.auth.AgentVerifier.authenticate",
+                lambda self, token, deadline: asyncio.sleep(0, authorization.caller),
+            )
+            request = ResearchRequest(operation="research", question="What changed recently?")
+            with pytest.raises(AgentFailure, match="baseline_capture_arguments_invalid"):
+                await capture_research(
+                    config,
+                    authorization.caller.assertion,
+                    public,
+                    evidence,
+                    request.model_copy(update={"item_ids": (item.id,)}),
+                    {},
+                    conversation=True,
+                )
+            result = await capture_research(
+                config,
+                authorization.caller.assertion,
+                public,
+                evidence,
+                request,
+                {},
+                conversation=True,
+            )
+    assert result.invocation.receipt is not None
+    assert result.invocation.receipt.items == int(cited)
+    assert result.evidence == ((item,) if cited else ())
+    assert [value.model_dump() for value in result.web_results] == [
+        {
+            "number": 1,
+            "title": "WEB_TITLE_CANARY",
+            "url": "https://web.test/1",
+            "snippet": "WEB_SNIPPET_CANARY",
+        }
+    ]
+    assert "From the web:" in result.invocation.text
+    assert result.invocation.text.endswith("[W1] https://web.test/1")
+    assert evidence.calls == int(cited)
+    assert admitted == [("metadata_before", 1), ("task_reads", 1)]
+    assert "CANARY" not in repr(result) + repr(result.web_results)
+    await registry.close()
+
+
+def test_worker_admits_conversation_only_for_unconstrained_web_cases() -> None:
+    from pydantic import ValidationError
+
+    from scripts.agent_quality_protocol import validate_request
+    from scripts.agent_quality_worker import Capture
+
+    request: dict[str, object] = {"operation": "research", "question": "What changed recently?"}
+    base: dict[str, object] = {
+        "action": "capture",
+        "request": request,
+        "items": [],
+        "pool_sha256": None,
+        "expected_status": 200,
+        "wrong_audience": False,
+        "conversation": True,
+    }
+    assert Capture.model_validate(base).conversation
+    assert not Capture.model_validate({**base, "conversation": False}).conversation
+    for change in (
+        {"request": {**request, "item_ids": [str(uuid4())]}},
+        {"request": {**request, "filters": {"source": "authored"}}},
+        {"expected_status": 401},
+        {"pool_sha256": "1" * 64},
+    ):
+        with pytest.raises(ValidationError):
+            Capture.model_validate({**base, **change})
+    payload: dict[str, object] = {"action": "probe"}
+    frame = {
+        "protocol": "baseline-capture-v1",
+        "kind": "request",
+        "sequence": 0,
+        "nonce": "1" * 64,
+        "case_id": "b14",
+        "source_sha256": "2" * 64,
+        "request_sha256": "3" * 64,
+        "evidence_sha256": "4" * 64,
+        "payload_sha256": hashlib.sha256(
+            json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest(),
+        "payload": payload,
+    }
+    assert validate_request(frame, "2" * 64, 0)["case_id"] == "b14"
+    with pytest.raises(ValueError, match="invalid_frame"):
+        validate_request({**frame, "case_id": "b15"}, "2" * 64, 0)

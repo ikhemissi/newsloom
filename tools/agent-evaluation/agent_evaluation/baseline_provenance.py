@@ -20,12 +20,18 @@ from agent_evaluation.production_inputs import (
 )
 
 Digest = Annotated[StrictStr, Field(pattern=r"^[a-f0-9]{64}$")]
+SuiteVersion = Literal["v1", "v2"]
 BASELINE_FIXTURE: Final = ROOT / "config/agent-quality-baseline.json"
+BASELINE_FIXTURE_V2: Final = ROOT / "config/agent-quality-baseline-v2.json"
 
 
-def evaluator_source_digest() -> str:
+def suite_fixture(suite: SuiteVersion) -> Path:
+    return BASELINE_FIXTURE if suite == "v1" else BASELINE_FIXTURE_V2
+
+
+def evaluator_source_digest(suite: SuiteVersion = "v1") -> str:
     try:
-        fixture_hash = hashlib.sha256(BASELINE_FIXTURE.read_bytes()).hexdigest()
+        fixture_hash = hashlib.sha256(suite_fixture(suite).read_bytes()).hexdigest()
     except OSError:
         raise EvaluationFailure("baseline_fixture_unavailable") from None
     return document_digest({"evaluator_sha256": source_digest(), "fixture_sha256": fixture_hash})
@@ -71,14 +77,16 @@ class BaselineProvenance(StrictModel):
     fixture_sha256: Digest
     bindings_sha256: Digest
     oracle_sha256: Digest
+    suite_version: SuiteVersion = Field(default="v1", exclude_if=lambda value: value == "v1")
 
     def verify_current(self, runtime: AcceptedRuntime) -> None:
         load_pilot()
         if (
             self.accepted_runtime != runtime
-            or self.evaluator_source_sha256 != evaluator_source_digest()
+            or self.evaluator_source_sha256 != evaluator_source_digest(self.suite_version)
             or self.capture_source_sha256 != capture_source_digest()
             or self.production_inputs_sha256 != verify_production_inputs()
-            or self.fixture_sha256 != hashlib.sha256(BASELINE_FIXTURE.read_bytes()).hexdigest()
+            or self.fixture_sha256
+            != hashlib.sha256(suite_fixture(self.suite_version).read_bytes()).hexdigest()
         ):
             raise EvaluationFailure("baseline_provenance_mismatch")

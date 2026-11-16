@@ -80,7 +80,7 @@ def validate_request(
         or value["sequence"] != sequence
         or value["source_sha256"] != source
         or not isinstance(value["case_id"], str)
-        or re.fullmatch(r"(?:preflight|b0[1-9]|b1[0-2])", value["case_id"]) is None
+        or re.fullmatch(r"(?:preflight|b0[1-9]|b1[0-4])", value["case_id"]) is None
         or any(
             not isinstance(value[field], str) or re.fullmatch(r"[a-f0-9]{64}", value[field]) is None
             for field in (

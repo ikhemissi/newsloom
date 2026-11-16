@@ -5,15 +5,20 @@ from typing import Final, Literal
 from pydantic import StrictBool
 
 from agent_evaluation.baseline_inputs import (
-    SEMANTIC_CASES,
+    WEB_CASES,
     CaseId,
     CaseReceipt,
     FrozenBaseline,
     MetricScore,
-    load_fixture,
+    WebResult,
+    semantic_cases,
 )
 from agent_evaluation.baseline_provenance import document_digest
-from agent_evaluation.baseline_scoring import EvidenceSnapshot
+from agent_evaluation.baseline_scoring import (
+    EvidenceSnapshot,
+    observed_evidence_digest,
+    observed_evidence_valid,
+)
 from agent_evaluation.inputs import StrictModel
 from agent_evaluation.policy import EvaluationFailure
 
@@ -21,9 +26,18 @@ FOOTER: Final = (
     "Evidence is limited to stored summaries and metadata; "
     "full articles and web search were not accessed."
 )
+WEB_FOOTER: Final = (
+    "Evidence is limited to stored summaries and metadata and the cited web search "
+    "results; full articles were not accessed."
+)
+WEB_HEADING: Final = "From the web:"
 REFERENCE: Final = re.compile(r"\[([1-9][0-9]?)\] (https://\S+)\Z")
+WEB_REFERENCE: Final = re.compile(r"\[W([1-9][0-9]?)\] (https://\S+)\Z")
 MARKER: Final = re.compile(r"\[([0-9]+)\]")
+WEB_MARKER: Final = re.compile(r"\[W([0-9]+)\]")
 CITED_STATEMENT: Final = re.compile(r"(?:\[[1-9][0-9]*\](?:\s+|$))+$")
+WEB_CITED_STATEMENT: Final = re.compile(r"(?:\[W?[1-9][0-9]*\](?:\s+|$))+$")
+WEB_ONLY_STATEMENT: Final = re.compile(r"(?:\[W[1-9][0-9]*\](?:\s+|$))+$")
 CheckName = Literal[
     "identity",
     "validated_receipt",
@@ -36,6 +50,8 @@ CheckName = Literal[
     "missing_selection",
     "limited_explanation",
     "expected_denial",
+    "no_web_citation",
+    "web_claims",
 ]
 
 
@@ -71,23 +87,36 @@ def check_answer(
     receipt: CaseReceipt,
     answer: str | None,
     evidence: tuple[EvidenceSnapshot, ...],
+    web_results: tuple[WebResult, ...] = (),
 ) -> DeterministicResult:
     oracle = next(
         (value for value in frozen.oracles.cases if value.case_id == receipt.case_id), None
     )
     if oracle is None:
         raise EvaluationFailure("baseline_check_case_unknown")
+    web_case = receipt.case_id in WEB_CASES
     if (
         receipt.request_sha256 != document_digest(frozen.request_document(receipt.case_id))
         or receipt.evidence_sha256 != frozen.evidence_digest(receipt.case_id)
         or receipt.answer_sha256
         != (None if answer is None else hashlib.sha256(answer.encode()).hexdigest())
         or len({item.alias for item in evidence}) != len(evidence)
-        or {item.alias for item in evidence} != set(oracle.required_aliases)
+        or (
+            (
+                not observed_evidence_valid(evidence, web_results)
+                or receipt.observed_evidence_sha256
+                != observed_evidence_digest(evidence, web_results)
+            )
+            if web_case
+            else (
+                {item.alias for item in evidence} != set(oracle.required_aliases)
+                or bool(web_results)
+            )
+        )
     ):
         raise EvaluationFailure("baseline_check_binding_mismatch")
     bindings = {item.alias: item for item in frozen.bindings.items}
-    for snapshot in evidence:
+    for snapshot in () if web_case else evidence:
         binding = bindings.get(snapshot.alias)
         if (
             binding is None
@@ -122,10 +151,11 @@ def check_answer(
     record("identity", receipt.user_preserved)
     record("validated_receipt", receipt.validated and receipt.evidence_items == len(evidence))
     record("outcome", receipt.outcome == oracle.expected_outcome)
-    position = answer.rfind(FOOTER)
+    footer = WEB_FOOTER if web_case and web_results else FOOTER
+    position = answer.rfind(footer)
     record("canonical_footer", position >= 0)
     body = answer[:position].rstrip() if position >= 0 else answer
-    tail = answer[position + len(FOOTER) :].strip() if position >= 0 else ""
+    tail = answer[position + len(footer) :].strip() if position >= 0 else ""
     expected_urls: set[str] = set()
     for snapshot in evidence:
         url = snapshot.item.get("url")
@@ -133,14 +163,23 @@ def check_answer(
             raise EvaluationFailure("baseline_check_evidence_url_invalid")
         expected_urls.add(url)
     references: dict[int, str] = {}
+    web_references: dict[int, str] = {}
     citation_valid = position >= 0
     for line in () if not tail else tail.split("\n\n"):
         match = REFERENCE.fullmatch(line)
         if match is None:
-            citation_valid = False
+            web_match = WEB_REFERENCE.fullmatch(line) if web_case else None
+            if web_match is None or int(web_match[1]) in web_references:
+                citation_valid = False
+            if web_match is not None:
+                web_references[int(web_match[1])] = web_match[2]
             continue
         number, url = int(match[1]), match[2]
         if number in references or url not in expected_urls:
+            citation_valid = False
+        if web_case and (
+            web_references or number > len(evidence) or evidence[number - 1].item.get("url") != url
+        ):
             citation_valid = False
         references[number] = url
     raw_markers = MARKER.findall(body)
@@ -154,20 +193,43 @@ def check_answer(
     ):
         citation_valid = False
     paragraphs = body.split("\n\n")
+    prefixes = ("Limitation: ", "Selection retrieval coverage: ", "Missing selected items: ")
+    statement = WEB_CITED_STATEMENT if web_case else CITED_STATEMENT
+    if web_case:
+        raw_web = WEB_MARKER.findall(body)
+        if (
+            any(len(value) > 2 for value in raw_web)
+            or {int(value) for value in raw_web if len(value) <= 2} != web_references.keys()
+            or web_references != {value.number: value.url for value in web_results}
+        ):
+            citation_valid = False
+        headings = [index for index, value in enumerate(paragraphs) if value == WEB_HEADING]
+        start = headings[0] if headings else len(paragraphs)
+        web_only = [
+            WEB_ONLY_STATEMENT.search(value.rstrip()) is not None and not MARKER.search(value)
+            for value in paragraphs
+        ]
+        if (
+            len(headings) > 1
+            or any(web_only[:start])
+            or (headings and not any(web_only[start + 1 :]))
+            or any(
+                not web_only[index] and not paragraphs[index].startswith(prefixes)
+                for index in range(start + 1, len(paragraphs))
+            )
+        ):
+            citation_valid = False
     statements = [
         value
         for value in paragraphs
-        if not value.startswith(
-            ("Limitation: ", "Selection retrieval coverage: ", "Missing selected items: ")
-        )
-        and CITED_STATEMENT.search(value.rstrip()) is not None
+        if not value.startswith(prefixes) and statement.search(value.rstrip()) is not None
     ]
     record("canonical_citations", citation_valid)
     record("citation_coverage", set(references.values()) == expected_urls)
     record("statement_minimum", len(statements) >= oracle.minimum_claims)
     request = frozen.request_document(receipt.case_id)
     selection = request["item_ids"]
-    template = next(case for case in load_fixture().cases if case.case_id == receipt.case_id)
+    template = next(case for case in frozen.fixture().cases if case.case_id == receipt.case_id)
     missing_ids = [
         str(item.item_id)
         for item in frozen.bindings.items
@@ -187,9 +249,25 @@ def check_answer(
         )
     if oracle.expected_outcome in ("limited", "no_match"):
         record("limited_explanation", any(value.startswith("Limitation: ") for value in paragraphs))
+    if web_case:
+        web_claims = any(WEB_MARKER.search(value) for value in statements)
+        stored_claims = any(MARKER.search(value) for value in statements)
+        record(
+            "web_claims",
+            web_claims and (stored_claims or template.evidence_sources == "web"),
+        )
+    elif frozen.suite_version != "v1":
+        record(
+            "no_web_citation",
+            WEB_MARKER.search(answer) is None
+            and WEB_HEADING not in answer.split("\n\n")
+            and WEB_FOOTER not in answer,
+        )
     return DeterministicResult(
         case_id=receipt.case_id,
         checks=tuple(values),
-        citation_valid=citation_valid if receipt.case_id in SEMANTIC_CASES else None,
+        citation_valid=(
+            citation_valid if receipt.case_id in semantic_cases(frozen.suite_version) else None
+        ),
         contract_valid=all(value.passed for value in values),
     )

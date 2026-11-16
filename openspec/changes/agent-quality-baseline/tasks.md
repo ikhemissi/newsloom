@@ -446,10 +446,14 @@ lost answers or the unknown b05 request.
 
 Tasks 6.2-7.3 apply to the version 2 run.
 
-- [ ] 8.1 Suite version 2: fixture with b13-b14 and two web judge controls, schema and digest, while v1 fixtures, approvals and journals stay unchanged; tests.
-- [ ] 8.2 Web-aware capture and checks: read `web_results` from the conversation artifact, re-read cited stored items, accept the web footer and `[Wn]` lines only when they match, and fail any web citation in b01-b12; tests including privacy canaries.
-- [ ] 8.3 Judge evidence for web claims and the two web calibration controls; eligibility masks and reports for 14 cases; tests.
-- [ ] 8.4 Local gate: evaluator checks, primary checks and builds.
+- [x] 8.1 Suite version 2: fixture with b13-b14 and two web judge controls, schema and digest, while v1 fixtures, approvals and journals stay unchanged; tests.
+  Local (2026-11-16): pinned `config/agent-quality-baseline-v2.json` (14 cases, 10 controls; v1 cases/controls verified equal on load); `suite_version` defaults to v1 and is omitted from v1 dumps; v1 fixture digest, frozen/result serialization and v1 publication-row schema unchanged.
+- [x] 8.2 Web-aware capture and checks: read `web_results` from the conversation artifact, re-read cited stored items, accept the web footer and `[Wn]` lines only when they match, and fail any web citation in b01-b12; tests including privacy canaries.
+  Local (2026-11-16): the client requests `application/json` only for b13-b14 and checks the streamed and read-back `conversation` artifact; web results stay in memory and only `observed_evidence_sha256` is saved; `no_web_citation` applies to v2 b01-b12 only; root capture tests 36/36 and authored web canaries in both privacy environments pass.
+- [x] 8.3 Judge evidence for web claims and the two web calibration controls; eligibility masks and reports for 14 cases; tests.
+  Local (2026-11-16): b13-b14 evidence is the cited summaries plus each cited web result's title, URL and snippet; c09/c10 use the same format with the 0.8/0.2 gates; v2 masks are 10 semantic/14 contract cases under `baseline-14x10-v7` (14 live requests, otherwise v6 bounds; 10x4+10x4 judge calls use all 80 attempts). 26 v2 evaluator tests pass, including a real-worker 14-case workflow.
+- [x] 8.4 Local gate: evaluator checks, primary checks and builds.
+  Local (2026-11-16): evaluator lint, format and types (56 files) pass; 533 of 534 evaluator tests pass in one full run. The judge fresh-process privacy test hit its 120 s timeout under full-suite load (known local slowness, also on main) and passed alone (10/10 privacy tests). These steps ran directly in the evaluator `.venv` because the sandbox could not run `uv sync` there. Changed-mode primary checks: lint, format, types (209 files), runtime, identifiers, feeds, 34 OpenSpec items, 600 selected root tests and all package builds pass; web and Terraform were unchanged and not run.
 - [ ] 8.5 Snapshot 4: prerequisite `web-research-scope` deployed; readiness, frozen evidence and the v2 approval profile for the user's explicit approval.
 
 ## Workflow follow-up

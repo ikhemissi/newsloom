@@ -15,7 +15,7 @@ from newsloom_agent.client import RESEARCH_CLIENT_FAILURES
 from newsloom_agent.models import AgentFailure
 from newsloom_agent.research_models import ResearchContract, ResearchRequest, SearchResults
 from newsloom_agent.telemetry import CATEGORIES
-from pydantic import Field, JsonValue, StrictBool, field_validator
+from pydantic import Field, JsonValue, StrictBool, field_validator, model_validator
 
 from scripts.agent_quality_capture import (
     CaptureLimits,
@@ -45,6 +45,7 @@ class Open(ResearchContract):
         "baseline-12x8-v4",
         "baseline-12x8-v5",
         "baseline-12x8-v6",
+        "baseline-14x10-v7",
     ] = "baseline-12x8-v1"
     execution_approved: StrictBool
     approval_sha256: Digest
@@ -83,6 +84,21 @@ class Capture(ResearchContract):
     pool_sha256: Digest | None
     expected_status: Literal[200, 401, 403]
     wrong_audience: StrictBool
+    conversation: StrictBool = False
+
+    @model_validator(mode="after")
+    def unconstrained_conversation(self) -> Capture:
+        if self.conversation and (
+            self.items
+            or self.pool_sha256 is not None
+            or self.expected_status != 200
+            or self.wrong_audience
+            or self.request.item_ids is not None
+            or self.request.filters.model_dump(mode="json", by_alias=True)
+            != {"source": None, "category": None, "tags": [], "from": None, "to": None}
+        ):
+            raise ValueError("baseline_capture_conversation_invalid")
+        return self
 
 
 async def verify_pool(reader: EvidenceReader, command: Capture) -> None:
@@ -198,16 +214,19 @@ async def serve(channel: PrivateChannel) -> None:
                         reader,
                         command.request,
                         {row.item_id: row.fingerprint for row in command.items},
+                        **({"conversation": True} if command.conversation else {}),
                     )
                     aliases = {row.item_id: row.alias for row in command.items}
                     reply = {
                         "answer": result.invocation.text,
                         "evidence": [
                             {
-                                "alias": aliases[item.id],
+                                "alias": (
+                                    f"s{index}" if command.conversation else aliases[item.id]
+                                ),
                                 "item": item.model_dump(mode="json"),
                             }
-                            for item in result.evidence
+                            for index, item in enumerate(result.evidence, start=1)
                         ],
                         "http_status": 200,
                         "receipt": (
@@ -216,6 +235,10 @@ async def serve(channel: PrivateChannel) -> None:
                             else result.invocation.receipt.model_dump(mode="json")
                         ),
                     }
+                    if command.conversation:
+                        reply["web_results"] = [
+                            value.model_dump(mode="json") for value in result.web_results
+                        ]
                 channel.error_category = "capture_pool_after_failed"
                 await verify_pool(reader, command)
             reply["elapsed_ms"] = int((time.monotonic() - started) * 1000)
@@ -235,6 +258,7 @@ def safe_failure_digest(error: BaseException) -> str | None:
             "baseline_capture_response_limit",
             "baseline_capture_user_mismatch",
             "baseline_capture_arguments_invalid",
+            "baseline_capture_web_results_invalid",
         }
     )
     while pending:

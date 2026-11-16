@@ -174,6 +174,30 @@ booleans/nonfinite scores and duplicate JSON keys are rejected before results
 can be persisted. The CLI prints counts/fingerprints only. Actual capture,
 scoring and metadata-only publication remain separate implementation gates.
 
+Suite version 2 ([design §7](../openspec/changes/agent-quality-baseline/design.md#7-version-2-web-backed-research))
+is a separate pinned [fixture](../config/agent-quality-baseline-v2.json): the
+unchanged v1 cases/controls plus b13 (open question, at least one web claim),
+b14 (stored and web claims) and two authored web judge controls (c09 supported,
+c10 contradicted). A frozen document selects it with `suite_version: "v2"`;
+v1 documents omit the field and keep their exact serialization, digests and
+approval identities. V2 runs only under the `baseline-14x10-v7` profile:
+14 live requests, otherwise the v6 bounds (USD 100, 80 judge attempts, 12 task
+reads, 768 embedding exposures). For b13-b14 the capture worker accepts
+`application/json`, reads `web_results` from the `conversation` artifact and
+re-reads the cited stored items under the same user; both stay in memory and
+only their fingerprint (`observed_evidence_sha256`) is saved. Their faithfulness
+evidence is the cited summaries plus each cited web result's title, URL and
+snippet. The web footer, `From the web:` and `[Wn]` lines pass only when they
+exactly match `web_results`; any web citation in b01-b12 fails the
+`no_web_citation` contract check. Semantic/citation masks cover b01-b08 and
+b13-b14 (10 cases), contract adherence all 14. At four judge calls per
+measurement, ten controls and ten cases need exactly the inherited 80 judge
+attempts, so the profile leaves no judge headroom.
+
+```bash
+uv run --directory tools/agent-evaluation --locked python -m agent_evaluation baseline-validate --suite v2
+```
+
 The local frozen-contract/provenance integration passes 334 isolated evaluator
 tests, strict types, lint and formatting, preserving all 290 original tests.
 Pylance reports no diagnostics for the new contracts. These checks cover no

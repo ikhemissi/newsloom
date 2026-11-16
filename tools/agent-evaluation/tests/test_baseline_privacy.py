@@ -87,6 +87,10 @@ def test_fresh_process_failure_and_success_leave_no_content_or_credential_artifa
             "tests/test_baseline_ipc.py",
             "tests/test_baseline_capture_admission.py",
             "tests/test_baseline_cli.py",
+            "tests/test_baseline_v2.py",
+            "--deselect",
+            "tests/test_baseline_v2.py"
+            "::test_real_private_worker_runs_v2_web_cases_without_persisting_web_content",
         ]
     else:
         python = ROOT / ".venv/bin/python"
@@ -138,6 +142,9 @@ def test_fresh_process_failure_and_success_leave_no_content_or_credential_artifa
         b"RESEARCH_TITLE_CANARY",
         b"JUDGE_REASON_PRIVATE_CANARY",
         b"PRIVATE_PROVIDER_ERROR_CANARY",
+        b"WEB_TITLE_CANARY",
+        b"WEB_SNIPPET_CANARY",
+        b"WEB_CLAIM_CANARY",
         TOKEN.encode(),
     )
     diagnostics = (result.stdout + result.stderr).encode()

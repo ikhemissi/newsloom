@@ -18,9 +18,11 @@ from pydantic import (
 
 from agent_evaluation.baseline_provenance import (
     BASELINE_FIXTURE,
+    BASELINE_FIXTURE_V2,
     AcceptedRuntime,
     BaselineProvenance,
     Digest,
+    SuiteVersion,
     document_digest,
 )
 from agent_evaluation.inputs import StrictModel, json_document
@@ -28,8 +30,13 @@ from agent_evaluation.policy import EvaluationFailure
 
 FIXTURE: Final = BASELINE_FIXTURE
 FIXTURE_SHA256: Final = "4113a28cbeef11aa19fae5ab1b7ac94dac2e96cad48815790bb8ae10ec299b28"
-CaseId = Literal["b01", "b02", "b03", "b04", "b05", "b06", "b07", "b08", "b09", "b10", "b11", "b12"]
-ControlId = Literal["c01", "c02", "c03", "c04", "c05", "c06", "c07", "c08"]
+FIXTURE_V2: Final = BASELINE_FIXTURE_V2
+FIXTURE_V2_SHA256: Final = "5bef6ae90258465e63fea4311437a53eceb79838c7643757d27ac17716718a00"
+CaseIdV1 = Literal[
+    "b01", "b02", "b03", "b04", "b05", "b06", "b07", "b08", "b09", "b10", "b11", "b12"
+]
+CaseId = CaseIdV1 | Literal["b13", "b14"]
+ControlId = Literal["c01", "c02", "c03", "c04", "c05", "c06", "c07", "c08", "c09", "c10"]
 MetricId = Literal["faithfulness", "citation_validity", "contract_adherence"]
 Alias = Annotated[StrictStr, Field(pattern=r"^(?:n[1-9]|n10|n_missing)$")]
 FilterAlias = Literal["f1", "f2", "f3"]
@@ -53,6 +60,23 @@ CASE_IDS: Final = (
 CONTROL_IDS: Final = ("c01", "c02", "c03", "c04", "c05", "c06", "c07", "c08")
 METRICS: Final = ("faithfulness", "citation_validity", "contract_adherence")
 SEMANTIC_CASES: Final = CASE_IDS[:8]
+WEB_CASES: Final[tuple[CaseId, ...]] = ("b13", "b14")
+CASE_IDS_V2: Final[tuple[CaseId, ...]] = (*CASE_IDS, *WEB_CASES)
+CONTROL_IDS_V2: Final[tuple[ControlId, ...]] = (*CONTROL_IDS, "c09", "c10")
+SEMANTIC_CASES_V2: Final[tuple[CaseId, ...]] = (*SEMANTIC_CASES, *WEB_CASES)
+CitedAlias = Annotated[StrictStr, Field(pattern=r"^(?:n[1-9]|n10|n_missing|s[1-9]|s10)$")]
+
+
+def case_ids(suite: SuiteVersion) -> tuple[CaseId, ...]:
+    return CASE_IDS if suite == "v1" else CASE_IDS_V2
+
+
+def semantic_cases(suite: SuiteVersion) -> tuple[CaseId, ...]:
+    return SEMANTIC_CASES if suite == "v1" else SEMANTIC_CASES_V2
+
+
+def control_ids(suite: SuiteVersion) -> tuple[ControlId, ...]:
+    return CONTROL_IDS if suite == "v1" else CONTROL_IDS_V2
 
 
 class Thresholds(StrictModel):
@@ -65,7 +89,13 @@ class Thresholds(StrictModel):
 class BaselineCase(StrictModel):
     case_id: CaseId
     kind: Literal[
-        "selected", "discovery", "no_match", "authority_limit", "missing_token", "wrong_audience"
+        "selected",
+        "discovery",
+        "no_match",
+        "authority_limit",
+        "missing_token",
+        "wrong_audience",
+        "web",
     ]
     question: StrictStr = Field(min_length=1, max_length=2048, repr=False)
     item_aliases: Annotated[tuple[Alias, ...], Field(max_length=5)]
@@ -74,6 +104,9 @@ class BaselineCase(StrictModel):
     expected_coverage: Coverage
     detail: Literal["brief", "detailed"]
     language: Literal["English"]
+    evidence_sources: Literal["stored", "web", "stored_and_web"] = Field(
+        default="stored", exclude_if=lambda value: value == "stored"
+    )
 
     @model_validator(mode="after")
     def valid_selection(self) -> Self:
@@ -86,9 +119,21 @@ class BaselineCase(StrictModel):
                 and (self.item_aliases or self.filter_alias is None)
             )
             or (
-                self.kind not in ("discovery", "no_match")
+                self.kind not in ("discovery", "no_match", "web")
                 and (not self.item_aliases or self.filter_alias is not None)
             )
+            or (self.kind == "web") != (self.evidence_sources != "stored")
+            or (
+                self.kind == "web"
+                and (
+                    self.item_aliases
+                    or self.filter_alias is not None
+                    or self.case_id not in WEB_CASES
+                    or self.expected_outcome != "supported"
+                    or self.expected_coverage != "discovery"
+                )
+            )
+            or (self.case_id in WEB_CASES and self.kind != "web")
         ):
             raise ValueError("invalid_baseline_selection")
         return self
@@ -98,6 +143,17 @@ class CalibrationControl(StrictModel):
     control_id: ControlId
     label: Literal["supported", "unsupported"]
     answer: StrictStr = Field(min_length=1, max_length=2048, repr=False)
+
+
+class WebResult(StrictModel):
+    number: StrictInt = Field(ge=1, le=10)
+    title: StrictStr = Field(min_length=1, max_length=200, repr=False)
+    url: StrictStr = Field(pattern=r"^https://[^\s]+$", max_length=2048, repr=False)
+    snippet: StrictStr = Field(max_length=1000, repr=False)
+
+
+def numbered_web_results(values: tuple[WebResult, ...]) -> bool:
+    return tuple(value.number for value in values) == tuple(range(1, len(values) + 1))
 
 
 class BaselineFixture(StrictModel):
@@ -127,6 +183,42 @@ class BaselineFixture(StrictModel):
         return self
 
 
+class BaselineFixtureV2(StrictModel):
+    schema_version: StrictInt = Field(ge=2, le=2)
+    suite_version: Literal["v2"]
+    cases: Annotated[tuple[BaselineCase, ...], Field(min_length=14, max_length=14)]
+    controls: Annotated[tuple[CalibrationControl, ...], Field(min_length=10, max_length=10)]
+    control_question: StrictStr = Field(min_length=1, max_length=2048, repr=False)
+    control_evidence: StrictStr = Field(min_length=1, max_length=8192, repr=False)
+    web_control_question: StrictStr = Field(min_length=1, max_length=2048, repr=False)
+    web_control_results: Annotated[
+        tuple[WebResult, ...], Field(min_length=1, max_length=5, repr=False)
+    ]
+    offline_controls: tuple[
+        Literal["unknown_tool"],
+        Literal["changed_endpoint"],
+        Literal["scope_broadening"],
+        Literal["retrieved_instruction"],
+    ]
+    thresholds: Thresholds
+
+    @model_validator(mode="after")
+    def fixed_case_sets(self) -> Self:
+        if (
+            tuple(case.case_id for case in self.cases) != CASE_IDS_V2
+            or tuple(control.control_id for control in self.controls) != CONTROL_IDS_V2
+            or tuple(control.label for control in self.controls)
+            != ("supported",) * 4 + ("unsupported",) * 4 + ("supported", "unsupported")
+            or tuple(case.evidence_sources for case in self.cases[12:]) != ("web", "stored_and_web")
+            or not numbered_web_results(self.web_control_results)
+        ):
+            raise ValueError("baseline_case_set_mismatch")
+        return self
+
+
+SuiteFixture = BaselineFixture | BaselineFixtureV2
+
+
 def load_fixture(path: Path = FIXTURE) -> BaselineFixture:
     try:
         data = path.read_bytes()
@@ -143,6 +235,39 @@ def load_fixture(path: Path = FIXTURE) -> BaselineFixture:
 def fixture_digest(path: Path = FIXTURE) -> str:
     load_fixture(path)
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def load_fixture_v2(path: Path = FIXTURE_V2) -> BaselineFixtureV2:
+    try:
+        data = path.read_bytes()
+        if len(data) > 64 * 1024:
+            raise EvaluationFailure("baseline_fixture_limit")
+        if hashlib.sha256(data).hexdigest() != FIXTURE_V2_SHA256:
+            raise EvaluationFailure("baseline_fixture_digest_mismatch")
+        json_document(data)
+        fixture = BaselineFixtureV2.model_validate_json(data)
+    except OSError, ValidationError, ValueError:
+        raise EvaluationFailure("invalid_baseline_fixture") from None
+    legacy = load_fixture()
+    if (
+        fixture.cases[:12] != legacy.cases
+        or fixture.controls[:8] != legacy.controls
+        or fixture.control_question != legacy.control_question
+        or fixture.control_evidence != legacy.control_evidence
+        or fixture.offline_controls != legacy.offline_controls
+        or fixture.thresholds != legacy.thresholds
+    ):
+        raise EvaluationFailure("invalid_baseline_fixture")
+    return fixture
+
+
+def load_suite(suite: SuiteVersion) -> SuiteFixture:
+    return load_fixture() if suite == "v1" else load_fixture_v2()
+
+
+def suite_digest(suite: SuiteVersion) -> str:
+    load_suite(suite)
+    return hashlib.sha256((FIXTURE if suite == "v1" else FIXTURE_V2).read_bytes()).hexdigest()
 
 
 class ItemBinding(StrictModel):
@@ -246,7 +371,7 @@ class Oracles(StrictModel):
     schema_version: StrictInt = Field(ge=1, le=1)
     fixture_sha256: Digest
     bindings_sha256: Digest
-    cases: Annotated[tuple[CaseOracle, ...], Field(min_length=12, max_length=12)]
+    cases: Annotated[tuple[CaseOracle, ...], Field(min_length=12, max_length=14)]
 
 
 class FrozenBaseline(StrictModel):
@@ -255,12 +380,18 @@ class FrozenBaseline(StrictModel):
     bindings: PrivateBindings
     oracles: Oracles
     snapshot_version: StrictInt = Field(default=1, ge=1, exclude_if=lambda value: value == 1)
+    suite_version: SuiteVersion = Field(default="v1", exclude_if=lambda value: value == "v1")
+
+    def fixture(self) -> SuiteFixture:
+        return load_suite(self.suite_version)
 
     @model_validator(mode="after")
     def frozen_integrity(self) -> Self:
+        if self.provenance.suite_version != self.suite_version:
+            raise ValueError("baseline_frozen_digest_mismatch")
         self.provenance.verify_current(self.bindings.accepted_runtime)
-        fixture = load_fixture()
-        digest = fixture_digest()
+        fixture = self.fixture()
+        digest = suite_digest(self.suite_version)
         bindings_hash = document_digest(self.bindings.model_dump(mode="json", by_alias=True))
         oracle_hash = document_digest(self.oracles.model_dump(mode="json"))
         if (
@@ -276,7 +407,7 @@ class FrozenBaseline(StrictModel):
             or self.provenance.bindings_sha256 != bindings_hash
             or self.oracles.bindings_sha256 != bindings_hash
             or self.provenance.oracle_sha256 != oracle_hash
-            or tuple(case.case_id for case in self.oracles.cases) != CASE_IDS
+            or tuple(case.case_id for case in self.oracles.cases) != case_ids(self.suite_version)
         ):
             raise ValueError("baseline_frozen_digest_mismatch")
         items = {item.alias: item for item in self.bindings.items}
@@ -297,7 +428,7 @@ class FrozenBaseline(StrictModel):
                 or oracle.minimum_claims
                 != (
                     2
-                    if case.case_id == "b02"
+                    if case.case_id in ("b02", "b14")
                     else int(case.expected_outcome not in ("no_match", "denied"))
                 )
                 or (oracle.expected_http_status != 200) != (case.expected_outcome == "denied")
@@ -306,7 +437,7 @@ class FrozenBaseline(StrictModel):
         return self
 
     def request_document(self, case_id: CaseId) -> dict[str, JsonValue]:
-        case = next(case for case in load_fixture().cases if case.case_id == case_id)
+        case = next(case for case in self.fixture().cases if case.case_id == case_id)
         items = {item.alias: str(item.item_id) for item in self.bindings.items}
         filters: dict[str, JsonValue] = {
             "source": None,
@@ -340,7 +471,7 @@ class FrozenBaseline(StrictModel):
         }
 
     def evidence_digest(self, case_id: CaseId) -> str:
-        case = next(case for case in load_fixture().cases if case.case_id == case_id)
+        case = next(case for case in self.fixture().cases if case.case_id == case_id)
         selected = next(
             (value for value in self.bindings.filters if value.alias == case.filter_alias), None
         )
@@ -376,12 +507,16 @@ class CaseReceipt(StrictModel):
     elapsed_ms: StrictInt = Field(ge=0, le=120000)
     user_preserved: StrictBool
     no_model_work_verified: StrictBool
+    observed_evidence_sha256: Digest | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
     @model_validator(mode="after")
     def receipt_matches_outcome(self) -> Self:
         denied = self.outcome == "denied"
         if (
-            denied != (self.http_status != 200)
+            (self.case_id in WEB_CASES) != (self.observed_evidence_sha256 is not None)
+            or denied != (self.http_status != 200)
             or denied != (self.answer_sha256 is None)
             or self.usage_observed_calls != self.generation_calls
             or (not self.generation_calls and (self.input_tokens or self.output_tokens))
@@ -403,7 +538,7 @@ class MetricScore(StrictModel):
 
     @model_validator(mode="after")
     def declared_applicability(self) -> Self:
-        if self.metric_id != "contract_adherence" and self.case_id not in SEMANTIC_CASES:
+        if self.metric_id != "contract_adherence" and self.case_id not in SEMANTIC_CASES_V2:
             raise ValueError("baseline_metric_not_applicable")
         return self
 
@@ -412,18 +547,23 @@ class BaselineResult(StrictModel):
     protocol: Literal["baseline-v1"]
     provenance: BaselineProvenance
     frozen_sha256: Digest
-    cases: Annotated[tuple[CaseReceipt, ...], Field(min_length=12, max_length=12)]
-    scores: Annotated[tuple[MetricScore, ...], Field(min_length=28, max_length=28)]
+    cases: Annotated[tuple[CaseReceipt, ...], Field(min_length=12, max_length=14)]
+    scores: Annotated[tuple[MetricScore, ...], Field(min_length=28, max_length=34)]
+    suite_version: SuiteVersion = Field(default="v1", exclude_if=lambda value: value == "v1")
 
     @model_validator(mode="after")
     def complete_denominators(self) -> Self:
+        cases = case_ids(self.suite_version)
+        semantic = semantic_cases(self.suite_version)
         expected = {
             (case, metric)
             for metric in METRICS
-            for case in (CASE_IDS if metric == "contract_adherence" else SEMANTIC_CASES)
+            for case in (cases if metric == "contract_adherence" else semantic)
         }
         if (
-            tuple(case.case_id for case in self.cases) != CASE_IDS
+            self.provenance.suite_version != self.suite_version
+            or tuple(case.case_id for case in self.cases) != cases
+            or len(self.scores) != len(expected)
             or {(row.case_id, row.metric_id) for row in self.scores} != expected
         ):
             raise ValueError("baseline_result_case_set_mismatch")
@@ -432,6 +572,7 @@ class BaselineResult(StrictModel):
     def verify_frozen(self, frozen: FrozenBaseline) -> None:
         if (
             self.provenance != frozen.provenance
+            or self.suite_version != frozen.suite_version
             or self.frozen_sha256 != document_digest(frozen.model_dump(mode="json", by_alias=True))
             or any(
                 case.request_sha256 != document_digest(frozen.request_document(case.case_id))
@@ -459,17 +600,28 @@ class ScoringProgress(StrictModel):
     state: Literal["new", "calibrating", "calibrated", "scoring", "failed", "completed"]
     pending_control: ControlId | None
     pending_case: CaseId | None
-    controls: Annotated[tuple[ControlMeasurement, ...], Field(max_length=8)]
-    scores: Annotated[tuple[MetricScore, ...], Field(max_length=28)]
+    controls: Annotated[tuple[ControlMeasurement, ...], Field(max_length=10)]
+    scores: Annotated[tuple[MetricScore, ...], Field(max_length=34)]
+    suite_version: SuiteVersion = Field(default="v1", exclude_if=lambda value: value == "v1")
 
     @model_validator(mode="after")
     def immutable_progress_sets(self) -> Self:
+        controls = control_ids(self.suite_version)
         if (
-            tuple(value.control_id for value in self.controls) != CONTROL_IDS[: len(self.controls)]
+            tuple(value.control_id for value in self.controls) != controls[: len(self.controls)]
             or len({(value.case_id, value.metric_id) for value in self.scores}) != len(self.scores)
+            or (self.pending_control is not None and self.pending_control not in controls)
+            or (
+                self.pending_case is not None
+                and self.pending_case not in case_ids(self.suite_version)
+            )
+            or any(value.case_id not in case_ids(self.suite_version) for value in self.scores)
             or (
                 self.state in ("calibrated", "scoring", "completed")
-                and (len(self.controls) != 8 or not all(value.passed for value in self.controls))
+                and (
+                    len(self.controls) != len(controls)
+                    or not all(value.passed for value in self.controls)
+                )
             )
         ):
             raise ValueError("invalid_baseline_scoring_progress")
