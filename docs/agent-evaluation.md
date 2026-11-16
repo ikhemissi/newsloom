@@ -15,7 +15,12 @@ froze readiness, then three approved attempts halted before any judge call. Two
 causes were fixed: the judge check still required the deployment's original 10
 capacity units (it is 100 since 2026-11-08; Terraform owns it and readiness
 previews prove it), and concurrent halts wrote `budget.json` at the same time,
-which masked that error as `baseline_checkpoint_failed`. The suite predates research conversations
+which masked that error as `baseline_checkpoint_failed`. The next attempt
+calibrated (10 of 10 controls) but nobody completed the capture sign-in within
+180 s. The one after that halted on the first case: stored-news detail had
+gained `article_kind` and `announcements` (2026-11-08), which the evaluator's
+evidence snapshot rejected. It now accepts both with strict types, and the judge sees
+the same item JSON as the agent. The suite predates research conversations
 and web research: web-backed answers end with a different evidence line and
 `[Wn]` citations that its deterministic checks do not accept, so running it
 unchanged would fail those cases on format rather than quality.
