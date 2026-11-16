@@ -125,7 +125,10 @@ previous question about X (search) while "which of these" means re-reading the
 items cited earlier. In discovery mode those cited IDs are allowed
 `get_news_item` targets within the same 10-item and 8-call budgets, both in the
 planner and in the delegated MCP adapter (fixed 2026-11-16: the adapter used to
-reject them as `research_unknown_item`); in selected mode the selection still binds. Claims cite only detail read in this request.
+reject them as `research_unknown_item`); in selected mode the selection still binds.
+The final-answer schema lists only the items read in this request as citable
+(2026-11-16), so an answer cannot cite an earlier turn's item it did not re-read
+(previously a `research_citation_unknown` failure). Claims cite only detail read in this request.
 
 The answer contract adds `follow_ups` (0–3 questions of at most 120 characters,
 checked like claims for URLs and control characters). When the caller's

@@ -428,6 +428,7 @@ class ResearchAnswer(ResearchContract):
 class SynthesisScope(ResearchContract):
     coverage: Literal["complete", "partial", "none", "discovery"]
     web_ids: tuple[WebId, ...] = Field(default=(), repr=False)
+    evidence_ids: EvidenceIds = Field(default=(), repr=False)
     missing_item_ids: Annotated[tuple[UUID, ...], Field(max_length=MAX_SELECTED_ITEMS)] = Field(
         repr=False
     )
@@ -444,6 +445,10 @@ class SynthesisScope(ResearchContract):
             raise AgentFailure("research_coverage_invalid")
         if any(not set(claim.web_ids) <= set(self.web_ids) for claim in answer.claims):
             raise AgentFailure("research_web_citation_unknown")
+        if self.evidence_ids and any(
+            not set(claim.evidence_ids) <= set(self.evidence_ids) for claim in answer.claims
+        ):
+            raise AgentFailure("research_citation_unknown")
 
 
 class ResearchReceipt(ResearchContract):

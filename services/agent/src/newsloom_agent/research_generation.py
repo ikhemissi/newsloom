@@ -194,6 +194,13 @@ def strict_schema(value: object) -> object:
 def synthesis_schema(scope: SynthesisScope) -> object:
     schema = ResearchAnswer.model_json_schema(by_alias=True)
     claim = schema["$defs"]["ResearchClaim"]["properties"]
+    if scope.evidence_ids:
+        # Only items read in this request are citable, not items cited in earlier turns.
+        claim["evidence_ids"]["items"] = {
+            "type": "string",
+            "format": "uuid",
+            "enum": [str(item_id) for item_id in scope.evidence_ids],
+        }
     if scope.web_ids:
         claim["web_ids"]["items"] = {"type": "string", "enum": list(scope.web_ids)}
         # Each claim cites stored news, the web, or both: never neither.
