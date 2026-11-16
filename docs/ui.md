@@ -491,7 +491,7 @@ read-only overnight." The line disappears with the first live response. See the
 
 ## Research conversations
 
-Owned by [`research-conversations`](../openspec/changes/research-conversations/proposal.md).
+Owned by [`research-conversations`](../openspec/changes/archive/2026-11-16-research-conversations/proposal.md).
 The agent panel shows the conversation as a thread (question, answer, sources)
 with the composer below it; the newest answer scrolls into view, up to three
 suggested follow-ups appear as buttons under it, and "New conversation" starts
@@ -506,7 +506,7 @@ stays inside it, Escape closes it and focus returns to the control that opened i
 
 ## Web sources in research answers
 
-Owned by [`web-research`](../openspec/changes/web-research/proposal.md). Answers
+Owned by [`web-research`](../openspec/changes/archive/2026-11-16-web-research/proposal.md). Answers
 that used the web show their web-only claims under "From the web:" and a separate
 **Web sources** list after **Sources**; `[Wn]` markers focus the matching web
 source, like `[n]` for stored news. Web and stored citations are each numbered

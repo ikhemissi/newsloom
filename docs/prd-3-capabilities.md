@@ -38,7 +38,7 @@ See [the ADRs](adrs.md) for shared architectural decisions.
   The existing backend does not stream unvalidated draft tokens.
 - A conversation sends up to its last 3 turns as request history (12 KiB); the
   agent keeps no memory and the thread lives only in the browser tab
-  ([research-conversations](../openspec/changes/research-conversations/proposal.md)).
+  ([research-conversations](../openspec/changes/archive/2026-11-16-research-conversations/proposal.md)).
 - No-match and refusal responses remain visible as agent responses rather than
   being replaced by invented successful answers.
 - Streaming is verified manually and through Azure browser end-to-end tests.

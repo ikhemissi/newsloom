@@ -13,10 +13,24 @@ not export user tokens or browser state to automation.
 | --- | --- | --- | --- |
 | `ui-news-filters` | 4.4 Relevant results for combined source/category/date and search filters | Run on 2026-11-07, see below: a search for "agentcore" returned unrelated items | Component, browser and anonymous Azure checks; signed-in filtering ran |
 | `nightly-operations` | Schedules follow Paris winter time only | Container Apps cron is UTC; in summer every time is one hour later in Paris | — |
-| `web-research` (active) | Web IQ client-ID binding is a manual portal step | No ARM API for bindings; review from the week after Ignite | Binding verified by a managed-identity request |
-| `nightly-operations` | A scheduled wake ending succeeded after #37 | Fix deployed 2026-11-15 after that morning's run | Manual wake succeeded; PostgreSQL started every morning |
+| `web-research` | Web IQ client-ID binding is a manual portal step | No ARM API for bindings; review from the week after Ignite | Binding verified by a managed-identity request |
 | `read-only-overnight` | A reader using the site during the scheduled night stop | No overnight requests 2026-11-10 to 11-15 | User check with the database stopped by the operator (daytime); snapshot runs |
+| `research-conversations` | A third signed-in turn re-reading earlier items ("which of these…") | The user ran two turns on 2026-11-16 | Local three-turn preview after #45 passed; two signed-in turns answered |
 | `cached-news-api` | 4.3 Search cache hit on a repeated identical query; TTL | Signed-in run produced briefing hits but no search hit | Authorized HTTP routes and delegated MCP search succeeded on 2026-11-07 |
+
+## Signed-in run, 2026-11-16
+
+The user checked research conversations and web research in their regular
+browser after #44 and #45. Verified: a Vertex AI question and the follow-up "and
+what about AWS?" answered with citations; an open question about Foundry in
+October 2026 answered from the web with `[Wn]` web sources.
+
+Findings, tracked as product work:
+
+- The AWS follow-up answered with AWS news in general instead of AWS's AI
+  platform, although the agent is told to keep the earlier topic.
+- The planner sometimes adds a category filter to a product question (for
+  example "infrastructure" for Vertex AI), which can hide relevant items.
 
 ## Signed-in run, 2026-11-07
 

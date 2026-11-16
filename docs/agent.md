@@ -7,8 +7,7 @@ The A2A research agent `agent-newsloom-<env>` is deployed:
 - **Research** over stored news, cited `[n]`, through the MCP tools on behalf of
   the signed-in reader ([request contracts](#research-request-contracts)).
 - **Conversations:** the last three turns as context and up to three suggested
-  follow-ups ([conversation history](#conversation-history-and-follow-ups)); the
-  user's three-turn check is open.
+  follow-ups ([conversation history](#conversation-history-and-follow-ups)); the signed-in check passed on 2026-11-16.
 - **Web research** through Web IQ with the agent's managed identity, discovery
   questions only, cited `[Wn]` in a separate section
   ([Web IQ access](#web-iq-account-and-managed-identity-access),
@@ -114,7 +113,7 @@ persistent-memory or phase-wide evaluation capability is implied.
 
 ### Conversation history and follow-ups
 
-Owned by [`research-conversations`](../openspec/changes/research-conversations/proposal.md).
+Owned by [`research-conversations`](../openspec/changes/archive/2026-11-16-research-conversations/proposal.md).
 A request may add `history`: up to 3 earlier turns of the same conversation,
 each `{question, answer, cited_item_ids}`, at most 12 KiB of question and answer
 text in total. The client keeps the conversation; the agent stores nothing.
@@ -151,7 +150,7 @@ keyword search standing in for vector search; `--replay` rebuilds the review).
 
 ### Web IQ account and managed-identity access
 
-Owned by [`web-research`](../openspec/changes/web-research/proposal.md). The
+Owned by [`web-research`](../openspec/changes/archive/2026-11-16-web-research/proposal.md). The
 `web-research` layer (off unless `WEB_RESEARCH_ENABLED=true`) creates the Web IQ
 account `webiq-newsloom-<env>` (`Microsoft.WebIQ/accounts`, kind
 `WebIQ.Grounding`, SKU G3). No key is created: the agent requests an Entra token

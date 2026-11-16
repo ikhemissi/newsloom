@@ -123,7 +123,7 @@ from a client deployment name or local fixture.
 
 ## Web IQ with the agent's managed identity (no key)
 
-Decided 2026-11-10 for [web research](../openspec/changes/web-research/proposal.md).
+Decided 2026-11-10 for [web research](../openspec/changes/archive/2026-11-16-web-research/proposal.md).
 An exception allowing a Web IQ API key in a Foundry project connection was
 approved and then superseded the same day: Web IQ accepts Microsoft Entra
 app-only tokens for client IDs bound in Web IQ profiles, and a request from the
