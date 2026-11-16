@@ -24,19 +24,7 @@ questions with cited sources from stored news and the web.
 It runs in one Azure resource group, signs everyone in with Microsoft Entra ID, uses
 managed identities everywhere and holds no secrets.
 
-```mermaid
-flowchart LR
-  FEEDS["AI news feeds"] --> PIPE["Screen, summarise,<br/>link to products"]
-  PIPE --> DB[("News<br/>PostgreSQL + pgvector")]
-  DB --> MCP["MCP server<br/>and news API"]
-  MCP --> WEB["Web app<br/>radar · news · briefing"]
-  MCP --> COPILOT["GitHub Copilot<br/>and MCP clients"]
-  MCP --> AGENT["Research agent<br/>(A2A)"]
-  WEB --> AGENT
-  AGENT --> WEBIQ["Web search<br/>(Web IQ)"]
-  FOUNDRY["Microsoft Foundry models"] -.-> PIPE
-  FOUNDRY -.-> AGENT
-```
+![Newsloom: a pipeline of jobs reads 41 AI news feeds, screens each entry for prompt injection, summarises it, links it to products and writes it to PostgreSQL with pgvector; the web app, GitHub Copilot and a research agent call the MCP server as the signed-in user, which queries the news store; the web app calls the agent over A2A 1.0, which searches the web with Web IQ; the pipeline, the MCP server and the agent call Microsoft Foundry models](docs/overview.svg)
 
 ## Why it matters
 
