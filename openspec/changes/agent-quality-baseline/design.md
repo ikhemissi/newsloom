@@ -275,6 +275,33 @@ boundaries without promising a fresh full-database/admin verification or
 unchanged inherited access. Policy-managed scanning resources remain outside
 direct application ownership; no Defender work is introduced.
 
+### 7. Version 2: web-backed research
+
+After the v1 freeze the agent gained conversations and web research; v1 checks
+expect only stored-news citations and its footer. With `web-research-scope`
+deployed, selected and constrained requests never use the web, so b01-b12 keep
+their v1 oracles. Suite v2 adds:
+
+| Case | Coverage |
+| --- | --- |
+| b13 | Open, unconstrained question about recent changes to a named platform; expected supported with at least one web claim |
+| b14 | Open question comparing a stored announcement with its current status; expected stored and web claims |
+
+Web evidence is not frozen before generation (the web changes and the agent
+chooses its queries). For b13-b14 the capture worker reads the `web_results`
+of the JSON conversation artifact and re-reads the cited stored items under the
+same user; both stay in memory, are fingerprinted and feed the judge. Faithfulness
+covers all claims of b13-b14; citation validity accepts the web footer, `[Wn]`
+markers and `[Wn] url` lines only when they match `web_results`. For b01-b12 any
+web citation is a contract failure. Two authored web controls (a claim supported
+by an authored web snippet, and one contradicting it) join calibration with the
+same 0.8/0.2 gates. b13-b14 measure grounding in retrieved results, not retrieval
+stability; their questions are frozen, their evidence is not.
+
+The approval profile adds two live requests (14) and inherits every other v6
+bound; report eligibility masks cover 14 cases. v1 fixtures, approvals and
+journals remain historical and are not reused.
+
 ## Risks / Trade-offs
 
 - Small suite and same-family judge bias -> label the limits, use authored

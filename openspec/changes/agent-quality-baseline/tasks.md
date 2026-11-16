@@ -442,6 +442,16 @@ lost answers or the unknown b05 request.
 - [ ] 7.2 After implementation CI passes, publish a separate measured baseline/version/status receipt, including fixed pass/eligibility denominators, actual chat usage, retained embedding/unknown reservations, report references kept private and evidence limitations. Wait for its exact-SHA CI before completing baseline delivery.
 - [ ] 7.3 Publish an evidence-backed completion ledger and verify final exact-head CI before closing this slice. Keep all unverified work unchecked, do not synchronize/archive automatically, and retain the PRD-2 pause boundary before any PRD-3 work.
 
+## 8. Version 2
+
+Tasks 6.2-7.3 apply to the version 2 run.
+
+- [ ] 8.1 Suite version 2: fixture with b13-b14 and two web judge controls, schema and digest, while v1 fixtures, approvals and journals stay unchanged; tests.
+- [ ] 8.2 Web-aware capture and checks: read `web_results` from the conversation artifact, re-read cited stored items, accept the web footer and `[Wn]` lines only when they match, and fail any web citation in b01-b12; tests including privacy canaries.
+- [ ] 8.3 Judge evidence for web claims and the two web calibration controls; eligibility masks and reports for 14 cases; tests.
+- [ ] 8.4 Local gate: evaluator checks, primary checks and builds.
+- [ ] 8.5 Snapshot 4: prerequisite `web-research-scope` deployed; readiness, frozen evidence and the v2 approval profile for the user's explicit approval.
+
 ## Workflow follow-up
 
 - Review and archive only after this baseline's measured delivery passes.
