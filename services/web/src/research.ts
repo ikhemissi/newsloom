@@ -19,6 +19,9 @@ const progressSchema = z.object({
 const conversationSchema = z.object({
   follow_ups: z.array(z.string().min(1).max(120)).max(3),
   cited_item_ids: z.array(z.uuid()).max(10),
+  web_results: z.array(z.object({
+    number: z.number().int().min(1).max(10), title: z.string().max(200), url: z.url(), snippet: z.string().max(1000),
+  }).strict()).max(10).optional(),
 }).strict();
 
 type ActiveRequest = {

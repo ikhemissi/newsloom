@@ -241,6 +241,9 @@ async def test_web_claims_are_rendered_separately_with_web_citations() -> None:
     assert "web search results; full articles were not accessed." in result.text
     assert lines[-2:] == [f"[1] {item.url}", "[W1] https://web.test/1"]
     assert web.queries == ["product limits"]
+    assert [(r.title, r.url, r.snippet) for r in result.web] == [
+        ("Result 1", "https://web.test/1", "Snippet 1")
+    ]
     context = json.loads(model.contexts[1])
     assert [r["id"] for r in context["web_results"]] == ["W1", "W2"]
     assert context["web_searches_remaining"] == 1
@@ -304,6 +307,26 @@ def test_web_is_offered_only_in_discovery_mode_within_budget() -> None:
     assert "search_web" not in disabled.planning_scope().tools
     with pytest.raises(AgentFailure, match="research_web_not_offered"):
         disabled.authorize(WEB)
+
+
+@pytest.mark.parametrize(
+    "filters",
+    [
+        {"source": "aws-news"},
+        {"category": "models"},
+        {"tags": ["agents"]},
+        {"from": "2026-10-01T00:00:00Z"},
+        {"to": "2026-11-01T00:00:00Z"},
+    ],
+)
+def test_constrained_discovery_is_never_offered_the_web(filters: dict[str, object]) -> None:
+    request = ResearchRequest.model_validate(
+        {"operation": "research", "question": "Q", "filters": filters}
+    )
+    state = EvidenceState(request, web_enabled=True)
+    assert "search_web" not in state.planning_scope().tools
+    with pytest.raises(AgentFailure, match="research_web_not_offered"):
+        state.authorize(WEB)
 
 
 def test_web_results_share_the_evidence_budget_and_unknown_web_ids_fail() -> None:

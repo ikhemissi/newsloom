@@ -229,6 +229,18 @@ test("conversation history is sent and the conversation artifact returns follow-
   expect(answer?.kind === "answer" && answer.text).toBe(text);
 });
 
+test("a conversation artifact listing the web results it used is accepted", async () => {
+  const withWeb = { ...conversationArtifact, parts: [{ data: { follow_ups: [], cited_item_ids: [], web_results: [
+    { number: 1, title: "Result", url: "https://web.test/1", snippet: "Snippet" }] }, mediaType: "application/json" }] };
+  const events = fixtureEvents();
+  events.splice(3, 0, { artifactUpdate: { ...ids, artifact: withWeb, lastChunk: true } } as never);
+  events[events.length - 1] = { task: { ...finalTask, artifacts: [artifact, withWeb] } } as never;
+  const adapter = new A2aResearch(config, auth, transport(events));
+  const results = [];
+  for await (const event of adapter.ask("Fixture question", new AbortController().signal)) results.push(event);
+  expect(results.at(-1)).toMatchObject({ kind: "answer", conversation: { followUps: [], citedItemIds: [] } });
+});
+
 test("requests without history omit it, and answers without the artifact have no follow-ups", async () => {
   const base = transport();
   const fetchImpl: typeof fetch = async (input, options) => {
