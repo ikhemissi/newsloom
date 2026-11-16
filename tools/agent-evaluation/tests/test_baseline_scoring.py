@@ -59,6 +59,37 @@ def frozen_with_snapshot() -> FrozenBaseline:
     return parse_document(FrozenBaseline, json.dumps(data).encode())
 
 
+ANNOUNCEMENT: dict[str, JsonValue] = {
+    "statement": "Authored change.",
+    "change_type": "launch",
+    "status": "ga",
+    "effective_date": "2030-01-02",
+    "deadline": None,
+    "products": ["cedar"],
+}
+
+
+@pytest.mark.parametrize(
+    "extra,valid",
+    [
+        ({"article_kind": "release", "announcements": [ANNOUNCEMENT]}, True),
+        ({"article_kind": None, "announcements": []}, True),
+        ({"article_kind": 1}, False),
+        ({"announcements": [ANNOUNCEMENT | {"private": "x"}]}, False),
+        ({"announcements": [ANNOUNCEMENT | {"products": "cedar"}]}, False),
+        ({"unknown": "x"}, False),
+    ],
+)
+def test_snapshot_accepts_announcement_detail_fields(
+    extra: dict[str, JsonValue], valid: bool
+) -> None:
+    if valid:
+        EvidenceSnapshot(alias="n1", item=SNAPSHOT | extra)
+    else:
+        with pytest.raises(ValueError, match="invalid_baseline_evidence_field"):
+            EvidenceSnapshot(alias="n1", item=SNAPSHOT | extra)
+
+
 @pytest.mark.parametrize(
     "failure", [None, "reason", "calibration", "usage", "schema", "provider", "cancel"]
 )

@@ -41,6 +41,30 @@ SNAPSHOT_FIELDS = {
     "date_origin",
     "publisher_categories",
 }
+# Added to stored-news detail by the announcement graph; the agent and judge both see them.
+OPTIONAL_SNAPSHOT_FIELDS = {"article_kind", "announcements"}
+ANNOUNCEMENT_FIELDS = {
+    "statement",
+    "change_type",
+    "status",
+    "effective_date",
+    "deadline",
+    "products",
+}
+
+
+def valid_announcement(value: JsonValue) -> bool:
+    return (
+        isinstance(value, dict)
+        and set(value) == ANNOUNCEMENT_FIELDS
+        and all(isinstance(value[key], str) for key in ("statement", "change_type", "status"))
+        and all(
+            value[key] is None or isinstance(value[key], str)
+            for key in ("effective_date", "deadline")
+        )
+        and isinstance(products := value["products"], list)
+        and all(isinstance(product, str) for product in products)
+    )
 
 
 class EvidenceSnapshot(StrictModel):
@@ -49,8 +73,16 @@ class EvidenceSnapshot(StrictModel):
 
     @model_validator(mode="after")
     def public_snapshot(self) -> Self:
-        if set(self.item) != SNAPSHOT_FIELDS:
+        if not SNAPSHOT_FIELDS <= set(self.item) <= SNAPSHOT_FIELDS | OPTIONAL_SNAPSHOT_FIELDS:
             raise ValueError("invalid_baseline_evidence_fields")
+        kind = self.item.get("article_kind")
+        announcements = self.item.get("announcements", [])
+        if (
+            (kind is not None and not isinstance(kind, str))
+            or not isinstance(announcements, list)
+            or not all(valid_announcement(value) for value in announcements)
+        ):
+            raise ValueError("invalid_baseline_evidence_field")
         encoded = json.dumps(self.item, allow_nan=False).encode()
         if len(encoded) > 64 * 1024:
             raise ValueError("baseline_evidence_limit")
