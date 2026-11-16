@@ -171,7 +171,7 @@ configurations and usages only), so Terraform cannot manage it.
 
 With `WEB_RESEARCH_ENABLED=true` (and research enabled) the planner is offered
 `search_web` in discovery mode without source, category, tag or date constraints
-([`web-research-scope`](../openspec/changes/web-research-scope/proposal.md): a
+([`web-research-scope`](../openspec/changes/archive/2026-11-16-web-research-scope/proposal.md): a
 constraint means stored news within those limits), at most twice per request, while stored and web
 evidence together stay within 10 items. It should search stored news first and use
 the web when stored results are empty, only announce a change without listing it,
