@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" width="1200" height="675" viewBox="0 0 1200 675" role="img" aria-labelledby="title desc">
   <title id="title">Newsloom</title>
-  <desc id="desc">Newsloom reads 41 AI news feeds every half hour. A pipeline of Container Apps jobs screens each entry for prompt injection, summarises it and links it to the products it concerns, using Microsoft Foundry models. The news is stored in PostgreSQL with pgvector and served by an MCP server and news API, as the signed-in user, to a web app, to GitHub Copilot and other MCP clients, and to a research agent over A2A 1.0 that also searches the web with Web IQ and cites every claim. The pipeline and the agent call the models.</desc>
+  <desc id="desc">Newsloom reads 41 AI news feeds every half hour. A pipeline of Container Apps jobs reads them, screens each entry for prompt injection, summarises it, links it to the products it concerns and writes it to PostgreSQL with pgvector. The web app, GitHub Copilot and other MCP clients, and a research agent call the MCP server and news API as the signed-in user; the MCP server queries the news store. The web app also calls the research agent over A2A 1.0, which searches the web with Web IQ and cites every claim. The pipeline, the MCP server and the agent call Microsoft Foundry models.</desc>
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
       <path d="M0,0 L10,5 L0,10 z" fill="#3d4466"/>
@@ -107,15 +107,18 @@
   <text class="models" x="696" y="503" text-anchor="middle">chat · embeddings · prompt-injection screening</text>
 
   <!-- Arrows -->
-  <line x1="224" y1="325" x2="246" y2="325" stroke="#3d4466" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="246" y1="325" x2="226" y2="325" stroke="#3d4466" stroke-width="2" marker-end="url(#arrow)"/>
   <line x1="458" y1="325" x2="492" y2="325" stroke="#3d4466" stroke-width="2" marker-end="url(#arrow)"/>
-  <line x1="684" y1="325" x2="712" y2="325" stroke="#3d4466" stroke-width="2" marker-end="url(#arrow)"/>
-  <line x1="894" y1="280" x2="936" y2="186" stroke="#3d4466" stroke-width="2" marker-end="url(#arrow)"/>
-  <line x1="894" y1="300" x2="936" y2="280" stroke="#3d4466" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="712" y1="325" x2="686" y2="325" stroke="#3d4466" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="936" y1="190" x2="896" y2="276" stroke="#3d4466" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="936" y1="280" x2="896" y2="300" stroke="#3d4466" stroke-width="2" marker-end="url(#arrow)"/>
   <line x1="936" y1="380" x2="896" y2="370" stroke="#3d4466" stroke-width="2" marker-end="url(#arrow)"/>
   <line x1="440" y1="468" x2="496" y2="482" stroke="#138a7a" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#arrow-teal)"/>
   <line x1="950" y1="436" x2="896" y2="470" stroke="#138a7a" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#arrow-teal)"/>
 
+  <line x1="804" y1="402" x2="804" y2="450" stroke="#138a7a" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#arrow-teal)"/>
+  <path d="M1152,176 H1172 V386 H1154" fill="none" stroke="#3d4466" stroke-width="2" marker-end="url(#arrow)"/>
+  <text class="edge" x="1184" y="281" text-anchor="middle" transform="rotate(90 1184 281)">A2A</text>
   <line x1="1045" y1="436" x2="1045" y2="464" stroke="#3d4466" stroke-width="2" marker-end="url(#arrow)"/>
 
   <!-- Standards -->
