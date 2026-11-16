@@ -1,0 +1,132 @@
+<svg xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" width="1200" height="675" viewBox="0 0 1200 675" role="img" aria-labelledby="title desc">
+  <title id="title">Newsloom</title>
+  <desc id="desc">Newsloom reads 41 AI news feeds every half hour. A pipeline of Container Apps jobs screens each entry for prompt injection, summarises it and links it to the products it concerns, using Microsoft Foundry models. The news is stored in PostgreSQL with pgvector and served by an MCP server and news API, as the signed-in user, to a web app, to GitHub Copilot and other MCP clients, and to a research agent over A2A 1.0 that also searches the web and cites every claim.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#3d4466"/>
+    </marker>
+    <marker id="arrow-teal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#138a7a"/>
+    </marker>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#1b1f3b" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+  <style>
+    text { fill: #1b1f3b; }
+    .title { font-size: 34px; font-weight: 700; }
+    .subtitle { font-size: 18px; fill: #4a5072; }
+    .name { font-size: 18px; font-weight: 700; }
+    .kind { font-size: 14px; fill: #4a5072; }
+    .note { font-size: 13px; fill: #5b4fd6; font-weight: 600; }
+    .edge { font-size: 13px; fill: #3d4466; font-weight: 600; }
+    .pill { font-size: 15px; font-weight: 700; fill: #8a4b00; }
+    .chip { font-size: 14px; font-weight: 600; fill: #1b1f3b; }
+    .footer { font-size: 14px; fill: #4a5072; }
+    .models { font-size: 13px; fill: #138a7a; font-weight: 600; }
+  </style>
+
+  <rect width="1200" height="675" fill="#f7f8fc"/>
+
+  <text class="title" x="48" y="66">Newsloom</text>
+  <text class="subtitle" x="48" y="98">AI news that tells architects what to act on, for people, for Copilot and for a research agent, as the signed-in user.</text>
+
+  <!-- Feeds -->
+  <g filter="url(#shadow)">
+    <rect x="48" y="270" width="176" height="110" rx="12" fill="#ffffff" stroke="#3d4466" stroke-width="1.5"/>
+  </g>
+  <text class="name" x="136" y="305" text-anchor="middle">AI news feeds</text>
+  <text class="kind" x="136" y="327" text-anchor="middle">41 RSS · Atom feeds</text>
+  <text class="note" x="136" y="355" text-anchor="middle">every 30 minutes</text>
+
+  <!-- Pipeline -->
+  <g filter="url(#shadow)">
+    <rect x="248" y="182" width="210" height="286" rx="14" fill="#fff6ea" stroke="#e08a1e" stroke-width="2"/>
+  </g>
+  <text class="name" x="353" y="214" text-anchor="middle">Pipeline</text>
+  <text class="kind" x="353" y="235" text-anchor="middle">Container Apps jobs</text>
+  <rect x="266" y="252" width="174" height="42" rx="21" fill="#ffffff" stroke="#e08a1e" stroke-width="1.5"/>
+  <text class="pill" x="353" y="278" text-anchor="middle">Screen injections</text>
+  <rect x="266" y="306" width="174" height="42" rx="21" fill="#ffffff" stroke="#e08a1e" stroke-width="1.5"/>
+  <text class="pill" x="353" y="332" text-anchor="middle">Summarise</text>
+  <rect x="266" y="360" width="174" height="42" rx="21" fill="#ffffff" stroke="#e08a1e" stroke-width="1.5"/>
+  <text class="pill" x="353" y="386" text-anchor="middle">Link to products</text>
+  <text class="kind" x="353" y="440" text-anchor="middle">daily briefing</text>
+
+  <!-- News store -->
+  <g filter="url(#shadow)">
+    <rect x="494" y="270" width="190" height="110" rx="12" fill="#ffffff" stroke="#3d4466" stroke-width="1.5"/>
+  </g>
+  <text class="name" x="589" y="305" text-anchor="middle">News store</text>
+  <text class="kind" x="589" y="327" text-anchor="middle">PostgreSQL + pgvector</text>
+  <text class="note" x="589" y="355" text-anchor="middle">search by meaning</text>
+
+  <!-- MCP server -->
+  <g filter="url(#shadow)">
+    <rect x="714" y="250" width="180" height="150" rx="12" fill="#efedff" stroke="#5b4fd6" stroke-width="2"/>
+  </g>
+  <text class="name" x="804" y="287" text-anchor="middle">MCP server</text>
+  <text class="kind" x="804" y="308" text-anchor="middle">and news API</text>
+  <text class="note" x="804" y="342" text-anchor="middle">read-only tools</text>
+  <text class="note" x="804" y="364" text-anchor="middle">as the signed-in user</text>
+
+  <!-- Web app -->
+  <g filter="url(#shadow)">
+    <rect x="938" y="160" width="214" height="84" rx="12" fill="#ffffff" stroke="#3d4466" stroke-width="1.5"/>
+  </g>
+  <text class="name" x="1045" y="194" text-anchor="middle">Web app</text>
+  <text class="kind" x="1045" y="217" text-anchor="middle">radar · news · briefing</text>
+
+  <!-- GitHub Copilot -->
+  <g filter="url(#shadow)">
+    <rect x="938" y="283" width="214" height="84" rx="12" fill="#ffffff" stroke="#3d4466" stroke-width="1.5"/>
+  </g>
+  <text class="name" x="1045" y="317" text-anchor="middle">GitHub Copilot</text>
+  <text class="kind" x="1045" y="340" text-anchor="middle">and other MCP clients</text>
+
+  <!-- Research agent -->
+  <g filter="url(#shadow)">
+    <rect x="938" y="406" width="214" height="108" rx="12" fill="#efedff" stroke="#5b4fd6" stroke-width="2"/>
+  </g>
+  <text class="name" x="1045" y="439" text-anchor="middle">Research agent</text>
+  <text class="kind" x="1045" y="461" text-anchor="middle">A2A 1.0 · web search</text>
+  <text class="note" x="1045" y="489" text-anchor="middle">cites every claim</text>
+
+  <!-- Foundry models -->
+  <g filter="url(#shadow)">
+    <rect x="498" y="452" width="396" height="66" rx="12" fill="#e7f6f3" stroke="#138a7a" stroke-width="2"/>
+  </g>
+  <text class="name" x="696" y="481" text-anchor="middle">Microsoft Foundry models</text>
+  <text class="models" x="696" y="503" text-anchor="middle">chat · embeddings · prompt-injection screening</text>
+
+  <!-- Arrows -->
+  <line x1="224" y1="325" x2="246" y2="325" stroke="#3d4466" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="458" y1="325" x2="492" y2="325" stroke="#3d4466" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="684" y1="325" x2="712" y2="325" stroke="#3d4466" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="894" y1="285" x2="936" y2="214" stroke="#3d4466" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="894" y1="325" x2="936" y2="325" stroke="#3d4466" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="936" y1="440" x2="896" y2="380" stroke="#3d4466" stroke-width="2" marker-end="url(#arrow)"/>
+  <text class="edge" x="906" y="420" text-anchor="end">as you</text>
+  <line x1="498" y1="485" x2="460" y2="455" stroke="#138a7a" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#arrow-teal)"/>
+  <line x1="894" y1="485" x2="936" y2="470" stroke="#138a7a" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#arrow-teal)"/>
+
+  <!-- Standards -->
+  <text class="footer" x="48" y="574" font-weight="700" fill="#1b1f3b">Open protocols and widely adopted APIs</text>
+  <g>
+    <rect x="48" y="586" width="110" height="34" rx="17" fill="#ffffff" stroke="#c9cde3"/>
+    <text class="chip" x="103" y="608" text-anchor="middle">RSS · Atom</text>
+    <rect x="168" y="586" width="74" height="34" rx="17" fill="#ffffff" stroke="#c9cde3"/>
+    <text class="chip" x="205" y="608" text-anchor="middle">MCP</text>
+    <rect x="252" y="586" width="92" height="34" rx="17" fill="#ffffff" stroke="#c9cde3"/>
+    <text class="chip" x="298" y="608" text-anchor="middle">A2A 1.0</text>
+    <rect x="354" y="586" width="100" height="34" rx="17" fill="#ffffff" stroke="#c9cde3"/>
+    <text class="chip" x="404" y="608" text-anchor="middle">pgvector</text>
+    <rect x="464" y="586" width="148" height="34" rx="17" fill="#ffffff" stroke="#c9cde3"/>
+    <text class="chip" x="538" y="608" text-anchor="middle">OpenTelemetry</text>
+    <rect x="622" y="586" width="240" height="34" rx="17" fill="#ffffff" stroke="#c9cde3"/>
+    <text class="chip" x="742" y="608" text-anchor="middle">OAuth 2.0 · OpenID Connect</text>
+    <rect x="872" y="586" width="152" height="34" rx="17" fill="#ffffff" stroke="#c9cde3"/>
+    <text class="chip" x="948" y="608" text-anchor="middle">Terraform + azd</text>
+  </g>
+  <text class="footer" x="48" y="652">Entra sign-in for everyone · managed identities, no secrets · every feed entry screened before a language model reads it</text>
+</svg>
