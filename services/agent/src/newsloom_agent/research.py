@@ -55,7 +55,10 @@ class ResearchConnection(Protocol):
 
 class ResearchReader(Protocol):
     def research(
-        self, authorization: Authorization, selected_ids: tuple[UUID, ...] | None = None
+        self,
+        authorization: Authorization,
+        selected_ids: tuple[UUID, ...] | None = None,
+        cited_ids: tuple[UUID, ...] = (),
     ) -> AbstractAsyncContextManager[ResearchConnection]: ...
 
 
@@ -127,6 +130,11 @@ class EvidenceState:
             and self.web_searches < MAX_WEB_SEARCHES
             and len(self.metadata) + len(self.web) < MAX_EVIDENCE_ITEMS
         )
+
+    @property
+    def full(self) -> bool:
+        """Discovery results beyond the evidence budget are dropped, not a request failure."""
+        return len(self.metadata) + len(self.web) >= MAX_EVIDENCE_ITEMS
 
     @property
     def missing_ids(self) -> tuple[UUID, ...]:
@@ -285,12 +293,14 @@ class EvidenceState:
             for item in result.items:
                 if call.arguments.since is not None and item.published_at < call.arguments.since:
                     raise AgentFailure("research_filter_violation")
-                self.add(item, self.request.filters)
+                if not self.full or item.id in self.metadata:
+                    self.add(item, self.request.filters)
         elif isinstance(call, SearchCall) and isinstance(result, SearchResults):
             if len(result.items) > call.arguments.limit:
                 raise AgentFailure("mcp_response_item_limit")
             for item in result.items:
-                self.add(item, call.arguments)
+                if not self.full or item.id in self.metadata:
+                    self.add(item, call.arguments)
         else:
             raise AgentFailure("mcp_response_invalid")
 
@@ -459,7 +469,11 @@ class ResearchController:
         try:
             async with (
                 asyncio.timeout_at(authorization.deadline),
-                self.reader.research(authorization, request.item_ids) as connection,
+                self.reader.research(
+                    authorization,
+                    request.item_ids,
+                    () if request.item_ids is not None else state.detail_targets,
+                ) as connection,
             ):
                 delegated = connection.authorization
 

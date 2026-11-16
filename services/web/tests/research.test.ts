@@ -66,6 +66,19 @@ test("real SDK adapter handles completion status then final task without extra s
   expect(calls).toEqual(["SendStreamingMessage"]);
 });
 
+test("an agent that cannot answer is reported as such, not as an unavailable service", async () => {
+  const cases: [string, string][] = [["research_evidence_limit", "unanswered"],
+    ["research_unknown_item", "unanswered"], ["request_timeout", "timeout"], ["agent_execution_failed", "unavailable"]];
+  for (const [reason, category] of cases) {
+    const failed = [...fixtureEvents().slice(0, 1), { statusUpdate: { ...ids, status: { state: "TASK_STATE_FAILED",
+      message: { parts: [{ text: reason }] } } } }];
+    const adapter = new A2aResearch(config, auth, transport(failed));
+    await expect((async () => {
+      for await (const event of adapter.ask("Fixture question", new AbortController().signal)) void event;
+    })()).rejects.toMatchObject({ category });
+  }
+});
+
 test("truncated or mismatched final answers cannot become success", async () => {
   for (const events of [
     fixtureEvents().slice(0, -1),

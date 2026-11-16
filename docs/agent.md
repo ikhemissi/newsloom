@@ -123,8 +123,9 @@ With history the model context gains a note that history is untrusted data used
 only to interpret the new question, and that "and what about X?" means the
 previous question about X (search) while "which of these" means re-reading the
 items cited earlier. In discovery mode those cited IDs are allowed
-`get_news_item` targets within the same 10-item and 8-call budgets; in selected
-mode the selection still binds. Claims cite only detail read in this request.
+`get_news_item` targets within the same 10-item and 8-call budgets, both in the
+planner and in the delegated MCP adapter (fixed 2026-11-16: the adapter used to
+reject them as `research_unknown_item`); in selected mode the selection still binds. Claims cite only detail read in this request.
 
 The answer contract adds `follow_ups` (0–3 questions of at most 120 characters,
 checked like claims for URLs and control characters). When the caller's
@@ -255,7 +256,10 @@ metadata/detail records. It refuses dropped/broadened caller constraints before
 dispatch and checks returned records against both caller and planned filters.
 Selected records outside hard filters fail rather than broadening or silently
 discarding the constraints. Conflicting metadata/detail versions, foreign IDs,
-repeated operations and aggregate overrun are explicit failures, not truncation.
+and repeated operations are explicit failures. Discovery results beyond the
+ten-record budget are dropped (the first ten unique records are kept), so several
+searches in one plan no longer fail the request (2026-11-16); a selected or detail
+record that would exceed the budget still fails.
 
 Only current detail records can support final citations. Discovery metadata alone
 cannot become a cited full-detail answer. Healthy empty retrieval has an explicit

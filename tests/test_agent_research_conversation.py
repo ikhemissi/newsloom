@@ -120,6 +120,7 @@ async def test_a_follow_up_rereads_an_earlier_citation_and_cites_only_current_ev
     ]
     result = updates[-1]
     assert isinstance(result, ResearchResult) and earlier.url in result.text
+    assert reader.cited == [(earlier.id,)]
     assert json.loads(model.contexts[0])["request"]["history"][0]["cited_item_ids"] == [
         str(earlier.id)
     ]

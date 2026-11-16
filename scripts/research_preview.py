@@ -203,7 +203,10 @@ class LocalReader:
 
     @asynccontextmanager
     async def research(
-        self, authorization: Authorization, selected_ids: tuple[UUID, ...] | None = None
+        self,
+        authorization: Authorization,
+        selected_ids: tuple[UUID, ...] | None = None,
+        cited_ids: tuple[UUID, ...] = (),
     ) -> AsyncIterator[ResearchConnection]:
         yield LocalConnection(authorization, self.items)
 

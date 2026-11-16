@@ -269,8 +269,12 @@ class DelegatedMcp:
 
     @asynccontextmanager
     async def research(
-        self, authorization: Authorization, selected_ids: tuple[UUID, ...] | None = None
+        self,
+        authorization: Authorization,
+        selected_ids: tuple[UUID, ...] | None = None,
+        cited_ids: tuple[UUID, ...] = (),
     ) -> AsyncIterator[ResearchMcp]:
+        """Detail reads: selected items only, or in discovery earlier citations and found items."""
         if authorization.caller.tenant != self.config.tenant:
             raise AgentFailure("invalid_authorization")
         remaining(authorization)
@@ -283,7 +287,11 @@ class DelegatedMcp:
                     self._connection(token.token, delegated, ResearchMcpSession, budget) as session,
                 ):
                     connection = ResearchMcp(
-                        session, delegated, budget, selected_ids, set(selected_ids or ())
+                        session,
+                        delegated,
+                        budget,
+                        selected_ids,
+                        set(selected_ids) if selected_ids is not None else set(cited_ids),
                     )
                     try:
                         yield connection

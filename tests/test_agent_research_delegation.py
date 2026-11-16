@@ -100,6 +100,27 @@ async def test_selected_or_discovered_ids_are_the_only_admitted_detail_reads(
         )
 
 
+async def test_earlier_citations_are_readable_in_discovery_only(
+    delegated: DelegationCase, endpoint: Endpoint
+) -> None:
+    cited = endpoint[1].item.id
+    async with delegated.adapter.research(await delegated.authorization(), None, (cited,)) as found:
+        result = await found.call(
+            DetailCall(tool="get_news_item", arguments=DetailArguments(id=cited))
+        )
+        assert isinstance(result, ItemResult) and result.found
+        with pytest.raises(AgentFailure, match="research_unknown_item"):
+            await found.call(
+                DetailCall(tool="get_news_item", arguments=DetailArguments(id=uuid4()))
+            )
+    other = uuid4()
+    async with delegated.adapter.research(
+        await delegated.authorization(), (other,), (cited,)
+    ) as pinned:
+        with pytest.raises(AgentFailure, match="research_unknown_item"):
+            await pinned.call(DetailCall(tool="get_news_item", arguments=DetailArguments(id=cited)))
+
+
 async def test_explicit_not_found_is_not_a_failed_or_replaced_selection(
     delegated: DelegationCase,
 ) -> None:
