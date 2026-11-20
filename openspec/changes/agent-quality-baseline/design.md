@@ -146,7 +146,7 @@ The following is a proposed execution envelope, not approval:
 | --- | --- |
 | Live A2A requests | 12 slots, including denials/failed or unknown sends; one in flight |
 | Agent chat exposure | At most 48 logical model calls; reserve 262,144 input/4,096 output tokens per live request before dispatch |
-| Judge | 80 attempts, one in flight, at least 70 seconds apart, 1,024 output tokens/attempt |
+| Judge | 80 attempts, one in flight, at least 70 seconds apart, 1,024 output tokens/attempt (v8: 96 attempts, at most one transport retry per call; see section 8) |
 | Judge bytes | 64 KiB request/response per attempt; 5 MiB each cumulatively |
 | Evidence MCP operations | 160, including binding and drift checks; 64 KiB per response, 10 MiB cumulative |
 | Query embeddings | Reserve up to 768 dispatch exposures: three attempts times 96 agent-tool operations plus 160 operator MCP operations |
@@ -301,6 +301,20 @@ stability; their questions are frozen, their evidence is not.
 The approval profile adds two live requests (14) and inherits every other v6
 bound; report eligibility masks cover 14 cases. v1 fixtures, approvals and
 journals remain historical and are not reused.
+
+### 8. Version 2: bounded judge retry (`baseline-14x10-v8`)
+
+Snapshot 4f lost a judge response in transit: Azure logged HTTP 200, the body
+never arrived, and the no-retry judge halted calibration. Profile v8 allows one
+retry per logical judge call, only for transport failures (connect, read,
+timeout, incomplete body) and HTTP 429/500/502/503/504. Each retry is a newly
+admitted attempt with its own full reservation, after the same 70-second spacing
+and readiness guard; the lost attempt keeps its reservation as unknown usage.
+At most 16 retries per run raise the judge cap from 80 to 96, which still fits
+the three-hour window. Non-transient failures (other 4xx, schema, usage or
+model-snapshot mismatch, parse errors) and a second failure of the same call
+halt as before. Agent requests, capture, publication and all other v7 bounds are
+unchanged; v1-v7 keep their no-retry semantics.
 
 ## Risks / Trade-offs
 

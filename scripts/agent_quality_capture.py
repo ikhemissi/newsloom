@@ -145,6 +145,7 @@ class CaptureLimits:
         "baseline-12x8-v5",
         "baseline-12x8-v6",
         "baseline-14x10-v7",
+        "baseline-14x10-v8",
     ] = "baseline-12x8-v1"
 
     def authorize(self, operation: str, amount: int = 1) -> None:
@@ -170,7 +171,13 @@ class CaptureLimits:
             60
             if self.limit_profile == "baseline-12x8-v1"
             else 180
-            if self.limit_profile in ("baseline-12x8-v5", "baseline-12x8-v6", "baseline-14x10-v7")
+            if self.limit_profile
+            in (
+                "baseline-12x8-v5",
+                "baseline-12x8-v6",
+                "baseline-14x10-v7",
+                "baseline-14x10-v8",
+            )
             else 120
         )
         if self.metadata_reads >= maximum:
@@ -195,6 +202,7 @@ class CaptureLimits:
             "baseline-12x8-v5": 9,
             "baseline-12x8-v6": 9,
             "baseline-14x10-v7": 9,
+            "baseline-14x10-v8": 9,
         }[self.limit_profile]
         if self.sign_ins >= maximum:
             raise AgentFailure("baseline_capture_sign_in_limit")

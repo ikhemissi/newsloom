@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Final
 
-from pydantic import BaseModel, ConfigDict, StrictInt
+from pydantic import BaseModel, ConfigDict, Field, StrictInt
 
 from agent_evaluation.policy import EvaluationFailure, verify_privacy
 
@@ -26,6 +26,7 @@ class Limits:
     total_response_bytes: int = 512 * 1024
     deadline_s: float = 1800
     usd: Decimal = Decimal("1")
+    transport_retries: int = 0
 
     def __post_init__(self) -> None:
         integers = (
@@ -46,6 +47,8 @@ class Limits:
             or self.deadline_s <= 0
             or not self.usd.is_finite()
             or self.usd <= 0
+            or type(self.transport_retries) is not int
+            or not 0 <= self.transport_retries < self.attempts
         ):
             raise EvaluationFailure("invalid_evaluation_limits")
 
@@ -84,6 +87,8 @@ class Attempt:
     observed_usd: Decimal | None = None
     input_tokens: int | None = None
     output_tokens: int | None = None
+    # A lost response that was retried keeps its reservation but no longer blocks scoring.
+    superseded: bool = False
 
 
 class BudgetReceipt(BaseModel):
@@ -102,6 +107,7 @@ class BudgetReceipt(BaseModel):
     estimated_reserved_unknown_usd: str
     estimated_total_exposure_usd: str
     remaining_s: float
+    transport_retries: int = Field(default=0, exclude_if=lambda value: value == 0)
 
 
 class Budget:
@@ -239,4 +245,8 @@ class Budget:
             estimated_reserved_unknown_usd=str(unknown),
             estimated_total_exposure_usd=str(observed + unknown),
             remaining_s=max(0.0, self.deadline - self.clock()),
+            transport_retries=sum(row.superseded for row in self.attempts),
         )
+
+    def unresolved_unknown(self) -> int:
+        return sum(row.observed_usd is None and not row.superseded for row in self.attempts)

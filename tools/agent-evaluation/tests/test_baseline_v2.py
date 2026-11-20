@@ -122,9 +122,11 @@ def frozen_v2(base: FrozenBaseline | None = None) -> FrozenBaseline:
     return parse_document(FrozenBaseline, json.dumps(data).encode())
 
 
-def approval_v7(frozen: FrozenBaseline, now: datetime | None = None) -> BaselineApproval:
+def approval_v7(
+    frozen: FrozenBaseline, now: datetime | None = None, profile: str = "baseline-14x10-v7"
+) -> BaselineApproval:
     data = approval(frozen, now).model_dump(mode="json")
-    data.update(limit_profile="baseline-14x10-v7", maximum_usd="100")
+    data.update(limit_profile=profile, maximum_usd="100")
     return BaselineApproval.model_validate_json(json.dumps(data))
 
 
@@ -443,9 +445,14 @@ def test_web_case_judge_evidence_has_cited_summaries_and_web_snippets() -> None:
     assert control.startswith("Web search result [W1]") and "twelve regions" in control
 
 
-async def test_v7_profile_admits_fourteen_live_requests_with_v6_bounds() -> None:
+@pytest.mark.parametrize(
+    "profile,attempts,retries", [("baseline-14x10-v7", 80, 0), ("baseline-14x10-v8", 96, 16)]
+)
+async def test_v7_profile_admits_fourteen_live_requests_with_v6_bounds(
+    profile: str, attempts: int, retries: int
+) -> None:
     frozen = frozen_v2()
-    approved = approval_v7(frozen)
+    approved = approval_v7(frozen, profile=profile)
     assert operation_limits("baseline-14x10-v7") == operation_limits("baseline-12x8-v6")
     assert live_requests("baseline-14x10-v7") == 14
     assert live_requests("baseline-12x8-v6") == 12
@@ -458,6 +465,8 @@ async def test_v7_profile_admits_fourteen_live_requests_with_v6_bounds() -> None
     for case in CASE_IDS_V2:
         await budget.admit_agent(case)
     assert len(budget.agents) == 14
+    assert budget.judge.limits.attempts == attempts
+    assert budget.judge.limits.transport_retries == retries
     assert budget.receipt().embedding_dispatches_reserved == 14 * 24
     with pytest.raises(EvaluationFailure, match="baseline_agent_slot_consumed"):
         await budget.admit_agent("b14")

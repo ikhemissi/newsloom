@@ -90,6 +90,10 @@ format rather than quality. The user chose a versioned suite:
 - **Envelope:** a new approval profile with 14 live requests; every other bound
   is inherited from v6. v1's fixture, journals, approvals and failed attempts
   stay unchanged and historical.
+- **Bounded judge retry (2026-11-20):** after a judge response was lost in
+  transit, profile `baseline-14x10-v8` retries a logical judge call once on
+  transport errors or HTTP 429/5xx, reserving every attempt, with the judge cap
+  raised to 96. Agent requests are never retried; earlier profiles are unchanged.
 
 Out of scope: candidate modifications/comparisons, automatic optimization,
 online sampling or trace harvesting, new Foundry-hosted agents, new models,

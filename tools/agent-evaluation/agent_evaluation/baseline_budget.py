@@ -65,12 +65,23 @@ LimitProfile = Literal[
     "baseline-12x8-v5",
     "baseline-12x8-v6",
     "baseline-14x10-v7",
+    "baseline-14x10-v8",
 ]
-HUNDRED_USD_PROFILES: Final = ("baseline-12x8-v6", "baseline-14x10-v7")
+SUITE_V2_PROFILES: Final = ("baseline-14x10-v7", "baseline-14x10-v8")
+HUNDRED_USD_PROFILES: Final = ("baseline-12x8-v6", *SUITE_V2_PROFILES)
 
 
 def live_requests(profile: LimitProfile) -> int:
-    return 14 if profile == "baseline-14x10-v7" else 12
+    return 14 if profile in SUITE_V2_PROFILES else 12
+
+
+def judge_retries(profile: LimitProfile) -> int:
+    # v8 retries a lost judge response once per call, at most 16 times per run.
+    return 16 if profile == "baseline-14x10-v8" else 0
+
+
+def judge_attempts(profile: LimitProfile) -> int:
+    return 80 + judge_retries(profile)
 
 
 def operation_limits(profile: LimitProfile) -> dict[Operation, int]:
@@ -88,6 +99,7 @@ def operation_limits(profile: LimitProfile) -> dict[Operation, int]:
                     "baseline-12x8-v5": 9,
                     "baseline-12x8-v6": 9,
                     "baseline-14x10-v7": 9,
+                    "baseline-14x10-v8": 9,
                 }[profile],
             }
             if profile != "baseline-12x8-v1"
@@ -173,7 +185,7 @@ class BaselineApproval(StrictModel):
             or not timedelta(0) < self.expires_at - self.approved_at <= timedelta(hours=3)
             or not timedelta(0) <= now - self.prices_verified_at <= timedelta(days=1)
             or self.frozen_sha256 != document_digest(frozen.model_dump(mode="json", by_alias=True))
-            or (self.limit_profile == "baseline-14x10-v7") != (frozen.suite_version == "v2")
+            or (self.limit_profile in SUITE_V2_PROFILES) != (frozen.suite_version == "v2")
             or Decimal(self.embedding_input_per_million_usd) <= 0
             or any(
                 getattr(self.preparation_counts, name) != 0
@@ -241,13 +253,18 @@ class BaselineBudgetReceipt(StrictModel):
             or amounts[0] + amounts[1] != amounts[2]
             or not math.isfinite(self.judge.remaining_s)
             or not 0 <= self.judge.remaining_s <= 10800
-            or not 0 <= self.judge.attempts <= 80
-            or not 0 <= self.judge.usage_observed <= 80
-            or not 0 <= self.judge.usage_unknown <= 80
+            or not 0 <= self.judge.attempts <= judge_attempts(self.limit_profile)
+            or not 0 <= self.judge.usage_observed <= judge_attempts(self.limit_profile)
+            or not 0 <= self.judge.usage_unknown <= judge_attempts(self.limit_profile)
+            or not 0 <= self.judge.transport_retries <= judge_retries(self.limit_profile)
             or self.judge.usage_observed + self.judge.usage_unknown != self.judge.attempts
             or self.judge.usage_complete != (self.judge.usage_unknown == 0)
-            or not 0 <= self.judge.input_tokens_observed <= 80 * 400000
-            or not 0 <= self.judge.output_tokens_observed <= 80 * 1024
+            or not 0
+            <= self.judge.input_tokens_observed
+            <= judge_attempts(self.limit_profile) * 400000
+            or not 0
+            <= self.judge.output_tokens_observed
+            <= judge_attempts(self.limit_profile) * 1024
             or Decimal(self.combined_exposure_usd)
             > (100 if self.limit_profile in HUNDRED_USD_PROFILES else 10)
             or Decimal(self.combined_exposure_usd) < amounts[2]
@@ -326,7 +343,8 @@ class BaselineBudget:
         self.judge = CombinedJudgeBudget(
             prices,
             Limits(
-                attempts=80,
+                attempts=judge_attempts(approval.limit_profile),
+                transport_retries=judge_retries(approval.limit_profile),
                 spacing_s=70,
                 output_tokens=1024,
                 request_bytes=64 * 1024,

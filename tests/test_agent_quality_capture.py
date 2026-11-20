@@ -482,6 +482,7 @@ def test_capture_limits_reject_one_over_without_dispatch() -> None:
         ("baseline-12x8-v5", 180, 9),
         ("baseline-12x8-v6", 180, 9),
         ("baseline-14x10-v7", 180, 9),
+        ("baseline-14x10-v8", 180, 9),
     ],
 )
 def test_root_capture_profile_exact_read_and_sign_in_limits(
@@ -493,6 +494,7 @@ def test_root_capture_profile_exact_read_and_sign_in_limits(
         "baseline-12x8-v5",
         "baseline-12x8-v6",
         "baseline-14x10-v7",
+        "baseline-14x10-v8",
     ],
     reads: int,
     flows: int,

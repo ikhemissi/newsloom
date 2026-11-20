@@ -20,7 +20,13 @@ calibrated (10 of 10 controls) but nobody completed the capture sign-in within
 180 s. The one after that halted on the first case: stored-news detail had
 gained `article_kind` and `announcements` (2026-11-08), which the evaluator's
 evidence snapshot rejected. It now accepts both with strict types, and the judge sees
-the same item JSON as the agent. The suite predates research conversations
+the same item JSON as the agent saw. On 2026-11-20 a judge response was lost in
+transit during calibration (Azure logged HTTP 200; the body never arrived), and
+the no-retry judge halted the run. Profile `baseline-14x10-v8` now retries a
+judge call once on a transport error or HTTP 429/5xx, at most 16 times per run
+(judge cap 96). Every attempt stays reserved, the lost one as unknown usage.
+Agent requests are never retried, and earlier profiles keep their no-retry
+behavior. The suite predates research conversations
 and web research: web-backed answers end with a different evidence line and
 `[Wn]` citations that its deterministic checks do not accept, so running it
 unchanged would fail those cases on format rather than quality.

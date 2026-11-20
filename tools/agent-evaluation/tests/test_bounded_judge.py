@@ -230,3 +230,80 @@ async def test_failed_call_stops_queued_sibling_before_another_dispatch(malforme
             )
     assert calls == 1
     assert budget.receipt().admission_halted
+
+
+async def bounded_retry_run(
+    failures: list[str], *, retries: int, calls: int = 1
+) -> tuple[Budget, list[httpx2.Request]]:
+    clock = Clock()
+    budget = Budget(
+        PRICES, replace(Limits(), transport_retries=retries), clock=clock, sleep=clock.sleep
+    )
+    requests: list[httpx2.Request] = []
+
+    def respond(request: httpx2.Request) -> httpx2.Response:
+        requests.append(request)
+        failure = failures.pop(0) if failures else "ok"
+        if failure == "read":
+            raise httpx2.ReadError("PRIVATE_TRANSPORT_CANARY", request=request)
+        if failure in ("503", "400"):
+            return httpx2.Response(int(failure), json={"error": {"message": "x"}})
+        return httpx2.Response(
+            200,
+            json={
+                "model": MODEL_SNAPSHOT,
+                "choices": [
+                    {
+                        "index": 0,
+                        "finish_reason": "stop",
+                        "message": {"role": "assistant", "content": '{"value":"ok"}'},
+                    }
+                ],
+                "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+            },
+        )
+
+    transport = JudgeTransport(ENDPOINT, "test-deployment", budget, httpx2.MockTransport(respond))
+    async with AsyncOpenAI(
+        base_url=ENDPOINT + "/openai/v1",
+        api_key="synthetic",
+        max_retries=0,
+        http_client=httpx2.AsyncClient(transport=transport, follow_redirects=False),
+    ) as client:
+        completion = Completion(client, "test-deployment", budget)
+        for _ in range(calls):
+            await completion.complete("Synthetic?", Text)
+    return budget, requests
+
+
+@pytest.mark.parametrize("failure", ["read", "503"])
+async def test_lost_judge_response_is_retried_once_and_stays_reserved(failure: str) -> None:
+    budget, requests = await bounded_retry_run([failure], retries=1)
+    receipt = budget.receipt()
+    assert len(requests) == 2 and not budget.halted
+    assert receipt.attempts == 2 and receipt.usage_unknown == 1 and receipt.transport_retries == 1
+    assert budget.unresolved_unknown() == 0
+    assert budget.exposure() > budget.attempts[1].observed_usd  # type: ignore[operator]
+
+
+@pytest.mark.parametrize(
+    "failures,retries,calls,category",
+    [
+        (["read", "read"], 1, 1, "judge_transport_failed"),
+        (["read", "ok", "read"], 1, 2, "judge_transport_failed"),
+    ],
+)
+async def test_judge_retry_is_bounded_per_call_and_per_run(
+    failures: list[str], retries: int, calls: int, category: str
+) -> None:
+    with pytest.raises(EvaluationFailure, match=category):
+        await bounded_retry_run(failures, retries=retries, calls=calls)
+
+
+async def test_non_transient_and_zero_retry_profiles_are_never_retried() -> None:
+    with pytest.raises(Exception) as caught:
+        await bounded_retry_run(["400"], retries=1)
+    assert not isinstance(caught.value, EvaluationFailure)
+    with pytest.raises(Exception) as caught:
+        await bounded_retry_run(["read"], retries=0)
+    assert "judge_transport_failed" not in str(caught.value)

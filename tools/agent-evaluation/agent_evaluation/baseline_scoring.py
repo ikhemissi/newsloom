@@ -228,7 +228,7 @@ class TransientAnswer(StrictModel):
 class BaselineCompletion(Completion):
     async def complete(self, prompt: str, schema: type[BaseModel]) -> BaseModel:
         value = await super().complete(prompt, schema)
-        if not self.budget.receipt().usage_complete:
+        if self.budget.unresolved_unknown():
             self.budget.halted = True
             await self.budget.checkpoint()
             raise EvaluationFailure("baseline_judge_usage_incomplete")
@@ -273,7 +273,11 @@ class BaselineScorer:
             self.completion, question=question, evidence=evidence, answer=answer
         )
         after = self.budget.judge.receipt()
-        if after.attempts <= before or not after.usage_complete or self.budget.judge.halted:
+        if (
+            after.attempts <= before
+            or self.budget.judge.unresolved_unknown()
+            or self.budget.judge.halted
+        ):
             raise EvaluationFailure("baseline_judge_usage_incomplete")
         self.budget.guard()
         return score, after.attempts - before
