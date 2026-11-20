@@ -4,7 +4,7 @@ import asyncio
 import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
 import httpx
@@ -29,7 +29,9 @@ from test_mcp_auth import jwks
 from test_mcp_auth import signing_key as signing_key
 from test_mcp_http import Embeddings
 
-AS_OF = datetime(2026, 11, 10, 22, 45, tzinfo=UTC)
+# Relative to the real clock: the radar's window is computed from datetime.now().
+AS_OF = (datetime.now(UTC) - timedelta(hours=1)).replace(microsecond=0)
+PUBLISHED = AS_OF - timedelta(days=1)
 NEWS = UUID(int=1)
 
 
@@ -41,11 +43,11 @@ def snapshot(reader: str = "") -> Snapshot:
         title="Widget ships",
         url="https://publisher.test/widget",
         source="fixture-source",
-        published_at=datetime(2026, 11, 10, 9, tzinfo=UTC),
+        published_at=PUBLISHED,
         article_kind="announcement",
         statement="Widget is generally available.",
         status="ga",
-        effective_date=date(2026, 11, 10),
+        effective_date=PUBLISHED.date(),
         deadline=None,
         products=(product,),
         tier="act_now",
