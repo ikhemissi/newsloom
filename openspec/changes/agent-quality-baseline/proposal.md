@@ -94,6 +94,10 @@ format rather than quality. The user chose a versioned suite:
   transit, profile `baseline-14x10-v8` retries a logical judge call once on
   transport errors or HTTP 429/5xx, reserving every attempt, with the judge cap
   raised to 96. Agent requests are never retried; earlier profiles are unchanged.
+- **One attended session (2026-11-20):** profile `baseline-14x10-v9` keeps v8's
+  bounds, captures the live answers right after approval and then calibrates,
+  may reuse a matching passing calibration from the last 24 hours, and is
+  prepared with a repository command instead of per-attempt scripts.
 
 Out of scope: candidate modifications/comparisons, automatic optimization,
 online sampling or trace harvesting, new Foundry-hosted agents, new models,

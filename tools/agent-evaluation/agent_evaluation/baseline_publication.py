@@ -10,7 +10,7 @@ from azure.ai.projects.aio import AIProjectClient
 from pydantic import Field, JsonValue, StrictBool, StrictInt, model_validator
 
 from agent_evaluation import grader, native_rows
-from agent_evaluation.baseline_budget import BaselineBudget, BaselineRun
+from agent_evaluation.baseline_budget import BaselineBudget, BaselineRun, capture_first
 from agent_evaluation.baseline_inputs import (
     METRICS,
     BaselineResult,
@@ -61,6 +61,10 @@ class BaselinePublicationRow(StrictModel):
 
 class BaselinePublicationRowV2(BaselinePublicationRow):
     case_id: CaseId  # type: ignore[assignment]
+
+
+class BaselinePublicationRowV9(BaselinePublicationRowV2):
+    calibration: Literal["fresh", "reused"]
 
 
 class ReportState(StrictModel):
@@ -189,15 +193,21 @@ class BaselinePublisher:
             or budget.judge.unresolved_unknown()
             or (usage.admission_halted and stored is None)
             or usage.attempts
-            < sum(row.judge_attempts for row in progress.controls)
+            < (
+                0
+                if progress.calibration_reuse_sha256 is not None
+                else sum(row.judge_attempts for row in progress.controls)
+            )
             + len(semantic_cases(budget.frozen.suite_version))
             or tuple(row.receipt for row in budget.agents.values()) != result.cases
         ):
             raise EvaluationFailure("baseline_publication_measurement_incomplete")
         self.budget, self.run, self.result = budget, run, result
-        self.row_model = (
+        self.row_model: type[BaselinePublicationRow] = (
             BaselinePublicationRow
             if budget.frozen.suite_version == "v1"
+            else BaselinePublicationRowV9
+            if capture_first(budget.approval.limit_profile)
             else BaselinePublicationRowV2
         )
         self.result_hash = document_digest(result.model_dump(mode="json"))
@@ -277,6 +287,15 @@ class BaselinePublisher:
                     "evaluator_source_sha256": proof.evaluator_source_sha256,
                     "capture_source_sha256": proof.capture_source_sha256,
                     "accepted_image_sha256": proof.accepted_runtime.image_sha256,
+                    **(
+                        {
+                            "calibration": "fresh"
+                            if self.result.calibration_reuse_sha256 is None
+                            else "reused"
+                        }
+                        if self.row_model is BaselinePublicationRowV9
+                        else {}
+                    ),
                 }
             )
             for value in self.result.scores

@@ -137,7 +137,7 @@ class Context:
             json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
         ).hexdigest()
 
-    async def verify_deployment(self) -> None:
+    async def verify_deployment(self) -> str:
         env = self.environment
         deployment = await resource(
             env["MODEL_ACCOUNT_ID"] + "/deployments/" + env["ENRICHMENT_DEPLOYMENT"],
@@ -158,6 +158,9 @@ class Context:
             or properties.get("provisioningState") != "Succeeded"
         ):
             raise EvaluationFailure("judge_deployment_drift")
+        return hashlib.sha256(
+            json.dumps({"model": model, "sku": sku}, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest()
 
     async def ensure_ready(self) -> None:
         await self.verify_deployment()

@@ -44,7 +44,9 @@ from agent_evaluation.baseline_inputs import (
     SEMANTIC_CASES_V2,
     BaselineCase,
     BaselineResult,
+    CalibrationReceipt,
     CaseReceipt,
+    ControlMeasurement,
     FrozenBaseline,
     WebResult,
     fixture_digest,
@@ -59,6 +61,7 @@ from agent_evaluation.baseline_publication import (
     BaselinePublicationReceipt,
     BaselinePublicationRow,
     BaselinePublicationRowV2,
+    BaselinePublisher,
 )
 from agent_evaluation.baseline_scoring import (
     BaselineCompletion,
@@ -608,13 +611,38 @@ async def invoke_v2(settings, token, public, request, *, request_hook, response_
 """
 
 
+@pytest.mark.parametrize("mode", ["v7", "v9", "v9_reuse", "v9_calibration_fails"])
 async def test_real_private_worker_runs_v2_web_cases_without_persisting_web_content(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: str
 ) -> None:
     frozen = frozen_v2(bound_fixture())
     context = workflow_context()
     start = datetime.now(UTC)
-    approved = approval_v7(frozen, start)
+    first = mode != "v7"
+    approved = approval_v7(frozen, start, "baseline-14x10-v9" if first else "baseline-14x10-v7")
+    reused: tuple[CalibrationReceipt, str] | None = None
+    if mode == "v9_reuse":
+        receipt = CalibrationReceipt(
+            protocol="baseline-calibration-v1",
+            suite_version="v2",
+            approval_sha256="1" * 64,
+            evaluator_source_sha256=frozen.provenance.evaluator_source_sha256,
+            fixture_sha256=frozen.provenance.fixture_sha256,
+            judge_deployment_sha256="0" * 64,
+            model_snapshot=MODEL_SNAPSHOT,
+            completed_at=start - timedelta(hours=1),
+            controls=tuple(
+                ControlMeasurement(
+                    control_id=control.control_id,
+                    label=control.label,
+                    score=1.0 if control.label == "supported" else 0.0,
+                    passed=True,
+                    judge_attempts=4,
+                )
+                for control in load_fixture_v2().controls
+            ),
+        )
+        reused = (receipt, "2" * 64)
     encoded = approved.model_dump_json().encode()
     run = BaselineRun(
         tmp_path / "run",
@@ -643,7 +671,7 @@ async def test_real_private_worker_runs_v2_web_cases_without_persisting_web_cont
     worker = worker.replace("c.invoke_research=invoke;", "c.invoke_research=invoke_v2;")
 
     async def controlled_enter(self: PrivateCaptureProcess) -> PrivateCaptureProcess:
-        assert len(calls) == 40
+        assert len(calls) == (0 if first else 40)
         workers.append(self)
         self.command = (str(ROOT / ".venv/bin/python"), "-c", worker)
         return await enter(self)
@@ -651,10 +679,12 @@ async def test_real_private_worker_runs_v2_web_cases_without_persisting_web_cont
     monkeypatch.setattr(PrivateCaptureProcess, "__aenter__", controlled_enter)
 
     def respond(request: httpx2.Request) -> httpx2.Response:
-        control = len(calls) // 4
+        control = (len(calls) + (40 if reused else 0)) // 4
         calls.append(request)
         return scripted_chat(
-            request, unsupported=control in (4, 5, 6, 7, 9), snapshot=MODEL_SNAPSHOT
+            request,
+            unsupported=control in (4, 5, 6, 7, 9) or mode == "v9_calibration_fails",
+            snapshot=MODEL_SNAPSHOT,
         )
 
     service = Service()
@@ -691,7 +721,7 @@ async def test_real_private_worker_runs_v2_web_cases_without_persisting_web_cont
             redirect_max=0,
         ) as project,
     ):
-        result = await execute_workflow(
+        operation = execute_workflow(
             budget,
             run,
             BaselineCompletion(client, "test-deployment", budget.judge),
@@ -699,14 +729,33 @@ async def test_real_private_worker_runs_v2_web_cases_without_persisting_web_cont
             project,
             context,
             publication_transport=httpx2.MockTransport(service.respond),
+            calibration=reused,
         )
+        if mode == "v9_calibration_fails":
+            with pytest.raises(EvaluationFailure, match="baseline_calibration_failed"):
+                await operation
+            assert budget.halted and len(budget.agents) == 14 and len(calls) == 4
+            assert not run.load_scoring_progress().scores and not service.requests
+            assert not (tmp_path / "run/calibration.json").exists()
+            return
+        result = await operation
+    rows = BaselinePublisher(budget, run, run.load_results(), context).rows()
+    if first:
+        assert {row.model_dump()["calibration"] for row in rows} == {
+            "reused" if reused else "fresh"
+        }
+        assert (tmp_path / "run/calibration.json").exists() == (reused is None)
+        assert run.load_results().calibration_reuse_sha256 == (reused[1] if reused else None)
     assert result["cases"] == 14 and result["scores"] == 34 and result["reports"] == 3
     assert result["semantic_gate_passed"] and result["deterministic_gates_passed"]
-    assert len(calls) == 80 and len(budget.agents) == 14
+    offset = 40 if reused else 0
+    assert len(calls) == 80 - offset and len(budget.agents) == 14
     assert budget.counts["task_reads"] == 12
     assert workers[0].closed
-    assert all("WEB_SNIPPET_CANARY" in calls[index].content.decode() for index in (72, 76))
-    assert not any("WEB_SNIPPET_CANARY" in request.content.decode() for request in calls[:72])
+    assert all("WEB_SNIPPET_CANARY" in calls[index - offset].content.decode() for index in (72, 76))
+    assert not any(
+        "WEB_SNIPPET_CANARY" in request.content.decode() for request in calls[: 72 - offset]
+    )
     saved_result = run.load_results()
     assert saved_result.suite_version == "v2"
     assert all(
@@ -724,3 +773,76 @@ async def test_real_private_worker_runs_v2_web_cases_without_persisting_web_cont
                 b"TOKEN_CANARY",
             ):
                 assert canary not in saved
+
+
+def reusable_receipt(frozen: FrozenBaseline, completed_at: datetime) -> CalibrationReceipt:
+    return CalibrationReceipt(
+        protocol="baseline-calibration-v1",
+        suite_version="v2",
+        approval_sha256="1" * 64,
+        evaluator_source_sha256=frozen.provenance.evaluator_source_sha256,
+        fixture_sha256=frozen.provenance.fixture_sha256,
+        judge_deployment_sha256="0" * 64,
+        model_snapshot=MODEL_SNAPSHOT,
+        completed_at=completed_at,
+        controls=tuple(
+            ControlMeasurement(
+                control_id=control.control_id,
+                label=control.label,
+                score=1.0 if control.label == "supported" else 0.0,
+                passed=True,
+                judge_attempts=4,
+            )
+            for control in load_fixture_v2().controls
+        ),
+    )
+
+
+@pytest.mark.parametrize(
+    "change,valid",
+    [
+        ({}, True),
+        ({"evaluator_source_sha256": "3" * 64}, False),
+        ({"fixture_sha256": "3" * 64}, False),
+        ({"model_snapshot": "other"}, False),
+        ({"completed_at": "late"}, False),
+        ({"completed_at": "stale"}, False),
+    ],
+)
+def test_calibration_reuse_requires_an_exact_recent_binding(
+    change: dict[str, object], valid: bool
+) -> None:
+    from agent_evaluation.baseline_runner import verify_reusable
+
+    frozen = frozen_v2()
+    now = datetime.now(UTC)
+    approved_at = now - timedelta(minutes=5)
+    completed = {"late": now, "stale": now - timedelta(hours=24, seconds=1)}.get(
+        str(change.get("completed_at")), now - timedelta(hours=2)
+    )
+    data = reusable_receipt(frozen, completed).model_dump(mode="json")
+    data.update({key: value for key, value in change.items() if key != "completed_at"})
+    receipt = CalibrationReceipt.model_validate_json(json.dumps(data))
+    if valid:
+        verify_reusable(receipt, frozen, approved_at, now)
+    else:
+        with pytest.raises(EvaluationFailure, match="baseline_calibration_reuse_mismatch"):
+            verify_reusable(receipt, frozen, approved_at, now)
+
+
+def test_calibration_reuse_is_v9_only_and_receipts_must_pass() -> None:
+    frozen = frozen_v2()
+    data = approval_v7(frozen).model_dump(mode="json")
+    with pytest.raises(ValidationError, match="baseline_calibration_reuse_profile"):
+        BaselineApproval.model_validate_json(
+            json.dumps({**data, "calibration_reuse_sha256": "2" * 64})
+        )
+    BaselineApproval.model_validate_json(
+        json.dumps(
+            {**data, "limit_profile": "baseline-14x10-v9", "calibration_reuse_sha256": "2" * 64}
+        )
+    )
+    receipt = reusable_receipt(frozen, datetime.now(UTC)).model_dump(mode="json")
+    receipt["controls"][0]["passed"] = False
+    with pytest.raises(ValidationError, match="invalid_baseline_calibration_receipt"):
+        CalibrationReceipt.model_validate_json(json.dumps(receipt))

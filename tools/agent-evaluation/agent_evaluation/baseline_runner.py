@@ -1,7 +1,7 @@
 import asyncio
 import hashlib
 import time
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import TracebackType
 from typing import Self
@@ -17,12 +17,18 @@ from agent_evaluation.baseline_admission import (
     admit_native_plan,
     object_value,
 )
-from agent_evaluation.baseline_budget import BaselineBudget, BaselineRun
+from agent_evaluation.baseline_budget import BaselineBudget, BaselineRun, capture_first
 from agent_evaluation.baseline_capture import CaptureSession
-from agent_evaluation.baseline_inputs import FrozenBaseline, case_ids, parse_document
+from agent_evaluation.baseline_inputs import (
+    CalibrationReceipt,
+    FrozenBaseline,
+    case_ids,
+    parse_document,
+)
 from agent_evaluation.baseline_provenance import document_digest
 from agent_evaluation.baseline_scoring import BaselineCompletion
 from agent_evaluation.baseline_workflow import execute_workflow
+from agent_evaluation.budget import MODEL_SNAPSHOT
 from agent_evaluation.context import (
     COMMAND_ADMISSION,
     COMMAND_DEADLINE,
@@ -81,6 +87,23 @@ class MeteredCredential:
 
 
 OPERATOR_READY = "operator-ready"
+CALIBRATION_REUSE_WINDOW = timedelta(hours=24)
+
+
+def verify_reusable(
+    receipt: CalibrationReceipt, frozen: FrozenBaseline, approved_at: datetime, now: datetime
+) -> None:
+    if (
+        receipt.suite_version != frozen.suite_version
+        or receipt.evaluator_source_sha256 != frozen.provenance.evaluator_source_sha256
+        or receipt.fixture_sha256 != frozen.provenance.fixture_sha256
+        or receipt.model_snapshot != MODEL_SNAPSHOT
+        or receipt.completed_at > approved_at
+        or now - receipt.completed_at > CALIBRATION_REUSE_WINDOW
+    ):
+        raise EvaluationFailure("baseline_calibration_reuse_mismatch")
+
+
 # Capture, scoring and publication after the sign-in need about 90 minutes.
 OPERATOR_RESERVE_S = 90 * 60
 
@@ -138,6 +161,7 @@ async def run(
     *,
     prior_usage: Path | None = None,
     await_operator: bool = False,
+    calibration_receipt: Path | None = None,
 ) -> dict[str, object]:
     configure_privacy()
     approval_bytes = await asyncio.to_thread(read_file, manifest, 32 * 1024)
@@ -163,6 +187,18 @@ async def run(
             raise EvaluationFailure("baseline_prior_usage_exposure_mismatch")
     elif prior_usage is not None:
         raise EvaluationFailure("baseline_unapproved_prior_usage")
+    reused: tuple[CalibrationReceipt, str] | None = None
+    if approved.calibration_reuse_sha256 is not None:
+        if calibration_receipt is None:
+            raise EvaluationFailure("baseline_calibration_receipt_required")
+        receipt_bytes = await asyncio.to_thread(read_file, calibration_receipt, 64 * 1024)
+        if hashlib.sha256(receipt_bytes).hexdigest() != approved.calibration_reuse_sha256:
+            raise EvaluationFailure("baseline_calibration_reuse_mismatch")
+        saved = parse_document(CalibrationReceipt, receipt_bytes)
+        verify_reusable(saved, frozen, approved.approved_at, datetime.now(UTC))
+        reused = (saved, approved.calibration_reuse_sha256)
+    elif calibration_receipt is not None:
+        raise EvaluationFailure("baseline_unapproved_calibration_receipt")
     readiness_bytes = await asyncio.to_thread(read_file, readiness_path, 32 * 1024)
     if hashlib.sha256(readiness_bytes).hexdigest() != approved.readiness_receipt_sha256:
         raise EvaluationFailure("baseline_readiness_fingerprint_mismatch")
@@ -211,8 +247,11 @@ async def run(
             ["azd", "env", "get-values"],
             ["az", "account", "show"],
         ) or (arguments[:4] == ["az", "rest", "--method", "get"] and "--url" in arguments):
-            after_capture = len(budget.agents) == len(case_ids(frozen.suite_version)) and all(
-                row.receipt is not None for row in budget.agents.values()
+            after_capture = (
+                budget.publishing
+                if capture_first(approved.limit_profile)
+                else len(budget.agents) == len(case_ids(frozen.suite_version))
+                and all(row.receipt is not None for row in budget.agents.values())
             )
             await budget.admit("metadata_after" if after_capture else "metadata_before")
         else:
@@ -246,6 +285,10 @@ async def run(
         environment = {key: text(raw, key) for key in CAPTURE_ENVIRONMENT}
         if document_digest(environment) != receipt.capture_environment_sha256:
             raise EvaluationFailure("baseline_capture_environment_drift")
+        if reused is not None and (
+            await context.verify_deployment() != reused[0].judge_deployment_sha256
+        ):
+            raise EvaluationFailure("baseline_calibration_reuse_mismatch")
         endpoint = project_endpoint(
             context.environment["AGENT_EVALUATION_PROJECT_ENDPOINT"],
             context.environment["MODEL_ENDPOINT"],
@@ -284,6 +327,7 @@ async def run(
                         if await_operator
                         else None
                     ),
+                    calibration=reused,
                 )
         completed = True
         return result

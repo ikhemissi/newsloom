@@ -4,7 +4,7 @@ from typing import Literal
 
 from pydantic import Field, JsonValue, StrictBool, StrictInt, StrictStr
 
-from agent_evaluation.baseline_budget import BaselineBudget, BaselineRun
+from agent_evaluation.baseline_budget import BaselineBudget, BaselineRun, capture_first
 from agent_evaluation.baseline_inputs import CaseId, CaseReceipt, WebResult, parse_document
 from agent_evaluation.baseline_ipc import PrivateCaptureProcess
 from agent_evaluation.baseline_scoring import (
@@ -55,7 +55,8 @@ class CaptureSession:
     ) -> None:
         progress = run.load_scoring_progress()
         if (
-            progress.state != "calibrated"
+            progress.state
+            != ("new" if capture_first(budget.approval.limit_profile) else "calibrated")
             or budget.agents
             or progress.approval_sha256 != run.canonical_sha256
             or progress.frozen_sha256 != budget.approval.frozen_sha256

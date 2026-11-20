@@ -176,6 +176,7 @@ class Journal:
             "approval.json",
             "budget.json",
             "partial-results.json",
+            "calibration.json",
             "results.json",
             "publication-state.json",
             "publication.json",

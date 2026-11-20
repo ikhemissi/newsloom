@@ -87,15 +87,25 @@ scripted and local controller answers MUST NOT substitute for a live result.
 ### Requirement: Calibrated and evidence-grounded scoring
 Semantic scoring SHALL use the frozen Azure judge and only the frozen evidence
 relevant to the actual answer. Authored supported/unsupported controls MUST pass
-their predeclared labels before live generation. Structural citation validity
+their predeclared labels before live generation, or under `baseline-14x10-v9`
+before any captured live answer is scored. Structural citation validity
 and operational correctness MUST remain distinct from semantic support.
 
 #### Scenario: Calibration fails
 - **WHEN** any fixed control disagrees with its approved label, records an
   execution error or its final judge attempt lacks complete usage
-- **THEN** live generation does not begin
+- **THEN** live generation does not begin, or under v9 the already captured
+  answers are discarded unscored while their agent exposure stays recorded
 - **AND** the failed calibration and reservations remain recorded without
   retuning thresholds, changing labels or rerunning the judge until it passes
+
+#### Scenario: A recent calibration is reused (v9)
+- **WHEN** a v9 approval binds the hash of a passing calibration receipt
+- **THEN** it is accepted only if at most 24 hours old with the same evaluator
+  source, fixture, judge deployment and model snapshot; otherwise the run stops
+  before the capture sign-in
+- **AND** no calibration judge call is made, its usage is not counted again, and
+  results and reports label the calibration as reused
 
 #### Scenario: A supported answer is measured
 - **WHEN** a live case is declared eligible for semantic scoring
