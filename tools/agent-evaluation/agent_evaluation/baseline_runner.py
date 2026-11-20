@@ -80,6 +80,26 @@ class MeteredCredential:
         await self.close()
 
 
+OPERATOR_READY = "operator-ready"
+# Capture, scoring and publication after the sign-in need about 90 minutes.
+OPERATOR_RESERVE_S = 90 * 60
+
+
+def operator_marker_present(marker: Path) -> bool:
+    return marker.is_file() and not marker.is_symlink()
+
+
+async def wait_for_operator(budget: BaselineBudget, marker: Path) -> None:
+    """Hold the capture sign-in until the operator creates the private marker file."""
+    while True:
+        budget.guard()
+        if await asyncio.to_thread(operator_marker_present, marker):
+            return
+        if budget.deadline - budget.clock() <= OPERATOR_RESERVE_S:
+            raise EvaluationFailure("baseline_operator_not_ready")
+        await budget.judge.sleep(5)
+
+
 async def wait_for_schedule(budget: BaselineBudget) -> None:
     while delay := schedule_window_delay():
         budget.guard()
@@ -117,6 +137,7 @@ async def run(
     output: Path,
     *,
     prior_usage: Path | None = None,
+    await_operator: bool = False,
 ) -> dict[str, object]:
     configure_privacy()
     approval_bytes = await asyncio.to_thread(read_file, manifest, 32 * 1024)
@@ -258,6 +279,11 @@ async def run(
                     lambda: CaptureSession(budget, journal, environment),
                     project,
                     context,
+                    operator_ready=(
+                        (lambda: wait_for_operator(budget, output / OPERATOR_READY))
+                        if await_operator
+                        else None
+                    ),
                 )
         completed = True
         return result

@@ -1,4 +1,4 @@
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from typing import Protocol
 
 import httpx2
@@ -27,11 +27,14 @@ async def execute_workflow(
     context: Context,
     *,
     publication_transport: httpx2.AsyncBaseTransport | None = None,
+    operator_ready: Callable[[], Awaitable[None]] | None = None,
 ) -> dict[str, object]:
     scorer = BaselineScorer(budget, run, completion)
     completed = False
     try:
         await scorer.calibrate()
+        if operator_ready is not None:
+            await operator_ready()
         capture = capture_factory()
         answers: list[tuple[CaseReceipt, TransientAnswer | None]] = []
         captured_all = False

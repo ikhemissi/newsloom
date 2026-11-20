@@ -460,6 +460,7 @@ Tasks 6.2-7.3 apply to the version 2 run.
   Later attempts (2026-11-20): 4e's readiness window expired during a missed evidence sign-in (no model call). 4f passed readiness and calibrated c01-c04, then judge attempt 19 (c05) failed while reading a response Azure logged as HTTP 200; it halted under the no-retry judge with USD 0.335 unknown usage reserved. Cumulative conservative exposure USD 2.019376176 (observed chat USD 0.123486). Continued under task 8.6.
 - [ ] 8.6 Profile `baseline-14x10-v8`: one judge retry per logical call on transport errors or HTTP 429/5xx, every attempt reserved, judge cap 96, agent requests never retried; tests for the retry cap, a double failure, non-retryable errors and unchanged v1-v7 behavior. Then a fresh snapshot-4 readiness and approval under v8.
   Local (2026-11-20): implemented in the judge transport (retry only when the profile allows it), budget receipts (`transport_retries`, superseded lost attempts stay reserved) and the v8 profile in the evaluator and capture worker; focused tests cover lost responses, 503, per-call and per-run caps, non-retryable 400 and zero-retry profiles. Live snapshot pending.
+  Snapshot 4g (2026-11-20, v8): calibration passed 10/10 with two transport retries, then halted with `baseline_provenance_mismatch` after the capture sign-in because evaluator source was edited while the run was live; no agent request or report. Exposure USD 2.711537151 (observed chat USD 0.145509375). Added the opt-in `--await-operator` gate with tests.
 
 ## Workflow follow-up
 

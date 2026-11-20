@@ -239,6 +239,11 @@ async def test_real_private_worker_composes_full_frozen_workflow(
         return await enter(self)
 
     monkeypatch.setattr(PrivateCaptureProcess, "__aenter__", controlled_enter)
+    gates: list[int] = []
+
+    async def operator_ready() -> None:
+        assert not workers
+        gates.append(len(calls))
 
     def respond(request: httpx2.Request) -> httpx2.Response:
         control = len(calls) // 4
@@ -298,6 +303,7 @@ async def test_real_private_worker_composes_full_frozen_workflow(
             project,
             context,
             publication_transport=httpx2.MockTransport(service.respond),
+            operator_ready=operator_ready,
         )
         if failure in ("calibration", "publication"):
             with pytest.raises(EvaluationFailure):
@@ -314,7 +320,9 @@ async def test_real_private_worker_composes_full_frozen_workflow(
             assert len(run.load_results().scores) == 28
     if failure == "calibration":
         assert not workers and not budget.agents and not service.requests
+        assert not gates
     else:
+        assert gates == [32]
         assert len(budget.agents) == 12 and workers[0].closed
         assert workers[0].process is not None and workers[0].process.returncode is not None
         assert budget.counts["task_reads"] == 10

@@ -26,7 +26,13 @@ the no-retry judge halted the run. Profile `baseline-14x10-v8` now retries a
 judge call once on a transport error or HTTP 429/5xx, at most 16 times per run
 (judge cap 96). Every attempt stays reserved, the lost one as unknown usage.
 Agent requests are never retried, and earlier profiles keep their no-retry
-behavior. The suite predates research conversations
+behavior. With `baseline-run --await-operator`, the run waits after calibration
+until the operator creates `operator-ready` in the run's output directory, so
+the capture sign-in opens only when someone is at the screen. It stops with
+`baseline_operator_not_ready` once less than 90 minutes would remain for capture,
+scoring and reports. Do not edit evaluator or capture source while a run is
+live: every step re-checks the source fingerprints, and an edit halts the run
+(this ended a calibrated attempt on 2026-11-20). The suite predates research conversations
 and web research: web-backed answers end with a different evidence line and
 `[Wn]` citations that its deterministic checks do not accept, so running it
 unchanged would fail those cases on format rather than quality.

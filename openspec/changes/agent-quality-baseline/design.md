@@ -316,6 +316,11 @@ model-snapshot mismatch, parse errors) and a second failure of the same call
 halt as before. Agent requests, capture, publication and all other v7 bounds are
 unchanged; v1-v7 keep their no-retry semantics.
 
+An opt-in operator gate (`--await-operator`) holds the capture sign-in after
+calibration until the operator creates a private `operator-ready` marker in the
+run directory. It changes no bound and stops before the sign-in when less than
+90 minutes would remain for capture, scoring and publication.
+
 ## Risks / Trade-offs
 
 - Small suite and same-family judge bias -> label the limits, use authored
