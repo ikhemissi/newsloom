@@ -1,5 +1,5 @@
 import asyncio
-from typing import Literal
+from typing import Final, Literal
 from urllib.parse import urlsplit
 
 import httpx2
@@ -58,6 +58,13 @@ def chat_endpoint(account_endpoint: str) -> str:
     return account_endpoint.rstrip("/") + "/openai/v1/chat/completions"
 
 
+RETRYABLE_STATUS: Final = frozenset({429, 500, 502, 503, 504})
+
+
+class _Retryable(Exception):
+    """A lost or throttled judge response that the budget may retry once."""
+
+
 class JudgeTransport(httpx2.AsyncBaseTransport):
     def __init__(
         self,
@@ -89,52 +96,87 @@ class JudgeTransport(httpx2.AsyncBaseTransport):
         ):
             raise EvaluationFailure("judge_configuration_mismatch")
         async with self.budget.lock:
-            try:
-                async with asyncio.timeout(self.budget.remaining()):
-                    await self.budget.pace()
-                    if self.budget.ready is not None:
-                        await self.budget.ready()
-                    row = await self.budget.admit(len(content))
-                    succeeded = False
+            retried = False
+            while True:
+                try:
+                    return await self.dispatch(request, content)
+                except _Retryable:
+                    if retried or self.retries_used() >= self.budget.limits.transport_retries:
+                        self.budget.halted = True
+                        await self.budget.checkpoint()
+                        raise EvaluationFailure("judge_transport_failed") from None
+                    retried = True
+                    self.budget.attempts[-1].superseded = True
+                    await self.budget.checkpoint()
+
+    def retries_used(self) -> int:
+        return sum(row.superseded for row in self.budget.attempts)
+
+    async def dispatch(self, request: httpx2.Request, content: bytes) -> httpx2.Response:
+        try:
+            async with asyncio.timeout(self.budget.remaining()):
+                await self.budget.pace()
+                if self.budget.ready is not None:
+                    await self.budget.ready()
+                row = await self.budget.admit(len(content))
+                succeeded = False
+                retryable = False
+                # Profiles without retries keep their original error paths.
+                allow = self.budget.limits.transport_retries > 0
+                try:
                     try:
                         response = await self.inner.handle_async_request(request)
+                    except httpx2.TransportError:
+                        if not allow:
+                            raise
+                        retryable = True
+                        raise _Retryable from None
+                    try:
+                        if response.is_redirect:
+                            raise EvaluationFailure("judge_redirect_rejected")
+                        if response.headers.get("content-encoding", "identity") != "identity":
+                            raise EvaluationFailure("judge_encoded_response_rejected")
+                        body = bytearray()
                         try:
-                            if response.is_redirect:
-                                raise EvaluationFailure("judge_redirect_rejected")
-                            if response.headers.get("content-encoding", "identity") != "identity":
-                                raise EvaluationFailure("judge_encoded_response_rejected")
-                            body = bytearray()
                             async for chunk in response.aiter_bytes(chunk_size=1024):
                                 self.budget.consume(row, len(chunk))
                                 body.extend(chunk)
-                            self.budget.remaining()
-                            row.response_complete = True
-                            if response.status_code == 200:
-                                json_document(bytes(body))
-                                try:
-                                    envelope = _Envelope.model_validate_json(body)
-                                except ValidationError:
-                                    raise EvaluationFailure("invalid_judge_usage") from None
-                                if envelope.model != MODEL_SNAPSHOT:
-                                    raise EvaluationFailure("judge_model_snapshot_mismatch")
-                                if envelope.usage is not None:
-                                    self.budget.observe(row, envelope.usage)
-                            result = httpx2.Response(
-                                response.status_code,
-                                headers=response.headers,
-                                content=bytes(body),
-                                request=request,
-                            )
-                        finally:
-                            await response.aclose()
-                        succeeded = response.status_code == 200
-                        return result
+                        except httpx2.TransportError:
+                            if not allow:
+                                raise
+                            retryable = True
+                            raise _Retryable from None
+                        self.budget.remaining()
+                        row.response_complete = True
+                        if allow and response.status_code in RETRYABLE_STATUS:
+                            retryable = True
+                            raise _Retryable
+                        if response.status_code == 200:
+                            json_document(bytes(body))
+                            try:
+                                envelope = _Envelope.model_validate_json(body)
+                            except ValidationError:
+                                raise EvaluationFailure("invalid_judge_usage") from None
+                            if envelope.model != MODEL_SNAPSHOT:
+                                raise EvaluationFailure("judge_model_snapshot_mismatch")
+                            if envelope.usage is not None:
+                                self.budget.observe(row, envelope.usage)
+                        result = httpx2.Response(
+                            response.status_code,
+                            headers=response.headers,
+                            content=bytes(body),
+                            request=request,
+                        )
                     finally:
-                        if not succeeded:
-                            self.budget.halted = True
-                        await self.budget.checkpoint()
-            except TimeoutError:
-                raise EvaluationFailure("evaluation_deadline") from None
+                        await response.aclose()
+                    succeeded = response.status_code == 200
+                    return result
+                finally:
+                    if not succeeded and not retryable:
+                        self.budget.halted = True
+                    await self.budget.checkpoint()
+        except TimeoutError:
+            raise EvaluationFailure("evaluation_deadline") from None
 
     async def aclose(self) -> None:
         await self.inner.aclose()

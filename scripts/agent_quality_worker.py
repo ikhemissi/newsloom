@@ -46,6 +46,7 @@ class Open(ResearchContract):
         "baseline-12x8-v5",
         "baseline-12x8-v6",
         "baseline-14x10-v7",
+        "baseline-14x10-v8",
     ] = "baseline-12x8-v1"
     execution_approved: StrictBool
     approval_sha256: Digest

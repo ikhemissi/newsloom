@@ -92,7 +92,7 @@ and operational correctness MUST remain distinct from semantic support.
 
 #### Scenario: Calibration fails
 - **WHEN** any fixed control disagrees with its approved label, records an
-  execution error or lacks complete usage
+  execution error or its final judge attempt lacks complete usage
 - **THEN** live generation does not begin
 - **AND** the failed calibration and reservations remain recorded without
   retuning thresholds, changing labels or rerunning the judge until it passes
@@ -154,6 +154,15 @@ and cannot authorize baseline work.
 - **AND** embedding exposure includes retained transport attempts, and
   unattributed embedding usage remains reserved rather than labelled observed
 - **AND** this estimate excludes infrastructure and is not an Azure billing cap
+
+#### Scenario: A judge response is lost in transit (v8)
+- **WHEN** under `baseline-14x10-v8` a judge attempt fails with a transport
+  error or HTTP 429/500/502/503/504
+- **THEN** its reservation stays recorded as unknown usage, and the same logical
+  call is retried at most once as a new admitted attempt within the 96-attempt cap
+- **AND** a second failure of that call, any non-transient error or any failure
+  under an earlier profile halts the run as before
+- **AND** agent requests are never retried
 
 #### Scenario: The user raises the spending ceiling before dispatch
 - **WHEN** the user approves `baseline-12x8-v6` with a USD 100 ceiling

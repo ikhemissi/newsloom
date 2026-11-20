@@ -186,7 +186,7 @@ class BaselinePublisher:
         if (
             progress.state != "completed"
             or progress.scores != result.scores
-            or not usage.usage_complete
+            or budget.judge.unresolved_unknown()
             or (usage.admission_halted and stored is None)
             or usage.attempts
             < sum(row.judge_attempts for row in progress.controls)
