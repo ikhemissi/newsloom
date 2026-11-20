@@ -36,6 +36,11 @@ def main() -> int:
     baseline.add_argument("--approved-sha256", required=True)
     baseline.add_argument("--output", type=Path, required=True)
     baseline.add_argument("--prior-usage", type=Path)
+    baseline.add_argument(
+        "--await-operator",
+        action="store_true",
+        help="After calibration, wait for OUTPUT/operator-ready before the capture sign-in.",
+    )
     execute = commands.add_parser("score", help="Run only an explicitly approved private manifest.")
     execute.add_argument("--manifest", type=Path, required=True)
     execute.add_argument("--approved-sha256", required=True)
@@ -138,6 +143,7 @@ def main() -> int:
                     args.approved_sha256,
                     args.output,
                     prior_usage=args.prior_usage,
+                    await_operator=args.await_operator,
                 )
             )
             print(json.dumps(receipt, sort_keys=True))

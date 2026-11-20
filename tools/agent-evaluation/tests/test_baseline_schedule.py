@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
 from test_baseline_budget import Recorder, approval, frozen, ready
@@ -119,3 +120,45 @@ async def test_known_busy_workload_waits_without_dispatch_or_deadline_extension(
         await baseline_runner.wait_for_model_readiness(budget, LocalContext({}, "authored"))
         assert clock.waits == ([30] if failure == "shared_deployment_busy" else [])
     assert budget.deadline == deadline and not budget.judge.attempts
+
+
+async def operator_budget() -> tuple[BaselineBudget, Clock]:
+    value = frozen()
+    now = datetime.now(UTC)
+    clock = Clock()
+    budget = BaselineBudget(
+        approval(value, now),
+        value,
+        persist=Recorder(),
+        ready=ready,
+        clock=clock,
+        sleep=clock.sleep,
+        now=lambda: now + timedelta(seconds=clock.now),
+    )
+    await budget.start()
+    return budget, clock
+
+
+async def test_operator_gate_opens_only_on_a_regular_marker(tmp_path: Path) -> None:
+    budget, clock = await operator_budget()
+    marker = tmp_path / "operator-ready"
+    (tmp_path / "elsewhere").write_text("")
+    marker.symlink_to(tmp_path / "elsewhere")
+    original = clock.sleep
+
+    async def sleep(seconds: float) -> None:
+        await original(seconds)
+        if len(clock.waits) == 3:
+            marker.unlink()
+            marker.write_text("")
+
+    budget.judge.sleep = sleep
+    await baseline_runner.wait_for_operator(budget, marker)
+    assert clock.waits == [5, 5, 5]
+
+
+async def test_operator_gate_stops_before_the_capture_reserve(tmp_path: Path) -> None:
+    budget, clock = await operator_budget()
+    clock.now = budget.deadline - baseline_runner.OPERATOR_RESERVE_S
+    with pytest.raises(EvaluationFailure, match="baseline_operator_not_ready"):
+        await baseline_runner.wait_for_operator(budget, tmp_path / "operator-ready")
