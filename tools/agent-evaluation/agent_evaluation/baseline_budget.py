@@ -13,6 +13,7 @@ from pydantic import Field, StrictBool, StrictInt, StrictStr, field_validator, m
 
 from agent_evaluation.baseline_inputs import (
     BaselineResult,
+    CalibrationReceipt,
     CaseId,
     CaseReceipt,
     FrozenBaseline,
@@ -66,8 +67,9 @@ LimitProfile = Literal[
     "baseline-12x8-v6",
     "baseline-14x10-v7",
     "baseline-14x10-v8",
+    "baseline-14x10-v9",
 ]
-SUITE_V2_PROFILES: Final = ("baseline-14x10-v7", "baseline-14x10-v8")
+SUITE_V2_PROFILES: Final = ("baseline-14x10-v7", "baseline-14x10-v8", "baseline-14x10-v9")
 HUNDRED_USD_PROFILES: Final = ("baseline-12x8-v6", *SUITE_V2_PROFILES)
 
 
@@ -77,7 +79,12 @@ def live_requests(profile: LimitProfile) -> int:
 
 def judge_retries(profile: LimitProfile) -> int:
     # v8 retries a lost judge response once per call, at most 16 times per run.
-    return 16 if profile == "baseline-14x10-v8" else 0
+    return 16 if profile in ("baseline-14x10-v8", "baseline-14x10-v9") else 0
+
+
+def capture_first(profile: LimitProfile) -> bool:
+    # v9 captures while the operator is present, then calibrates or reuses a calibration.
+    return profile == "baseline-14x10-v9"
 
 
 def judge_attempts(profile: LimitProfile) -> int:
@@ -100,6 +107,7 @@ def operation_limits(profile: LimitProfile) -> dict[Operation, int]:
                     "baseline-12x8-v6": 9,
                     "baseline-14x10-v7": 9,
                     "baseline-14x10-v8": 9,
+                    "baseline-14x10-v9": 9,
                 }[profile],
             }
             if profile != "baseline-12x8-v1"
@@ -153,9 +161,14 @@ class BaselineApproval(StrictModel):
     preparation_model_calls: StrictInt = Field(ge=0, le=0)
     prior_usage_sha256: Digest | None = Field(default=None, exclude_if=lambda value: value is None)
     prior_model_exposure_usd: Money = Field(default="0", exclude_if=lambda value: value == "0")
+    calibration_reuse_sha256: Digest | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
     @model_validator(mode="after")
     def profile_counts(self) -> Self:
+        if self.calibration_reuse_sha256 is not None and not capture_first(self.limit_profile):
+            raise ValueError("baseline_calibration_reuse_profile")
         if Decimal(self.prior_model_exposure_usd) > Decimal(self.maximum_usd) or (
             Decimal(self.prior_model_exposure_usd) > 0 and self.prior_usage_sha256 is None
         ):
@@ -332,6 +345,7 @@ class BaselineBudget:
         self.operator_embedding_usd = Decimal(0)
         self.halted = False
         self.started = False
+        self.publishing = False
         self.admission = asyncio.Lock()
         self.checkpoint_lock = asyncio.Lock()
         self.prices = prices
@@ -627,6 +641,12 @@ class BaselineRun:
         ):
             raise EvaluationFailure("baseline_checkpoint_binding_mismatch")
         await self._journal.persist("partial-results.json", progress.model_dump(mode="json"))
+
+    async def save_calibration(self, receipt: CalibrationReceipt) -> None:
+        receipt = self.validated_metadata(receipt)
+        if receipt.approval_sha256 != self.canonical_sha256:
+            raise EvaluationFailure("baseline_checkpoint_binding_mismatch")
+        await self._journal.persist("calibration.json", receipt.model_dump(mode="json"))
 
     async def save_results(self, result: BaselineResult) -> None:
         result = self.validated_metadata(result)

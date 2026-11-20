@@ -550,6 +550,9 @@ class BaselineResult(StrictModel):
     cases: Annotated[tuple[CaseReceipt, ...], Field(min_length=12, max_length=14)]
     scores: Annotated[tuple[MetricScore, ...], Field(min_length=28, max_length=34)]
     suite_version: SuiteVersion = Field(default="v1", exclude_if=lambda value: value == "v1")
+    calibration_reuse_sha256: Digest | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
     @model_validator(mode="after")
     def complete_denominators(self) -> Self:
@@ -593,6 +596,30 @@ class ControlMeasurement(StrictModel):
     judge_attempts: StrictInt = Field(ge=1, le=80)
 
 
+class CalibrationReceipt(StrictModel):
+    """Metadata of a passing calibration that a later v9 run may reuse."""
+
+    protocol: Literal["baseline-calibration-v1"]
+    suite_version: SuiteVersion
+    approval_sha256: Digest
+    evaluator_source_sha256: Digest
+    fixture_sha256: Digest
+    judge_deployment_sha256: Digest
+    model_snapshot: StrictStr = Field(max_length=64)
+    completed_at: datetime
+    controls: Annotated[tuple[ControlMeasurement, ...], Field(min_length=8, max_length=10)]
+
+    @model_validator(mode="after")
+    def passing_calibration(self) -> Self:
+        if (
+            self.completed_at.utcoffset() != UTC.utcoffset(None)
+            or tuple(value.control_id for value in self.controls) != control_ids(self.suite_version)
+            or not all(value.passed for value in self.controls)
+        ):
+            raise ValueError("invalid_baseline_calibration_receipt")
+        return self
+
+
 class ScoringProgress(StrictModel):
     protocol: Literal["baseline-v1"]
     approval_sha256: Digest
@@ -603,6 +630,9 @@ class ScoringProgress(StrictModel):
     controls: Annotated[tuple[ControlMeasurement, ...], Field(max_length=10)]
     scores: Annotated[tuple[MetricScore, ...], Field(max_length=34)]
     suite_version: SuiteVersion = Field(default="v1", exclude_if=lambda value: value == "v1")
+    calibration_reuse_sha256: Digest | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
     @model_validator(mode="after")
     def immutable_progress_sets(self) -> Self:

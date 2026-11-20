@@ -39,8 +39,9 @@ def main() -> int:
     baseline.add_argument(
         "--await-operator",
         action="store_true",
-        help="After calibration, wait for OUTPUT/operator-ready before the capture sign-in.",
+        help="Wait for OUTPUT/operator-ready before the capture sign-in.",
     )
+    baseline.add_argument("--calibration-receipt", type=Path)
     execute = commands.add_parser("score", help="Run only an explicitly approved private manifest.")
     execute.add_argument("--manifest", type=Path, required=True)
     execute.add_argument("--approved-sha256", required=True)
@@ -144,6 +145,7 @@ def main() -> int:
                     args.output,
                     prior_usage=args.prior_usage,
                     await_operator=args.await_operator,
+                    calibration_receipt=args.calibration_receipt,
                 )
             )
             print(json.dumps(receipt, sort_keys=True))

@@ -494,7 +494,46 @@ uv run --directory tools/agent-evaluation --locked python -m agent_evaluation ba
 ```
 
 The variable is the exact manifest hash reviewed and approved by the user, not
-an automatically renewed authorization. Input parents must exist privately;
+an automatically renewed authorization.
+
+### Prepare and run a snapshot (profile v9)
+
+Profile `baseline-14x10-v9` needs the operator once, for about 25 minutes:
+
+1. Repair governance tags first (see [operations](operations.md#governance-tags)),
+   then open the 30-minute readiness window, binding the previous stopped run's
+   usage report:
+
+   ```bash
+   uv run --locked python -m scripts.baseline_prepare start --snapshot <name> \
+     --prior-usage <usage-report.json> --prior-run <previous-run-dir> \
+     --instruction "<the user's words>"
+   uv run --locked python -m scripts.baseline_prepare readiness --snapshot <name>
+   uv run --locked python -m scripts.baseline_prepare freeze --snapshot <name>
+   ```
+
+   `readiness` opens the evidence sign-in, then runs the three owning previews
+   (all must be no-op), the runtime readback and the retail prices. A retry keeps
+   a partial step as `failed-<step>-N`.
+2. After the user approves the printed manifest:
+
+   ```bash
+   uv run --locked python -m scripts.baseline_prepare approve --snapshot <name> \
+     --instruction "<the user's words>" [--reuse-calibration <calibration.json>]
+   ```
+
+3. Start `baseline-run` with the snapshot's `frozen-v4` files, `--prior-usage`
+   and, when reusing, `--calibration-receipt`. Under v9 the capture sign-in opens
+   right away, the 14 cases are captured, and only then does the run calibrate (or
+   reuse a passing calibration at most 24 hours old with the same evaluator source,
+   fixture and judge deployment), score and publish. A fresh calibration is saved
+   as `calibration.json` in the run directory for later reuse. If calibration
+   fails, the captured answers are discarded unscored.
+4. After a stopped run, record its usage before the next snapshot:
+   `uv run --locked python -m scripts.baseline_prepare record-usage --snapshot <name> --run <run-dir>`.
+
+State lives under `.azure/dev/agent-quality-baseline/<name>/`. Do not edit
+evaluator or capture source while a run is live. Input parents must exist privately;
 the output directory must be new. A canonical one-time registry prevents
 re-entry even after changing JSON whitespace.
 

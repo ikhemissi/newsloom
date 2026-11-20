@@ -244,8 +244,8 @@ class Service:
 
 def selected_context() -> Context:
     class LocalContext(Context):
-        async def verify_deployment(self) -> None:
-            return None
+        async def verify_deployment(self) -> str:
+            return "0" * 64
 
     environment = dict.fromkeys(BOUND_ENVIRONMENT, "synthetic")
     environment["MODEL_ENDPOINT"] = "https://evaluation-test.services.ai.azure.com"

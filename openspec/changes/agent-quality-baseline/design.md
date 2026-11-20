@@ -321,6 +321,34 @@ calibration until the operator creates a private `operator-ready` marker in the
 run directory. It changes no bound and stops before the sign-in when less than
 90 minutes would remain for capture, scoring and publication.
 
+### 9. Profile `baseline-14x10-v9`: one attended session
+
+Each v8 attempt needed the operator twice, about an hour apart, and was
+prepared with per-attempt scripts that caused operator errors. V9 keeps every v8
+bound (14 live requests, 96 judge attempts, one transport retry per call) and
+changes three things; v1-v8 keep their order and semantics.
+
+1. **Capture first.** After approval the run opens the capture sign-in
+   immediately and captures b01-b14 while the operator is present, closes the
+   capture worker, then calibrates (or reuses a calibration), scores and
+   publishes. Answers and evidence stay in memory only, now for roughly 60-90
+   minutes instead of 30. If calibration fails, the run halts: captured answers
+   are discarded unscored and their agent exposure stays recorded, so no live
+   score ever comes from an uncalibrated judge.
+2. **Calibration reuse.** A passing calibration receipt from an earlier v9 run
+   may be bound in the approval by its hash when it is at most 24 hours old and
+   has the same evaluator source, fixture, judge deployment (model, version, SKU,
+   capacity) and model snapshot. Its judge usage is already in the carried prior
+   exposure and is not counted again. Results and reports label it as reused.
+   Any mismatch stops the run before the sign-in.
+3. **Repository preparation command.** `scripts/baseline_prepare.py` replaces
+   the per-attempt scripts: `start` (readiness window and prior-usage binding),
+   `readiness` (metadata, evidence sign-in, owning previews, runtime readback and
+   retail prices), `freeze`, `approve` and `record-usage` (the immutable
+   prior-usage report after a stopped run). Private state lives under
+   `.azure/dev/agent-quality-baseline/<snapshot>/`. Bounds, counters and checks
+   are those of the scripts it replaces.
+
 ## Risks / Trade-offs
 
 - Small suite and same-family judge bias -> label the limits, use authored

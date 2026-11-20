@@ -11,6 +11,7 @@ from agent_evaluation.baseline_inputs import (
     WEB_CASES,
     BaselineFixtureV2,
     BaselineResult,
+    CalibrationReceipt,
     CaseId,
     CaseReceipt,
     CitedAlias,
@@ -332,6 +333,22 @@ class BaselineScorer:
         await self.save()
         return self.progress
 
+    async def reuse(self, receipt: CalibrationReceipt, receipt_sha256: str) -> ScoringProgress:
+        if self.progress.state != "new":
+            raise EvaluationFailure("baseline_calibration_already_attempted")
+        if receipt.suite_version != self.suite:
+            raise EvaluationFailure("baseline_calibration_reuse_mismatch")
+        self.budget.guard()
+        self.progress = self.progress.model_copy(
+            update={
+                "state": "calibrated",
+                "controls": receipt.controls,
+                "calibration_reuse_sha256": receipt_sha256,
+            }
+        )
+        await self.save()
+        return self.progress
+
     async def score(self, captured: TransientAnswer) -> MetricScore:
         if self.progress.state not in ("calibrated", "scoring"):
             raise EvaluationFailure("baseline_calibration_required")
@@ -426,6 +443,7 @@ class BaselineScorer:
             cases=tuple(cases),
             scores=self.progress.scores,
             suite_version=self.suite,
+            calibration_reuse_sha256=self.progress.calibration_reuse_sha256,
         )
         await self.run.save_results(result)
         self.progress = self.progress.model_copy(update={"state": "completed"})

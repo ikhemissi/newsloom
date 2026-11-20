@@ -146,6 +146,7 @@ class CaptureLimits:
         "baseline-12x8-v6",
         "baseline-14x10-v7",
         "baseline-14x10-v8",
+        "baseline-14x10-v9",
     ] = "baseline-12x8-v1"
 
     def authorize(self, operation: str, amount: int = 1) -> None:
@@ -177,6 +178,7 @@ class CaptureLimits:
                 "baseline-12x8-v6",
                 "baseline-14x10-v7",
                 "baseline-14x10-v8",
+                "baseline-14x10-v9",
             )
             else 120
         )
@@ -203,6 +205,7 @@ class CaptureLimits:
             "baseline-12x8-v6": 9,
             "baseline-14x10-v7": 9,
             "baseline-14x10-v8": 9,
+            "baseline-14x10-v9": 9,
         }[self.limit_profile]
         if self.sign_ins >= maximum:
             raise AgentFailure("baseline_capture_sign_in_limit")

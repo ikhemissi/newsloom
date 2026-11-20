@@ -1,14 +1,22 @@
 from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime
 from typing import Protocol
 
 import httpx2
 from azure.ai.projects.aio import AIProjectClient
 
-from agent_evaluation.baseline_budget import BaselineBudget, BaselineRun
+from agent_evaluation.baseline_budget import BaselineBudget, BaselineRun, capture_first
 from agent_evaluation.baseline_checks import check_answer
-from agent_evaluation.baseline_inputs import CaseId, CaseReceipt, case_ids, semantic_cases
+from agent_evaluation.baseline_inputs import (
+    CalibrationReceipt,
+    CaseId,
+    CaseReceipt,
+    case_ids,
+    semantic_cases,
+)
 from agent_evaluation.baseline_publication import BaselinePublisher
 from agent_evaluation.baseline_scoring import BaselineCompletion, BaselineScorer, TransientAnswer
+from agent_evaluation.budget import MODEL_SNAPSHOT
 from agent_evaluation.context import Context
 
 
@@ -28,11 +36,16 @@ async def execute_workflow(
     *,
     publication_transport: httpx2.AsyncBaseTransport | None = None,
     operator_ready: Callable[[], Awaitable[None]] | None = None,
+    calibration: tuple[CalibrationReceipt, str] | None = None,
 ) -> dict[str, object]:
     scorer = BaselineScorer(budget, run, completion)
     completed = False
     try:
-        await scorer.calibrate()
+        first = capture_first(budget.approval.limit_profile)
+        if first:
+            await scorer.save()
+        else:
+            await scorer.calibrate()
         if operator_ready is not None:
             await operator_ready()
         capture = capture_factory()
@@ -48,6 +61,24 @@ async def execute_workflow(
             captured_all = True
         finally:
             await capture.close(graceful=captured_all)
+        if first and calibration is not None:
+            await scorer.reuse(*calibration)
+        elif first:
+            # Captured answers are dropped unscored if this calibration fails.
+            await scorer.calibrate()
+            await run.save_calibration(
+                CalibrationReceipt(
+                    protocol="baseline-calibration-v1",
+                    suite_version=budget.frozen.suite_version,
+                    approval_sha256=run.canonical_sha256,
+                    evaluator_source_sha256=budget.frozen.provenance.evaluator_source_sha256,
+                    fixture_sha256=budget.frozen.provenance.fixture_sha256,
+                    judge_deployment_sha256=await context.verify_deployment(),
+                    model_snapshot=MODEL_SNAPSHOT,
+                    completed_at=datetime.now(UTC),
+                    controls=scorer.progress.controls,
+                )
+            )
         for receipt, answer in answers:
             if receipt.case_id in semantic_cases(budget.frozen.suite_version):
                 if answer is None:
@@ -65,6 +96,7 @@ async def execute_workflow(
             await scorer.record_contracts(receipt.case_id, checked.metric_scores())
         result = await scorer.finish()
         answers.clear()
+        budget.publishing = True
         publisher = BaselinePublisher(budget, run, result, context)
         await publisher.execute(project, inner=publication_transport)
         completed = True
